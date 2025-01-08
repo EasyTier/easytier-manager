@@ -78,7 +78,6 @@ watch(
 const localLanguage = ref(props.language)
 
 watch(localLanguage, (newLanguage) => {
-  console.log('newLanguage', newLanguage)
   changeLanguage(newLanguage)
 })
 

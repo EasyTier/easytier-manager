@@ -15,7 +15,6 @@ import { join } from 'path'
 import * as mainUtil from './mainUtil'
 import log from './logger'
 import updater from './updater'
-import { checkServiceOnWindows, installServiceOnWindows } from './mainUtil'
 
 process.env.DIST_ELECTRON = join(__dirname, '..')
 process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
@@ -157,8 +156,28 @@ const initTray = async () => {
     }
   })
 }
+const checkAdminPrivileges = async () => {
+  try {
+    const isElevated = await import('is-elevated')
+    const elevated = await isElevated.default()
+    if (!elevated) {
+      // 如果不是管理员权限运行，则重启应用并请求权限
+      const { spawn } = require('child_process')
+      const argv = process.argv.slice(1)
+
+      argv.unshift('--elevated')
+      spawn(process.execPath, argv, { detached: true, stdio: 'inherit' })
+      app.quit()
+    }
+  } catch (error) {
+    console.error('检查管理员权限时出错:', error)
+  }
+}
 
 app.whenReady().then(async () => {
+  if (process.platform === 'win32') {
+    await checkAdminPrivileges()
+  }
   await createWindow()
   await initTray()
   await updater.init(win)

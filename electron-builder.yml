@@ -1,3 +1,4 @@
+# https://www.electron.build/configuration
 # electron-builder.yml
 # 应用的唯一标识符 包名
 appId: easytier-manager
@@ -6,12 +7,12 @@ productName: easytier-manager
 # 版权信息
 copyright: 'Copyright ©2024-present easytier-manager'
 # 应用版本
-buildVersion: 2.2.1
+buildVersion: 2.2.2
 # 内部版本
-buildNumber: 221
+buildNumber: 222
 asar: true
 # normal
-#compression: store
+# compression: store
 icon: 'src/assets/imgs/logo.png'
 artifactName: '${productName}-${os}7-${arch}_${version}.${ext}'
 # 指定打包输出目录和构建资源目录
@@ -64,7 +65,7 @@ electronLanguages:
 
 # NSIS 设置
 nsis:
-  shortcutName: "EasyTier 管理器" #图标名称
+  shortcutName: "EasyTier 管理器" # 图标名称
   oneClick: false # 是否创建一键安装程序或辅助安装程序,用户需要手动点击安装
   perMachine: false # 不区分用户
   allowElevation: true # 允许提升权限
@@ -93,7 +94,7 @@ extraFiles:
 #      - 'icons/*'
 
 # 排除的文件和目录
-#asarUnpack:
+# asarUnpack:
 #  - '**/node_modules/some-module/*'
 
 

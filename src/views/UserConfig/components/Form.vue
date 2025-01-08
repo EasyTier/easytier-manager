@@ -14,19 +14,37 @@
       <el-row>
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.hostname')" prop="hostname">
-            <el-input v-model="formData.hostname" type="text" clearable />
+            <el-input
+              v-model="formData.hostname"
+              type="text"
+              maxlength="32"
+              show-word-limit
+              clearable
+            />
           </el-form-item>
         </el-col>
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.instance_name')" prop="instance_name">
-            <el-input v-model="formData.instance_name" type="text" clearable />
+            <el-input
+              v-model="formData.instance_name"
+              type="text"
+              maxlength="32"
+              show-word-limit
+              clearable
+            />
           </el-form-item>
         </el-col>
       </el-row>
       <el-row>
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.network_name')" prop="network_identity.network_name">
-            <el-input v-model="formData.network_identity.network_name" type="text" clearable />
+            <el-input
+              v-model="formData.network_identity.network_name"
+              type="text"
+              maxlength="32"
+              show-word-limit
+              clearable
+            />
           </el-form-item>
         </el-col>
         <el-col :md="12" :sm="12" :xs="12">
@@ -38,6 +56,7 @@
               v-model="formData.network_identity.network_secret"
               type="password"
               :show-password="true"
+              maxlength="64"
               clearable
             />
           </el-form-item>
@@ -212,7 +231,13 @@
         </el-col>
         <el-col :span="12">
           <el-form-item :label="t('easytier.dev_name')" prop="flags.dev_name">
-            <el-input v-model="formData.flags.dev_name" type="text" clearable />
+            <el-input
+              v-model="formData.flags.dev_name"
+              type="text"
+              maxlength="16"
+              show-word-limit
+              clearable
+            />
           </el-form-item>
         </el-col>
       </el-row>

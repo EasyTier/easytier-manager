@@ -32,11 +32,26 @@ jobs:
       - name: Build for Windows
         run: pnpm run build:win
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+      # 上传便携版zip包
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.os }}
-          path: release
+          name: easytier-manager-pro-portable
+          path: easytier-manager-pro.zip
+
+      # 上传 NSIS 安装包
+      - name: Upload NSIS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: easytier-manager-pro-setup
+          path: src-tauri/target/release/bundle/nsis/*.exe
+
+      # 上传 MSI 安装包
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: easytier-manager-pro-msi
+          path: src-tauri/target/release/bundle/msi/*.msi
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v1

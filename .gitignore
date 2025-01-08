@@ -13,3 +13,4 @@ tmp
 .npmrc
 components.d.ts
 dev-app-update.yml
+.vscode

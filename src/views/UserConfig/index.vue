@@ -12,7 +12,6 @@ import { useEasyTierStore } from '@/store/modules/easytier'
 import log from '@/utils/logger'
 import path from 'path'
 import MonacoEditor from '@/components/monaco-editor'
-import defaultData from './components/defaultData'
 import DefaultData from './components/defaultData'
 import { cloneDeep } from 'lodash-es'
 import {
@@ -443,7 +442,7 @@ const stopServiceHandle = async (row: any) => {
 }
 onMounted(async () => {
   await getConfigList()
-  easyTierStore.setDefaultFormData(defaultData.defaultFormData)
+  easyTierStore.setDefaultFormData(DefaultData.defaultFormData)
   let sysInfo = await getSysInfo()
   easyTierStore.setOs(sysInfo.osType)
 })
