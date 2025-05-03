@@ -155,6 +155,21 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
     return 403
   }
 }
+// 运行 easytier-core web配置
+export async function runEasyTierCoreWeb(url: string): Promise<any> {
+  try {
+    const program = await getCoreDir()
+    const res = await invoke('run_command', {
+      program,
+      args: ['--config-server', `${url}`]
+    })
+    info('运行结果：' + res)
+    return res
+  } catch (error) {
+    console.error('运行 easytier-core失败:', error)
+    return 403
+  }
+}
 
 // 运行 easytier-cli 配置
 export async function runEasyTierCli(args: string[]): Promise<any> {
@@ -522,6 +537,72 @@ export const stopServiceOnWindows = (serviceName: string) => {
       }
     } catch (e: any) {
       error('停止服务出错:' + JSON.stringify(e))
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * 判断Windows中是否已经添加过该路由
+ */
+export const checkRouteOnWindows = async (ip: string) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const args = ['print','-4']
+      const res: any = await executeCmd('route', args, { encoding: 'gbk' })
+      info('检测路由:' + JSON.stringify(res))
+      if (res && res.includes(ip)) {
+        resolve(true)
+      }
+      resolve(false)
+    }
+    catch (e: any) {
+      error('检测路由出错:' + JSON.stringify(e))
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * 在Windows中添加路由
+ */
+export const addRouteOnWindows = async (ip: string) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // route add 0.0.0.0 mask 0.0.0.0 192.168.1.1 
+      const args = ['add', '0.0.0.0', 'mask','0.0.0.0',ip]
+      console.log('添加路由:',args.join(' '));
+      const res: any = await executeCmd('route', args, { encoding: 'gbk' })
+      info('添加路由:' + JSON.stringify(res))
+      if (res && res.includes('操作完成')) {
+        resolve(true)
+      }
+      resolve(false)
+    }
+    catch (e: any) {
+      error('添加路由出错:' + JSON.stringify(e))
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * 在Windows中删除路由
+ */
+export const delRouteOnWindows = async (ip: string) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // route delete 0.0.0.0 mask 0.0.0.0 192.168.1.1
+      const args = ['delete', '0.0.0.0',ip]
+      const res: any = await executeCmd('route', args, { encoding: 'gbk' })
+      info('删除路由:' + JSON.stringify(res))
+      if (res && res.includes('OK')) {
+        resolve(true)
+      }
+      resolve(false)
+    }
+    catch (e: any) {
+      error('删除路由出错:' + JSON.stringify(e))
       resolve(false)
     }
   })

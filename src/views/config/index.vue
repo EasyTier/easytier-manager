@@ -3,6 +3,7 @@ import { BaseButton } from '@/components/Button'
 import { CodeEditor } from '@/components/CodeEditor'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Dialog } from '@/components/Dialog'
+import DefaultData from '@/constants/defaultData'
 import { CONFIG_PATH } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
@@ -29,8 +30,7 @@ import { ElMessageBox, ElNotification } from 'element-plus'
 import { cloneDeep } from 'lodash-es'
 import * as toml from 'smol-toml'
 import { onMounted, ref, watch } from 'vue'
-import DefaultData from './components/defaultData'
-import Form from './components/Form.vue'
+import Form from './Form.vue'
 
 const { t } = useI18n()
 const easyTierStore = useEasyTierStore()
@@ -116,7 +116,6 @@ const editForm = async (row: any) => {
   configFileName.value = row?.configFileName
   dialogVisible.value = true
 }
-
 const AddAction = () => {
   dialogTitle.value = t('easytier.addNetConfig')
   actionType.value = 'add'
@@ -534,6 +533,7 @@ const createServerConfig = async () => {
   await addConfigAction()
   // quickDialogVisible.value = false
 }
+
 watch(configFileName, (value) => {
   formData.value.file_logger.file = value
 })
@@ -551,10 +551,10 @@ onMounted(async () => {
   <div class="flex w-100% h-100%">
     <ContentWrap class="flex-[3] ml-10px">
       <div class="mb-10px">
-        <BaseButton type="primary" @click="AddAction">{{ t('easytier.addNetConfig') }}</BaseButton>
-        <BaseButton type="primary" @click="AddFormAction"
+        <el-button type="primary" @click="AddAction">{{ t('easytier.addNetConfig') }}</el-button>
+        <el-button color="#48D1CC" @click="AddFormAction"
           >{{ t('easytier.addNetConfigForm') }}
-        </BaseButton>
+        </el-button>
         <el-button type="info" @click="createServerConfig" style="margin-left: 10px">
           {{ t('easytier.createServerConfig') }}
         </el-button>
@@ -672,7 +672,11 @@ onMounted(async () => {
           :validate-status="errorMessage ? 'error' : ''"
           :error="errorMessage"
         >
-          <el-tooltip content="将作为配置文件名、服务名，最好使用字母、数字、-、_" placement="top">
+          <el-tooltip
+            trigger="click"
+            content="将作为配置文件名、服务名，最好使用字母、数字、-、_"
+            placement="top"
+          >
             <Icon icon="memory:tooltip-start-alert" />
           </el-tooltip>
           <el-input
@@ -697,6 +701,9 @@ onMounted(async () => {
         />
       </div>
       <template #footer>
+        <div style="text-align: left">
+          <span style="font-size: 10px; color: gray">部分字段点击名称或者输入选择会有提示</span>
+        </div>
         <!-- <el-text v-if="editType === 'form'">请注意：如果使用表单编辑，会导致注释丢失 </el-text> -->
         <BaseButton
           v-if="actionType === 'add'"

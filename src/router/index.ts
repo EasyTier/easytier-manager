@@ -43,6 +43,23 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/configWeb',
+    component: Layout,
+    name: 'configWeb',
+    meta: {},
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/configWeb/index.vue'),
+        name: 'UserWebConfig',
+        meta: {
+          title: t('easytier.configWeb'),
+          icon: 'hugeicons:google-doc'
+        }
+      }
+    ]
+  },
+  {
     path: '/setting',
     component: Layout,
     name: 'setting',

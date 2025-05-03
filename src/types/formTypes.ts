@@ -55,9 +55,22 @@ interface FormData {
   mapped_listeners: any[]
   proxy_network: Partial<ProxyNetwork>[] | undefined | null
   exit_nodes: any[] | undefined
+  config_exit_nodes_route: any | undefined
   rpc_portal: string
   console_logger: Partial<ConsoleLogger> | any
   file_logger: Partial<FileLogger>
   vpn_portal_config: Partial<VpnPortalConfig> | any
   flags: Partial<Flags>
+}
+
+interface FormWebData {
+  protocol: Partial<string> | undefined
+  host: Partial<string> | undefined
+  port: Partial<number> | undefined
+  userName: string
+  webStartMethod: Partial<number>
+  configFileName:  string
+  webUrl: Partial<string> | undefined
+  status?:  Partial<string> | undefined
+  pid?:  Partial<number> | undefined
 }

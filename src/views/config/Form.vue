@@ -76,7 +76,7 @@
       </el-row>
       <el-row>
         <el-col :md="24" :sm="12" :xs="12">
-          <el-tooltip content="支持手动输入" placement="top">
+          <el-tooltip trigger="click" content="支持手动输入" placement="top">
             <el-form-item :label="t('easytier.peers')" prop="peer">
               <el-select
                 v-model="peers"
@@ -100,7 +100,7 @@
       </el-row>
       <el-row>
         <el-col :md="24" :sm="12" :xs="12">
-          <el-tooltip content="支持手动输入" placement="top">
+          <el-tooltip trigger="click" content="支持手动输入" placement="top">
             <el-form-item :label="t('easytier.listeners')" prop="listeners">
               <el-select
                 v-model="formData.listeners"
@@ -124,6 +124,7 @@
       <el-row>
         <el-col :md="24" :sm="12" :xs="12">
           <el-tooltip
+            trigger="click"
             content="手动指定监听器的公网地址，其他节点可以使用该地址连接到本节点。例如：tcp://123.123.123.123:11223，可以指定多个"
             placement="top"
           >
@@ -149,7 +150,7 @@
       </el-row>
       <el-row>
         <el-col :span="24">
-          <el-tooltip content="支持手动输入" placement="top">
+          <el-tooltip trigger="click" content="支持手动输入" placement="top">
             <el-form-item :label="t('easytier.proxy_network')" prop="proxy_network.cidr">
               <el-select
                 v-model="proxyNetwork"
@@ -172,8 +173,8 @@
         </el-col>
       </el-row>
       <el-row>
-        <el-col :md="24" :sm="12" :xs="12">
-          <el-tooltip content="支持手动输入" placement="top">
+        <el-col :md="12" :sm="12" :xs="12">
+          <el-tooltip trigger="click" content="支持手动输入" placement="top">
             <el-form-item :label="t('easytier.exit_nodes')" prop="exit_nodes">
               <el-select
                 v-model="formData.exit_nodes"
@@ -193,10 +194,54 @@
             </el-form-item>
           </el-tooltip>
         </el-col>
+        <el-col :md="12" :sm="12" :xs="12">
+          <el-tooltip trigger="click" content="自动设置出口路由，如果断网，请关闭" placement="top">
+            <el-form-item
+              :label="t('easytier.config_exit_nodes_route')"
+              prop="config_exit_nodes_route"
+            >
+              <el-switch v-model="formData.config_exit_nodes_route" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :md="12" :sm="12" :xs="12">
+          <el-tooltip
+            trigger="click"
+            content="WireGuard客户端CIDR，例如：10.14.14.0/24"
+            placement="top"
+          >
+            <el-form-item
+              :label="t('easytier.vpn_client_cidr')"
+              prop="vpn_portal_config.client_cidr"
+            >
+              <el-input v-model="vpnPortalConfig.client_cidr" type="text" clearable />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :md="12" :sm="12" :xs="12">
+          <el-tooltip
+            trigger="click"
+            content="WireGuard监听地址，例如：0.0.0.0:11010"
+            placement="top"
+          >
+            <el-form-item
+              :label="t('easytier.vpn_wireguard_listen')"
+              prop="vpn_portal_config.wireguard_listen"
+            >
+              <el-input v-model="vpnPortalConfig.wireguard_listen" type="text" clearable />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
       </el-row>
       <el-row>
         <el-col :span="12">
-          <el-tooltip content="使用不同的 RPC 端口，可以在首页实时查看节点信息" placement="top">
+          <el-tooltip
+            trigger="click"
+            content="使用不同的 RPC 端口，可以在首页实时查看节点信息"
+            placement="top"
+          >
             <el-form-item :label="t('easytier.rpc_portal')" prop="rpc_portal">
               <el-input v-model="formData.rpc_portal" type="text" clearable />
             </el-form-item>
@@ -213,28 +258,6 @@
               />
             </el-select>
           </el-form-item>
-        </el-col>
-      </el-row>
-      <el-row>
-        <el-col :md="12" :sm="12" :xs="12">
-          <el-tooltip content="WireGuard客户端CIDR，例如：10.14.14.0/24" placement="top">
-            <el-form-item
-              :label="t('easytier.vpn_client_cidr')"
-              prop="vpn_portal_config.client_cidr"
-            >
-              <el-input v-model="vpnPortalConfig.client_cidr" type="text" clearable />
-            </el-form-item>
-          </el-tooltip>
-        </el-col>
-        <el-col :md="12" :sm="12" :xs="12">
-          <el-tooltip content="WireGuard监听地址，例如：0.0.0.0:11010" placement="top">
-            <el-form-item
-              :label="t('easytier.vpn_wireguard_listen')"
-              prop="vpn_portal_config.wireguard_listen"
-            >
-              <el-input v-model="vpnPortalConfig.wireguard_listen" type="text" clearable />
-            </el-form-item>
-          </el-tooltip>
         </el-col>
       </el-row>
       <el-divider direction="horizontal">日志设置</el-divider>
@@ -267,7 +290,7 @@
       <el-divider direction="horizontal">其他标志设置</el-divider>
       <el-row>
         <el-col :span="12">
-          <el-tooltip content="连接到对等节点时使用的默认协议" placement="top">
+          <el-tooltip trigger="click" content="连接到对等节点时使用的默认协议" placement="top">
             <el-form-item :label="t('easytier.default_protocol')" prop="flags.default_protocol">
               <el-radio-group v-model="formData.flags.default_protocol">
                 <el-radio
@@ -283,6 +306,7 @@
         </el-col>
         <el-col :span="12">
           <el-tooltip
+            trigger="click"
             content="延迟优先模式，将尝试使用最低延迟路径转发流量，关闭则使用最短路径"
             placement="top"
           >
@@ -294,7 +318,7 @@
       </el-row>
       <el-row :span="24">
         <el-col :span="12">
-          <el-tooltip content="TUN接口名称，为空则随机生成" placement="top">
+          <el-tooltip trigger="click" content="TUN接口名称，为空则随机生成" placement="top">
             <el-form-item :label="t('easytier.dev_name')" prop="flags.dev_name">
               <el-input
                 v-model="formData.flags.dev_name"
@@ -342,6 +366,7 @@
         </el-col>
         <el-col :span="12">
           <el-tooltip
+            trigger="click"
             content="将连接器的套接字绑定到物理设备以避免路由问题。比如子网代理网段与某节点的网段冲突，绑定物理设备后可以与该节点正常通信"
             placement="top"
           >
@@ -353,7 +378,11 @@
       </el-row>
       <el-row>
         <el-col :span="12">
-          <el-tooltip content="启用KCP代理，提高在 UDP 丢包网络上的延迟和吞吐量" placement="top">
+          <el-tooltip
+            trigger="click"
+            content="启用KCP代理，提高在 UDP 丢包网络上的延迟和吞吐量"
+            placement="top"
+          >
             <el-form-item :label="t('easytier.enable_kcp_proxy')" prop="flags.enable_kcp_proxy">
               <el-switch v-model="formData.flags.enable_kcp_proxy" />
             </el-form-item>
@@ -361,6 +390,7 @@
         </el-col>
         <el-col :span="12">
           <el-tooltip
+            trigger="click"
             content="不允许其他节点使用 KCP 代理 TCP 流到此节点。开启 KCP 代理的节点访问此节点时，依然使用原始 TCP 连接"
             placement="top"
           >
@@ -372,14 +402,22 @@
       </el-row>
       <el-row>
         <el-col :span="12">
-          <el-tooltip content="no-tun,不创建TUN设备，可以使用子网代理访问节点" placement="top">
+          <el-tooltip
+            trigger="click"
+            content="no-tun,不创建TUN设备，可以使用子网代理访问节点"
+            placement="top"
+          >
             <el-form-item :label="t('easytier.no_tun')" prop="flags.no_tun">
               <el-switch v-model="formData.flags.no_tun" />
             </el-form-item>
           </el-tooltip>
         </el-col>
         <el-col :span="12">
-          <el-tooltip content="use-smoltcp,为子网代理启用smoltcp堆栈" placement="top">
+          <el-tooltip
+            trigger="click"
+            content="use-smoltcp,为子网代理启用smoltcp堆栈"
+            placement="top"
+          >
             <el-form-item :label="t('easytier.use_smoltcp')" prop="flags.use_smoltcp">
               <el-switch v-model="formData.flags.use_smoltcp" />
             </el-form-item>
@@ -389,6 +427,7 @@
       <el-row>
         <el-col :span="12">
           <el-tooltip
+            trigger="click"
             content="disable-p2p,禁用P2P通信，只通过--peers指定的节点转发数据包"
             placement="top"
           >
@@ -398,7 +437,11 @@
           </el-tooltip>
         </el-col>
         <el-col :span="12">
-          <el-tooltip content="disable-udp-hole-punching,禁用UDP打洞功能" placement="top">
+          <el-tooltip
+            trigger="click"
+            content="disable-udp-hole-punching,禁用UDP打洞功能"
+            placement="top"
+          >
             <el-form-item
               :label="t('easytier.disable_udp_hole_punching')"
               prop="flags.disable_udp_hole_punching"
@@ -416,6 +459,7 @@
         </el-col>
         <el-col :span="12">
           <el-tooltip
+            trigger="click"
             content="relay-all-peer-rpc,转发所有对等节点的RPC数据包，即使对等节点不在转发网络白名单中。这可以帮助白名单外网络中的对等节点建立P2P连接"
             placement="top"
           />
@@ -426,7 +470,7 @@
       </el-row>
       <el-row>
         <el-col :span="24">
-          <el-tooltip placement="top">
+          <el-tooltip trigger="click" placement="top">
             <template #content>
               仅转发白名单网络的流量，支持通配符字符串。多个网络名称间可以使用英文空格间隔。<br />
               如果该参数为空，则禁用转发。默认允许所有网络。<br />
@@ -441,10 +485,11 @@
           </el-tooltip>
         </el-col>
       </el-row>
-      <el-divider direction="horizontal">以下尚未测试，建议使用编辑器添加(修改)</el-divider>
+      <!-- <el-divider direction="horizontal">以下尚未测试，建议使用编辑器添加(修改)</el-divider> -->
       <el-row>
         <el-col :md="24" :sm="12" :xs="12">
           <el-tooltip
+            trigger="click"
             content="manual-routes,手动分配路由CIDR，将禁用子网代理和从对等节点传播的wireguard路由。例如：192.168.0.0/16"
             placement="top"
           >
@@ -457,6 +502,7 @@
       <el-row>
         <el-col :span="12">
           <el-tooltip
+            trigger="click"
             content="ipv6-listener,IPv6 监听器的URL，例如：tcp://[::]:11010，如果未设置，将在随机UDP端口上监听"
             placement="top"
           >
@@ -467,6 +513,7 @@
         </el-col>
         <el-col :span="12">
           <el-tooltip
+            trigger="click"
             content="socks5,启用 socks5 服务器，允许 socks5 客户端访问虚拟网络. 格式: <端口>，例如：1080，例如：socks5://0.0.0.0:1080"
             placement="top"
           >
@@ -480,10 +527,11 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onBeforeMount, PropType, reactive, ref, toRefs, watch } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
-import { getHostname } from '@/utils/sysUtil'
 import { useEasyTierStore } from '@/store/modules/easytier'
+import { getHostname } from '@/utils/sysUtil'
+import { ElMessageBox } from 'element-plus'
+import { onBeforeMount, PropType, reactive, ref, toRefs, watch } from 'vue'
 
 const { t } = useI18n()
 const easyTierStore = useEasyTierStore()
@@ -691,6 +739,17 @@ watch(
   (value) => {
     if (value) {
       formData.value.vpn_portal_config.wireguard_listen = vpnPortalConfig.value.wireguard_listen
+    }
+  }
+)
+watch(
+  () => formData.value.config_exit_nodes_route,
+  (value) => {
+    if (value) {
+      ElMessageBox.alert('该功能暂不稳定，可能会导致断网，谨慎使用', '警告', {
+        confirmButtonText: '确定',
+        type: 'warning'
+      })
     }
   }
 )

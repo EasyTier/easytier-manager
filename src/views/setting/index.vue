@@ -2,6 +2,7 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import {
   BIN_PATH,
+  DEFAULT_VER_OPTIONS,
   EASYTIER_NAME,
   GITHUB_DOWN_URL,
   GITHUB_EASYTIER,
@@ -9,7 +10,6 @@ import {
   LOG_PATH,
   MANAGER_INFO_API,
   MANAGER_REPO_URL,
-  PROXY_URL,
   RESOURCE_PATH,
   USER_AGENT
 } from '@/constants/easytier'
@@ -23,7 +23,7 @@ import { appDataDir, appLogDir, join, resourceDir } from '@tauri-apps/api/path'
 import { fetch } from '@tauri-apps/plugin-http'
 import { useClipboard } from '@vueuse/core'
 import { ElInput, ElMessage, ElMessageBox, ElNotification } from 'element-plus'
-import { template } from 'lodash-es'
+import { template ,cloneDeep} from 'lodash-es'
 import { onMounted, reactive, ref, unref } from 'vue'
 
 const { t } = useI18n()
@@ -41,24 +41,7 @@ const form = reactive({
 })
 
 const verSelect = ref<string>('v2.1.1')
-const verOptions = ref([
-  {
-    name: 'v2.1.1',
-    tag_name: 'v2.1.1'
-  },
-  {
-    name: 'v2.2.0',
-    tag_name: 'v2.2.0'
-  },
-  {
-    name: 'v2.0.3',
-    tag_name: 'v2.0.3'
-  },
-  {
-    name: 'v1.2.3',
-    tag_name: 'v1.2.3'
-  }
-])
+const verOptions = ref(cloneDeep(DEFAULT_VER_OPTIONS))
 const mirrorUrlSelect = ref<string>('')
 
 const downLoadCore = async () => {
@@ -213,19 +196,21 @@ const checkUpdate = async () => {
   })
   let data, response
   try {
-    response = await fetch(PROXY_URL + MANAGER_INFO_API, {
-      method: 'GET',
-      headers: { 'User-Agent': USER_AGENT },
-      connectTimeout: 30000
-    })
-    data = await response.json()
-  } catch {
     response = await fetch(MANAGER_INFO_API, {
       method: 'GET',
       headers: { 'User-Agent': USER_AGENT },
       connectTimeout: 30000
     })
     data = await response.json()
+  } catch {
+    console.log('获取新版本失败');
+    ElNotification({
+      title: t('common.reminder'),
+      message: '获取新版本失败',
+      type: 'warning',
+      duration: 2000
+    })
+    return
   }
   if (data && data.length > 0 && data[0].tag_name !== 'v' + form.appVersion) {
     ElMessageBox.confirm('是否去官网下载更新？', t('common.reminder'), {
@@ -294,7 +279,7 @@ onMounted(async () => {
           {{
             form.coreVersion
               ? form.coreVersion
-              : '内核不存在!!!  &nbsp;&nbsp;请下载安装内核，然后检测内核是否存在'
+              : '内核不存在!!! &nbsp;&nbsp;请下载安装内核，然后检测内核是否存在'
           }}
         </el-descriptions-item>
         <el-descriptions-item>
@@ -307,11 +292,9 @@ onMounted(async () => {
           {{ form.corePath }}
           <Icon v-if="checkCorePathSuccess" icon="lets-icons:check-fill" style="color: #00bd16" />
           <br />
-          <el-button type="warning" @click="checkCorePath"
-            >{{ t('easytier.checkCorePath') }}
+          <el-button type="warning" @click="checkCorePath">{{ t('easytier.checkCorePath') }}
           </el-button>
-          <el-button type="primary" @click="openCorePath"
-            >{{ t('easytier.openCorePath') }}
+          <el-button type="primary" @click="openCorePath">{{ t('easytier.openCorePath') }}
           </el-button>
           <el-button type="info" @click="copyCorePath">{{ t('easytier.copyCorePath') }}</el-button>
         </el-descriptions-item>
@@ -327,37 +310,17 @@ onMounted(async () => {
           2.Github加速链接为空默认随机加速链接，下载视网络情况而定，一般30秒以内<br />
           3.下载完后点击安装，安装成功后检测内核是否存在<br />
           版本
-          <el-select
-            v-model="verSelect"
-            filterable
-            allow-create
-            default-first-option
-            :reserve-keyword="false"
-            placeholder="选择版本"
-            style="width: 120px"
-            @change="verSelectChange"
-          >
-            <el-option
-              v-for="item in verOptions"
-              :key="item.name"
-              :label="item.name"
-              :value="item.tag_name"
-            />
+          <el-select v-model="verSelect" filterable allow-create default-first-option :reserve-keyword="false"
+            placeholder="选择版本" style="width: 120px" @change="verSelectChange">
+            <el-option v-for="item in verOptions" :key="item.name" :label="item.name" :value="item.tag_name" />
           </el-select>
           &emsp;Github加速链接
-          <el-input
-            type="text"
-            placeholder="例如:https://ghproxy.cn"
-            v-model="mirrorUrlSelect"
-            style="width: 45%; margin-left: 2px"
-            clearable
-          />
+          <el-input type="text" placeholder="例如:https://ghproxy.cn" v-model="mirrorUrlSelect"
+            style="width: 45%; margin-left: 2px" clearable />
           <br />
-          <el-button class="mt-2" type="primary" @click="downLoadCore"
-            >{{ t('easytier.rx_bytes') }}
+          <el-button class="mt-2" type="primary" @click="downLoadCore">{{ t('easytier.rx_bytes') }}
           </el-button>
-          <el-button class="mt-2" type="primary" @click="installCore"
-            >{{ t('easytier.installCore') }}
+          <el-button class="mt-2" type="primary" @click="installCore">{{ t('easytier.installCore') }}
           </el-button>
         </el-descriptions-item>
 
@@ -406,8 +369,8 @@ onMounted(async () => {
             </div>
           </template>
           {{ t('easytier.githubManage') }} :
-          <el-text type="primary" @click="openPath('https://github.com/xlc520/easytier-manager')"
-            >https://github.com/xlc520/easytier-manager
+          <el-text type="primary"
+            @click="openPath('https://github.com/xlc520/easytier-manager')">https://github.com/xlc520/easytier-manager
           </el-text>
           <br />
           {{ t('easytier.githubCore') }} :
@@ -423,18 +386,14 @@ onMounted(async () => {
               {{ t('easytier.otherSetting') }}
             </div>
           </template>
-          <el-tooltip content="恢复窗口长宽大小" placement="top">
-            <el-button type="info" @click="restoreWinState"
-              >{{ t('easytier.restoreWinState') }}
+          <el-tooltip trigger="click" content="恢复窗口长宽大小" placement="top">
+            <el-button type="info" @click="restoreWinState">{{ t('easytier.restoreWinState') }}
             </el-button>
           </el-tooltip>
-          <el-tooltip content="遇事不决，清除缓存" placement="top">
+          <el-tooltip trigger="click" content="遇事不决，清除缓存" placement="top">
             <el-button type="danger" @click="clearCache">{{ t('easytier.clearCache') }}</el-button>
           </el-tooltip>
-          <el-button
-            type="primary"
-            @click="openPath('https://github.com/xlc520/easytier-manager/issues')"
-          >
+          <el-button type="primary" @click="openPath('https://github.com/xlc520/easytier-manager/issues')">
             {{ t('easytier.feedback') }}
           </el-button>
         </el-descriptions-item>
@@ -447,8 +406,7 @@ onMounted(async () => {
             </div>
           </template>
           {{ form.appVersion }}
-          <el-button class="ml-5" type="info" @click="checkUpdate"
-            >{{ t('easytier.checkUpdate') }}(简易版)
+          <el-button class="ml-5" type="info" @click="checkUpdate">{{ t('easytier.checkUpdate') }}(简易版)
           </el-button>
         </el-descriptions-item>
       </el-descriptions>

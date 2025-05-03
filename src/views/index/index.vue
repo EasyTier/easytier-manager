@@ -11,19 +11,21 @@ import { useTrayStore } from '@/store/modules/trayStore'
 import { parseNodeInfo, parsePeerInfo } from '@/utils/easyTierUtil'
 import { listTomlFiles, readFileContent } from '@/utils/fileUtil'
 import {
+  addRouteOnWindows,
+  checkRouteOnWindows,
   getRunningProcesses,
   killProcess,
   runEasyTierCli,
   runEasyTierCore
 } from '@/utils/shellUtil'
 import { notify, sleep } from '@/utils/sysUtil'
+import { CopyDocument } from '@element-plus/icons-vue'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
+import { useClipboard } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox, ElNotification, ElOption, ElSelect, ElTree } from 'element-plus'
-import { computed, onMounted, reactive, ref, unref, watch } from 'vue'
 import * as toml from 'smol-toml'
-import { useClipboard } from '@vueuse/core'
-import { CopyDocument } from '@element-plus/icons-vue'
+import { computed, onMounted, reactive, ref, unref, watch } from 'vue'
 
 const { t } = useI18n()
 const easyTierStore = useEasyTierStore()
@@ -93,12 +95,51 @@ const nodeInfoSchema = reactive<DescriptionsSchema[]>([
     label: t('easytier.listener4')
   }
 ])
+const delayColorMap = [
+  { max: 10, color: 'green' },
+  { min: 11, max: 80, color: '#45b558' },
+  { min: 81, max: 150, color: '#72d582' },
+  { min: 151, max: 250, color: '#ffc54d' },
+  { min: 251, max: 350, color: '#ffc54d' },
+  { min: 351, color: 'red' }
+]
 watch(
   () => currentDepartment.value,
   (val) => {
     unref(treeEl)!.filter(val)
   }
 )
+watch(
+  () => peerInfo.value,
+  (val) => {
+    if (val.length > 1 && !easyTierStore.stopSetRoute) {
+      setExitRoute(val)
+    }
+  }
+)
+const setExitRoute = async (val) => {
+  const dataConfig = (await readFileContent(
+    CONFIG_PATH + '/' + currentNodeKey.value.fileName
+  )) as string
+  const parseValue: EasyTierConfig = toml.parse(dataConfig)
+  if (val && parseValue.config_exit_nodes_route && parseValue.exit_nodes.length > 0) {
+    // 找出 peerInfo 中 cost 为 local的节点
+    const localNode = peerInfo.value.find((value) => value.cost === '本机')
+    if (localNode) {
+      if (await checkRouteOnWindows(localNode.ipv4)) {
+        // 设置出口节点的路由
+        setTimeout(() => {
+          addRouteOnWindows(parseValue.exit_nodes[0])
+        }, 3000)
+      }
+    }
+  }
+  easyTierStore.stopSetRoute = true
+  // else {
+  //   // 取消出口节点的路由
+  //   await delRouteOnWindows(parseValue.exit_nodes[0])
+  // }
+}
 
 const getConfigList = async () => {
   try {
@@ -228,10 +269,14 @@ const getPeerInfo = async () => {
     peerInfo.value.forEach((value) => {
       if (value.ipv4 && value.ipv4.includes('/')) {
         value.ipv4 = value.ipv4.split('/')[0]
+      } else {
+        const suffixName = value.hostname ? value.hostname.split('_')[1] : ''
+        value.ipv4 = '服务器' + suffixName
       }
 
       value.cost = routeCost(value.cost)
       value.nat_type = getNatType(value.nat_type)
+      value.delayColor = getDelayColor(value.lat_ms)
     })
     runningTag2.value = true
     if (
@@ -245,7 +290,7 @@ const getPeerInfo = async () => {
       easyTierStore.setP2pNotify(false)
     }
     // await getList()
-    await sleep(7000)
+    await sleep(5000)
   }
 }
 const updateRunningList = async (res?: any) => {
@@ -267,13 +312,15 @@ const startAction = async () => {
   await runEasyTierCore(currentNodeKey.value.fileName!)
     .then((res) => {
       info('运行配置结果:' + JSON.stringify(res))
+      easyTierStore.stopSetRoute = false
       getNodeInfo()
       getPeerInfo()
       updateRunningList()
       easyTierStore.setStopLoop(false)
       easyTierStore.setP2pNotify(true)
       easyTierStore.setLastRunConfigName(currentNodeKey.value)
-      descriptionCollapse.value = true
+      // 暂时不再自动展开
+      // descriptionCollapse.value = true
       trayStore.setTrayTooltip('当前运行配置：' + currentNodeKey.value.configFileName)
       // runningTag.value = true
     })
@@ -388,11 +435,23 @@ const copyIp = async (data) => {
   if (!isSupported) {
     ElMessage.error(t('setting.copyFailed'))
   } else {
-    await copy()
+    await copy(data)
     if (unref(copied)) {
       ElMessage.success(t('setting.copySuccess'))
     }
   }
+}
+const getDelayColor = (delay) => {
+  const value = parseFloat(delay) // 确保是数字
+  for (const range of delayColorMap) {
+    const { min, max } = range
+    const isMinOk = min === undefined ? true : value > min
+    const isMaxOk = max === undefined ? true : value <= max
+    if (isMinOk && isMaxOk) {
+      return range.color
+    }
+  }
+  return 'gray' // 默认颜色
 }
 onMounted(async () => {
   // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
@@ -501,7 +560,11 @@ onMounted(async () => {
             <span>{{ routeCost(row.cost) }}</span>
           </template> -->
         </el-table-column>
-        <el-table-column prop="lat_ms" :label="t('easytier.lat_ms')" show-overflow-tooltip />
+        <el-table-column prop="lat_ms" :label="t('easytier.lat_ms')" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span :style="{ color: row.delayColor }">{{ row.lat_ms }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="rx_bytes" :label="t('easytier.rx_bytes')" show-overflow-tooltip>
           <!-- <template #default="{ row }">
             <span>{{ rxBytes(row.rx_bytes) }}</span>

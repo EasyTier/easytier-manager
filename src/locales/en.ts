@@ -601,6 +601,7 @@ export default {
     dhcp: 'dhcp',
     peers: 'peers to connect initially',
     exit_nodes: 'exit nodes',
+    config_exit_nodes_route: 'config exit nodes route',
     rpc_portal: 'rpc portal address',
     proxy_network: 'export local networks to other peers in the vpn',
     default_protocol: 'default protocol to use when connecting to peers',
@@ -693,6 +694,16 @@ export default {
     mapped_listeners: 'Mapped listeners',
     disable_kcp_input: 'Disable KCP input',
     enable_kcp_proxy: 'Enable KCP proxy',
-    bind_device: 'Bind device'
+    bind_device: 'Bind device',
+    configFileName: 'Config name',
+    addWebServerConfig: 'Add web server config',
+    webStartMethod: 'Web start method',
+    webUrl: 'Web Url',
+    userName: 'User Name',
+    protocol: 'Protocol',
+    host: 'Host',
+    port: 'Port',
+    stopSuccess: 'Stop success',
+    stopError: 'Stop error',
   }
 }

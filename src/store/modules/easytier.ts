@@ -1,15 +1,16 @@
-import { CORE_INFO_API, MONITOR_LIST, PROXY_URL, USER_AGENT } from '@/constants/easytier'
+import { CORE_INFO_API, DEFAULT_VER_OPTIONS, MONITOR_LIST, USER_AGENT } from '@/constants/easytier'
 import { resourceDir } from '@tauri-apps/api/path'
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
 import { fetch } from '@tauri-apps/plugin-http'
 import dayjs from 'dayjs'
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
 
 export const useEasyTierStore = defineStore(
   'easytier',
   () => {
     const configPath = ref('resource')
     const configList = ref<RunningItem[]>([])
+    const configWebList = ref<RunningWebItem[]>([])
     const fileList = ref([])
     const runningList = ref<RunningItem[]>([])
     const lastRunConfig = ref<RunningItem>()
@@ -17,6 +18,7 @@ export const useEasyTierStore = defineStore(
     // 带有文件后缀
     const fileListNoSuffix = ref([])
     const stopLoop = ref(false)
+    const stopSetRoute = ref(false)
     // 是否 通知 全部节点建立 P2P 连接  true:通知  false:不同值
     const p2pNotify = ref(true)
     // 启动直接报错提示
@@ -31,6 +33,9 @@ export const useEasyTierStore = defineStore(
     })
     const setConfigList = (list) => {
       configList.value = list
+    } 
+    const setConfigWebList = (list) => {
+      configWebList.value = list
     }
     const setFileList = (list) => {
       fileList.value = list
@@ -115,38 +120,27 @@ export const useEasyTierStore = defineStore(
 
       if ((isGet.data !== date && isGet.status === 'false') || releaseInfo.value.length === 0) {
         try {
-          // 首先尝试使用 PROXY_URL
-          const response = await fetch(PROXY_URL + CORE_INFO_API, {
+          const response = await fetch(CORE_INFO_API, {
             method: 'GET',
             headers: { 'User-Agent': USER_AGENT },
-            connectTimeout: 30000
+            connectTimeout: 6000
           })
           releaseInfo.value = await response.json()
-        } catch (error) {
-          // 如果使用 PROXY_URL 失败，直接尝试原始 URL
-          try {
-            const response = await fetch(CORE_INFO_API, {
-              method: 'GET',
-              headers: { 'User-Agent': USER_AGENT },
-              connectTimeout: 30000
+          // 如果成功获取到新数据，更新本地存储
+          localStorage.setItem('releaseInfo', JSON.stringify(releaseInfo.value))
+          localStorage.setItem(
+            'releaseInfoIsGet',
+            JSON.stringify({
+              status: 'true',
+              date
             })
-            releaseInfo.value = await response.json()
-          } catch (error) {
-            console.error('获取发布信息失败:', error)
-            releaseInfo.value = localRes
-            return releaseInfo.value
-          }
+          )
+        } catch (error) {
+          console.error('获取发布信息失败:', error)
+          console.error('DEFAULT_VER_OPTIONS:', DEFAULT_VER_OPTIONS)
+          releaseInfo.value = localRes.length > 0 ? localRes : DEFAULT_VER_OPTIONS
+          return releaseInfo.value
         }
-
-        // 如果成功获取到新数据，更新本地存储
-        localStorage.setItem('releaseInfo', JSON.stringify(releaseInfo.value))
-        localStorage.setItem(
-          'releaseInfoIsGet',
-          JSON.stringify({
-            status: 'true',
-            date
-          })
-        )
       } else {
         releaseInfo.value = localRes
       }
@@ -192,17 +186,20 @@ export const useEasyTierStore = defineStore(
     return {
       configPath,
       configList,
+      configWebList,
       fileList,
       fileListNoSuffix,
       runningList,
       allConfigOptions,
       lastRunConfig,
       stopLoop,
+      stopSetRoute,
       p2pNotify,
       defaultFormData,
       errRunNotify,
       os,
       setConfigList,
+      setConfigWebList,
       setFileList,
       setFileListNoSuffix,
       loadRunningList,

@@ -151,6 +151,11 @@
           "args": true,
           "cmd": "ps",
           "name": "ps"
+        },
+        {
+          "args": true,
+          "cmd": "route",
+          "name": "route"
         }
       ]
     },
@@ -192,33 +197,7 @@
     {
       "identifier": "http:default",
       "allow": [
-        {
-          "url": "https://github.com/*"
-        },
-        {
-          "url": "https://ghproxy.net/*"
-        },
-        {
-          "url": "https://ghproxy.cn/*"
-        },
-        {
-          "url": "https://gh-proxy.com/*"
-        },
-        {
-          "url": "https://ghproxy.cc/*"
-        },
-        {
-          "url": "https://github.store/*"
-        },
-        {
-          "url": "https://github.site/*"
-        },
-        {
-          "url": "https://github.boki.moe/*"
-        },
-        {
-          "url": "http://*.cheng.us.kg/*"
-        }
+        { "url": "https://**" }
       ]
     }
   ]

@@ -46,4 +46,14 @@ const defaultFormData: FormData | any = {
     enable_kcp_proxy: false
   }
 }
-export default { defaultFormData }
+const defaultFormWebData: FormWebData = {
+  host: '',
+  port: 22020,
+  protocol: 'udp',
+  userName: '',
+  webStartMethod: 1,
+  configFileName: '',
+  webUrl: 'https://easytier.cn/web',
+  status: '停止'
+}
+export default { defaultFormData, defaultFormWebData }

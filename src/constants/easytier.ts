@@ -14,7 +14,7 @@ export const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.95 Safari/537.36'
 export const PROXY_URL = 'http://web-proxy.cheng.us.kg/'
 export const COOKIE_VALUE = '83077fe7-9171-43f9-906a-f7b95096db66'
-export const MONITOR_LIST = 'http://easytier.cheng.us.kg/api/getMonitorList'
+export const MONITOR_LIST = 'https://easytier.linch.eu.org/api/getMonitorList'
 export const CORE_INFO_API = 'https://api.github.com/repos/EasyTier/EasyTier/releases'
 export const MANAGER_REPO_URL = 'https://github.com/xlc520/easytier-manager/releases'
 export const MANAGER_INFO_API = 'https://api.github.com/repos/xlc520/easytier-manager/releases'
@@ -29,27 +29,38 @@ export const GITHUB_MIRROR_URL = [
     label: 'https://gh-proxy.com/'
   },
   {
-    value: 'https://ghproxy.cn/',
-    label: 'https://ghproxy.cn/'
+    value: 'https://ghproxy.cfd/',
+    label: 'https://ghproxy.cfd/'
   },
   {
     value: 'https://ghproxy.net/',
     label: 'https://ghproxy.net/'
   },
   {
-    value: 'https://ghproxy.cc/',
-    label: 'https://ghproxy.cc/'
-  },
-  {
-    value: 'https://github.store/',
-    label: 'https://github.store/'
-  },
-  {
-    value: 'https://github.site/',
-    label: 'https://github.site/'
-  },
-  {
     value: 'https://github.boki.moe/',
     label: 'https://github.boki.moe/'
+  },
+  {
+    value: 'https://ghproxy.1888866.xyz/',
+    label: 'https://ghproxy.1888866.xyz/'
+  },
+  {
+    value: 'https://hub.gitmirror.com/',
+    label: 'https://hub.gitmirror.com/'
+  }
+]
+
+export const DEFAULT_VER_OPTIONS = [
+  {
+    name: 'v2.2.4',
+    tag_name: 'v2.2.4'
+  },
+  {
+    name: 'v2.2.2',
+    tag_name: 'v2.2.2'
+  },
+  {
+    name: 'v1.2.3',
+    tag_name: 'v1.2.3'
   }
 ]

@@ -10,6 +10,7 @@ interface PeerInfo {
   tunnel_proto: string
   tx_bytes: string
   version: string
+  delayColor: string
 }
 
 interface NetworkIdentity {
@@ -68,6 +69,7 @@ interface EasyTierConfig {
   network_identity: NetworkIdentity
   listeners: string
   exit_nodes: string[]
+  config_exit_nodes_route: boolean
   peer: PeerConfig[]
   proxy_network: NetworkConfig[]
   file_logger: FileLoggerConfig
@@ -101,4 +103,12 @@ interface RunningItem {
   fileName?: string
   pid?: number
   serviceStatus?: string
+}
+interface RunningWebItem {
+  protocol: string
+  host: string
+  port: number
+  userName: string
+  webStartMethod: number
+  configFileName:  string
 }
