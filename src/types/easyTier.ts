@@ -104,11 +104,13 @@ interface RunningItem {
   pid?: number
   serviceStatus?: string
 }
+
 interface RunningWebItem {
   protocol: string
   host: string
   port: number
   userName: string
   webStartMethod: number
-  configFileName:  string
+  configFileName: string
+  status: string
 }

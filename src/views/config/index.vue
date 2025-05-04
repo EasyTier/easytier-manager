@@ -4,7 +4,7 @@ import { CodeEditor } from '@/components/CodeEditor'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Dialog } from '@/components/Dialog'
 import DefaultData from '@/constants/defaultData'
-import { CONFIG_PATH } from '@/constants/easytier'
+import { CONFIG_PATH, PREFIX_SVC } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
 import {
@@ -50,13 +50,13 @@ const formData = ref<FormData>(cloneDeep(DefaultData.defaultFormData))
 const configFileName = ref<string | null>(null)
 const errorMessage = ref('')
 const logsDir = ref('')
-const prefixSvc = 'easytier-'
+
 const checkServiceStatus = async () => {
-  await sleep(1500)
-  easyTierStore.configList.forEach(async (item) => {
-    const status = await checkServiceOnWindows(prefixSvc + item.configFileName)
+  await sleep(1000)
+  for (const item of easyTierStore.configList) {
+    const status = await checkServiceOnWindows(PREFIX_SVC + item.configFileName)
     item.serviceStatus = serviceStatusDict(status)
-  })
+  }
 }
 const getConfigList = async () => {
   const fileList = await listTomlFiles()
@@ -352,9 +352,9 @@ const delConfig = async (row?: any) => {
     type: 'warning'
   })
     .then(async () => {
-      const serviceStatus = await checkServiceOnWindows(prefixSvc + row?.configFileName)
+      const serviceStatus = await checkServiceOnWindows(PREFIX_SVC + row?.configFileName)
       if (serviceStatus) {
-        await uninstallServiceOnWindows(prefixSvc + row?.configFileName)
+        await uninstallServiceOnWindows(PREFIX_SVC + row?.configFileName)
       }
       await deleteFileOrDir(CONFIG_PATH + '/' + row?.fileName)
       ElNotification({
@@ -395,7 +395,7 @@ const installServiceHandle = async (row: any) => {
       return
     }
     const configPath = await join(await resourceDir(), CONFIG_PATH, row.fileName)
-    installServiceOnWindows(prefixSvc + row.configFileName, configPath)
+    installServiceOnWindows(PREFIX_SVC + row.configFileName, '-c ' + configPath)
       .then((res) => {
         info('服务安装:' + JSON.stringify(res))
         if (res) {
@@ -421,7 +421,6 @@ const installServiceHandle = async (row: any) => {
       })
   })
 }
-
 const uninstallServiceHandle = async (row: any) => {
   ElMessageBox.confirm(t('easytier.uninstallServiceMessage'), t('common.reminder'), {
     confirmButtonText: t('common.ok'),
@@ -429,7 +428,7 @@ const uninstallServiceHandle = async (row: any) => {
     type: 'warning'
   })
     .then(async () => {
-      const res = await uninstallServiceOnWindows(prefixSvc + row.configFileName)
+      const res = await uninstallServiceOnWindows(PREFIX_SVC + row.configFileName)
       if (res) {
         ElNotification({
           title: t('common.reminder'),
@@ -449,7 +448,7 @@ const uninstallServiceHandle = async (row: any) => {
     .finally(async () => await getConfigList())
 }
 const startServiceHandle = async (row: any) => {
-  startServiceOnWindows(prefixSvc + row.configFileName)
+  startServiceOnWindows(PREFIX_SVC + row.configFileName)
     .then((res: any) => {
       if (res) {
         ElNotification({
@@ -484,7 +483,7 @@ const stopServiceHandle = async (row: any) => {
     type: 'warning',
     duration: 10000
   })
-  stopServiceOnWindows(prefixSvc + row.configFileName)
+  stopServiceOnWindows(PREFIX_SVC + row.configFileName)
     .then((res: any) => {
       if (res) {
         ElNotification({
@@ -549,7 +548,7 @@ onMounted(async () => {
 
 <template>
   <div class="flex w-100% h-100%">
-    <ContentWrap class="flex-[3] ml-10px">
+    <ContentWrap class="flex-[3]">
       <div class="mb-10px">
         <el-button type="primary" @click="AddAction">{{ t('easytier.addNetConfig') }}</el-button>
         <el-button color="#48D1CC" @click="AddFormAction"
@@ -611,7 +610,7 @@ onMounted(async () => {
             <el-text v-else>{{ row.serviceStatus }}</el-text>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" header-align="center" align="center">
+        <el-table-column label="操作" width="200" header-align="center" align="center">
           <template #default="{ row }">
             <BaseButton type="primary" size="small" @click="edit(row)">
               {{ t('easytier.editNetConfig') }}

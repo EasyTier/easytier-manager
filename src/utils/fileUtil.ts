@@ -29,6 +29,7 @@ attachConsole()
 export const checkDir = async (dirPath: string = RESOURCE_PATH) => {
   try {
     try {
+      // @ts-ignore
       const _e = await extname(dirPath)
       dirPath = await dirname(dirPath)
     } catch (_error) {
@@ -168,6 +169,7 @@ export async function readFileContent(
     return ''
   }
 }
+
 // 列出目录下的所有文件
 export const listFiles = async (targetDir: string = RESOURCE_PATH) => {
   try {
@@ -183,6 +185,7 @@ export const listFiles = async (targetDir: string = RESOURCE_PATH) => {
 // 列出 resource 目录下的所有 .toml 文件
 export const listTomlFiles = async (targetDir: string = CONFIG_PATH) => {
   try {
+    // @ts-ignore
     const _ = await checkDir(targetDir)
 
     const entries = await readDir(targetDir, { baseDir: BaseDirectory.Resource })

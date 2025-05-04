@@ -10,27 +10,23 @@
       size="default"
       @submit.prevent
     >
-    <el-row>
-      <el-col :span="16">
-        <el-form-item
-          :label="t('easytier.configFileName')"
-          prop="configFileName"
-          :rules="[
-            { required: true, message: '请输入配置名称', trigger: 'blur' },
-            {
-              pattern: /^[^一-龥]+$/,
-              trigger: ['blur', 'change'],
-              message: '允许：字母 数字 _ -'
-            }
-          ]"
-        >
-          <el-input
-            v-model="formData.configFileName"
-            type="text"
-            clearable
-          />
-        </el-form-item>
-      </el-col>
+      <el-row>
+        <el-col :span="16">
+          <el-form-item
+            :label="t('easytier.configFileName')"
+            prop="configFileName"
+            :rules="[
+              { required: true, message: '请输入配置名称', trigger: 'blur' },
+              {
+                pattern: /^[^一-龥]+$/,
+                trigger: ['blur', 'change'],
+                message: '允许：字母 数字 _ -'
+              }
+            ]"
+          >
+            <el-input v-model="formData.configFileName" type="text" clearable />
+          </el-form-item>
+        </el-col>
       </el-row>
       <el-row justify="center">
         <el-col :span="24">
@@ -78,7 +74,12 @@
         <el-row>
           <el-col :span="16">
             <el-form-item :label="t('easytier.host')" prop="host">
-              <el-input v-model="formData.host" placeholder="例如：127.0.0.1、example.com" type="text" clearable />
+              <el-input
+                v-model="formData.host"
+                placeholder="例如：127.0.0.1、example.com"
+                type="text"
+                clearable
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -113,17 +114,17 @@
         </el-row>
       </div>
       <el-row>
-          <el-col :span="16">
-            <el-form-item :label="t('easytier.webUrl')" prop="webUrl">
-              <el-input
-                v-model="formData.webUrl"
-                type="text"
-                placeholder="用于快速跳转Web 控制台"
-                clearable
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <el-col :span="16">
+          <el-form-item :label="t('easytier.webUrl')" prop="webUrl">
+            <el-input
+              v-model="formData.webUrl"
+              type="text"
+              placeholder="用于快速跳转Web 控制台"
+              clearable
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
     </el-form>
   </div>
 </template>
@@ -135,7 +136,7 @@ const { t } = useI18n()
 const props = defineProps({
   formData: {
     type: Object as PropType<FormWebData>,
-    required: true,
+    required: true
   }
 })
 const { formData } = toRefs(props)
@@ -191,7 +192,7 @@ const protocolOptions = reactive([
 const webStartMethodChange = (val: any) => {
   if (val === 1) {
     formData.value.webUrl = 'https://easytier.cn/web'
-  } 
+  }
 }
 onMounted(() => {
   if (!formData.value.port) {

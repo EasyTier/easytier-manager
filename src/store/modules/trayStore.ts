@@ -4,7 +4,6 @@ import { Menu } from '@tauri-apps/api/menu'
 import { TrayIcon } from '@tauri-apps/api/tray'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state'
-import { ElMessageBox } from 'element-plus'
 import { defineStore } from 'pinia'
 
 // 托盘状态管理

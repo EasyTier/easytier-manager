@@ -4,7 +4,6 @@
 export const CONFIG_PATH = 'config'
 export const RESOURCE_PATH = 'resource'
 export const LOG_PATH = 'logs'
-export const BIN_PATH = 'bin'
 export const NSSM_NAME = 'nssm'
 /**
  * 配置文件名
@@ -12,7 +11,6 @@ export const NSSM_NAME = 'nssm'
 export const CONFIG_FILE_NAME = 'data.json'
 export const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.95 Safari/537.36'
-export const PROXY_URL = 'http://web-proxy.cheng.us.kg/'
 export const COOKIE_VALUE = '83077fe7-9171-43f9-906a-f7b95096db66'
 export const MONITOR_LIST = 'https://easytier.linch.eu.org/api/getMonitorList'
 export const CORE_INFO_API = 'https://api.github.com/repos/EasyTier/EasyTier/releases'
@@ -22,7 +20,8 @@ export const GITHUB_EASYTIER = 'https://github.com/EasyTier/EasyTier'
 export const GITHUB_DOWN_URL = '/releases/download'
 export const VERSION_PREFIX = 'v'
 export const EASYTIER_NAME = '/easytier-<%= osType %>-<%= osArch %>-<%= version %>.zip'
-
+export const PREFIX_SVC = 'easytier-'
+export const PREFIX_SVC_WEB = 'easytierweb-'
 export const GITHUB_MIRROR_URL = [
   {
     value: 'https://gh-proxy.com/',

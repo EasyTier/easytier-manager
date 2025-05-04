@@ -121,6 +121,8 @@ const setExitRoute = async (val) => {
   const dataConfig = (await readFileContent(
     CONFIG_PATH + '/' + currentNodeKey.value.fileName
   )) as string
+  // @ts-ignore
+  // @ts-nocheck
   const parseValue: EasyTierConfig = toml.parse(dataConfig)
   if (val && parseValue.config_exit_nodes_route && parseValue.exit_nodes.length > 0) {
     // 找出 peerInfo 中 cost 为 local的节点
@@ -156,10 +158,9 @@ const getConfigList = async () => {
 }
 // 从easyTierStore.runningList 同步 runningTag
 const runningTag = computed(() => {
-  const res = easyTierStore.runningList.some(
+  return easyTierStore.runningList.some(
     (i) => i.configFileName === currentNodeKey.value.configFileName
   )
-  return res
 })
 const routeCost = (cost: string) => {
   switch (cost) {
@@ -472,7 +473,7 @@ onMounted(async () => {
 
 <template>
   <div class="flex w-100% h-100%">
-    <ContentWrap class="flex-[3] ml-10px">
+    <ContentWrap class="flex-[3]">
       <Descriptions
         :title="t('easytier.peerInfo')"
         :data="nodeInfo"

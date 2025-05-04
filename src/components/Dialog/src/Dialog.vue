@@ -121,8 +121,9 @@ const dialogStyle = computed(() => {
 }
 
 .@{elNamespace}-dialog {
-  margin: 0 !important;
   --el-dialog-width: 75%;
+
+  margin: 0 !important;
 
   &__header {
     height: 54px;

@@ -1,3 +1,5 @@
+// @ts-ignore
+// @ts-nocheck
 import { ref, unref, nextTick } from 'vue'
 import { FormSchema, FormSetProps } from '@/components/Form'
 import { SearchExpose, SearchProps } from '@/components/Search'

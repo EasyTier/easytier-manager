@@ -1,9 +1,9 @@
-import { CONFIG_PATH, LOG_PATH, NSSM_NAME, RESOURCE_PATH } from '@/constants/easytier'
+import { CONFIG_PATH, NSSM_NAME } from '@/constants/easytier'
 import { invoke } from '@tauri-apps/api/core'
 import { join, resourceDir } from '@tauri-apps/api/path'
-import { attachConsole, error, info } from '@tauri-apps/plugin-log'
+import { attachConsole, debug, error, info } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
-import { getCliDir, getCoreDir, getResourceDir, fileExist, getLogsDir } from './fileUtil'
+import { getCliDir, getCoreDir, getResourceDir } from './fileUtil'
 import { getPlatform, sleep } from './sysUtil'
 
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
@@ -155,6 +155,7 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
     return 403
   }
 }
+
 // 运行 easytier-core web配置
 export async function runEasyTierCoreWeb(url: string): Promise<any> {
   try {
@@ -221,12 +222,14 @@ export async function killProcess(pid: number, force: boolean = true): Promise<b
     // Windows 使用 taskkill 命令
     if (platform === 'windows') {
       const args = force ? ['/F', '/PID', pid.toString()] : ['/PID', pid.toString()]
-      const _result = await executeCmd('taskkill', args, { encoding: 'gbk' })
+      const result = await executeCmd('taskkill', args, { encoding: 'gbk' })
+      debug('强制终止进程', result)
     }
     // Unix-like 系统使用 kill 命令
     else {
       const signal = force ? '-9' : '-15' // SIGKILL vs SIGTERM
-      const _result = await executeCmd('kill', [signal, pid.toString()])
+      const result = await executeCmd('kill', [signal, pid.toString()])
+      debug('强制终止进程', result)
     }
     info(`进程 ${pid} 已终止`)
     return true
@@ -235,6 +238,7 @@ export async function killProcess(pid: number, force: boolean = true): Promise<b
     return false
   }
 }
+
 // 停止所有节点
 export async function stopAllNodes() {
   const processList = await getRunningProcesses('easytier-core')
@@ -362,11 +366,11 @@ export const getRunningProcesses = async (
  * @returns Promise<boolean> 是否存在
  */
 export const checkServiceOnWindows = (serviceName: string): Promise<any> => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     try {
       const args = ['status', serviceName]
       const res: any = await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
-      // debug('检测服务:' + res)
+      // debug('检测服务:' + JSON.stringify(res))
       // Can't open service!\r\r\nOpenService(): The specified service does not exist as an installed service.
       if (res && (res.code! === 3 || res.includes('does not exist'))) {
         resolve(false)
@@ -397,7 +401,7 @@ nssm processes <servicename> # 显示服务关联的进程
  * @returns Promise<boolean> 是否成功
  */
 export const installServiceOnWindows = async (serviceName: string, args: string) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     const appDirectory = await getResourceDir()
     const corePath = await join(appDirectory, 'easytier-core')
     // const logsPath = await getLogsDir()
@@ -412,7 +416,7 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
       // 检测文件是否存在
       // await fileExist(await join(LOG_PATH, 'service.log'))
       const args1 = ['install', serviceName, `${corePath}`]
-      const args2 = ['set', serviceName, 'AppParameters', `-c "${args}"`]
+      const args2 = ['set', serviceName, 'AppParameters', `${args}`]
       const args3 = ['set', serviceName, 'AppDirectory', `${appDirectory}`]
       const args4 = ['set', serviceName, 'AppExit', 'Default', 'Restart']
       const args5 = ['set', serviceName, 'Description', `EasyTier 组网,服务配置:${serviceName}`]
@@ -461,7 +465,7 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
  * @returns Promise<boolean> 是否成功
  */
 export const uninstallServiceOnWindows = (serviceName: string) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     try {
       const args = ['remove', serviceName, 'confirm']
       const res: any = await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
@@ -483,7 +487,7 @@ export const uninstallServiceOnWindows = (serviceName: string) => {
  * @returns Promise<boolean> 是否成功
  */
 export const startServiceOnWindows = (serviceName: string) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     try {
       const args = ['start', serviceName]
       await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
@@ -511,7 +515,7 @@ export const startServiceOnWindows = (serviceName: string) => {
  * @returns Promise<boolean> 是否成功
  */
 export const stopServiceOnWindows = (serviceName: string) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     try {
       const args = ['stop', serviceName]
       await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
@@ -546,17 +550,16 @@ export const stopServiceOnWindows = (serviceName: string) => {
  * 判断Windows中是否已经添加过该路由
  */
 export const checkRouteOnWindows = async (ip: string) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     try {
-      const args = ['print','-4']
+      const args = ['print', '-4']
       const res: any = await executeCmd('route', args, { encoding: 'gbk' })
       info('检测路由:' + JSON.stringify(res))
       if (res && res.includes(ip)) {
         resolve(true)
       }
       resolve(false)
-    }
-    catch (e: any) {
+    } catch (e: any) {
       error('检测路由出错:' + JSON.stringify(e))
       resolve(false)
     }
@@ -567,19 +570,18 @@ export const checkRouteOnWindows = async (ip: string) => {
  * 在Windows中添加路由
  */
 export const addRouteOnWindows = async (ip: string) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     try {
-      // route add 0.0.0.0 mask 0.0.0.0 192.168.1.1 
-      const args = ['add', '0.0.0.0', 'mask','0.0.0.0',ip]
-      console.log('添加路由:',args.join(' '));
+      // route add 0.0.0.0 mask 0.0.0.0 192.168.1.1
+      const args = ['add', '0.0.0.0', 'mask', '0.0.0.0', ip]
+      console.log('添加路由:', args.join(' '))
       const res: any = await executeCmd('route', args, { encoding: 'gbk' })
       info('添加路由:' + JSON.stringify(res))
       if (res && res.includes('操作完成')) {
         resolve(true)
       }
       resolve(false)
-    }
-    catch (e: any) {
+    } catch (e: any) {
       error('添加路由出错:' + JSON.stringify(e))
       resolve(false)
     }
@@ -590,18 +592,17 @@ export const addRouteOnWindows = async (ip: string) => {
  * 在Windows中删除路由
  */
 export const delRouteOnWindows = async (ip: string) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     try {
       // route delete 0.0.0.0 mask 0.0.0.0 192.168.1.1
-      const args = ['delete', '0.0.0.0',ip]
+      const args = ['delete', '0.0.0.0', ip]
       const res: any = await executeCmd('route', args, { encoding: 'gbk' })
       info('删除路由:' + JSON.stringify(res))
       if (res && res.includes('OK')) {
         resolve(true)
       }
       resolve(false)
-    }
-    catch (e: any) {
+    } catch (e: any) {
       error('删除路由出错:' + JSON.stringify(e))
       resolve(false)
     }

@@ -1,4 +1,6 @@
-import { FormSchema, FormSetProps } from '../Form'
+// @ts-ignore
+// @ts-nocheck
+import { FormSchema, FormSetProps } from '@/components/Form'
 import Search from './src/Search.vue'
 
 export type { SearchProps } from './src/types'

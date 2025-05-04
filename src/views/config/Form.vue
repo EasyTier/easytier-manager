@@ -335,7 +335,11 @@
             :label="t('easytier.compression_algorithm')"
             prop="flags.data_compress_algo"
           >
-            <el-select v-model="formData.flags.data_compress_algo" clearable>
+            <el-select
+              v-model="formData.flags.data_compress_algo"
+              @change="compressChange"
+              clearable
+            >
               <el-option
                 v-for="(item, index) in compressionAlgorithmOptions"
                 :key="index"
@@ -694,7 +698,7 @@ const flags_default_protocolOptions = reactive([
 const compressionAlgorithmOptions = reactive([
   {
     label: 'none',
-    value: undefined
+    value: 1
   },
   {
     label: 'zstd',
@@ -703,7 +707,7 @@ const compressionAlgorithmOptions = reactive([
 ])
 const getPublicPeers = async () => {
   const data = await easyTierStore.getPublicPeerList()
-  if (data) {
+  if (data && data.length > 0) {
     peersOptions.value = data
   }
 }
@@ -794,6 +798,11 @@ onBeforeMount(async () => {
 const peerChange = (value: any) => {
   formData.value.peer = []
   value.forEach((v) => formData.value.peer?.push({ uri: v }))
+}
+const compressChange = (value: any) => {
+  if (value === 1) {
+    formData.value.flags.data_compress_algo = undefined
+  }
 }
 const proxyNetworkChange = (value: any) => {
   formData.value.proxy_network = []

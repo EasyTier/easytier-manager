@@ -705,6 +705,6 @@ export default {
     stopSuccess: '停止成功',
     stopError: '停止失败或未运行',
     run: '运行',
-    stop: '停止',
+    stop: '停止'
   }
 }

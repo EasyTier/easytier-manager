@@ -1,3 +1,5 @@
+// @ts-ignore
+// @ts-nocheck
 import router from './router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useTitle } from '@/hooks/web/useTitle'

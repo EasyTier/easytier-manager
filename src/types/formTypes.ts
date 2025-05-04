@@ -69,8 +69,8 @@ interface FormWebData {
   port: Partial<number> | undefined
   userName: string
   webStartMethod: Partial<number>
-  configFileName:  string
+  configFileName: string
   webUrl: Partial<string> | undefined
-  status?:  Partial<string> | undefined
-  pid?:  Partial<number> | undefined
+  status?: Partial<string> | undefined
+  pid?: Partial<number> | undefined
 }

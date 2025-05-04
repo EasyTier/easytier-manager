@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// @ts-ignore
+// @ts-nocheck
 import { onMounted, watch, computed, unref, ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import type { RouteLocationNormalizedLoaded, RouterLinkProps } from 'vue-router'

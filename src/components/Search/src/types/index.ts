@@ -1,7 +1,5 @@
-import { FormSchema } from '@/components/Form'
-
 export interface SearchProps {
-  schema?: FormSchema[]
+  schema?: []
   isCol?: boolean
   labelWidth?: string | number
   layout?: 'inline' | 'bottom'

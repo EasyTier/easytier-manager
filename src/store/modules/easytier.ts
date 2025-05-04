@@ -33,7 +33,7 @@ export const useEasyTierStore = defineStore(
     })
     const setConfigList = (list) => {
       configList.value = list
-    } 
+    }
     const setConfigWebList = (list) => {
       configWebList.value = list
     }
@@ -157,14 +157,14 @@ export const useEasyTierStore = defineStore(
           response = await fetch(MONITOR_LIST, {
             method: 'GET',
             headers: { 'User-Agent': USER_AGENT },
-            connectTimeout: 30000
+            connectTimeout: 5000
           })
           res = await response.json()
         } catch {
           response = await fetch(MONITOR_LIST, {
             method: 'GET',
             headers: { 'User-Agent': USER_AGENT },
-            connectTimeout: 30000
+            connectTimeout: 5000
           })
           res = await response.json()
         }
@@ -178,6 +178,7 @@ export const useEasyTierStore = defineStore(
               date
             })
           )
+          return publicPeerList.value
         }
       }
       publicPeerList.value = localRes

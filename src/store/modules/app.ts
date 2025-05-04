@@ -1,3 +1,5 @@
+// @ts-ignore
+// @ts-nocheck
 import { defineStore } from 'pinia'
 import { store } from '../index'
 import { setCssVar, humpToUnderline } from '@/utils'

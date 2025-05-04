@@ -704,6 +704,6 @@ export default {
     host: 'Host',
     port: 'Port',
     stopSuccess: 'Stop success',
-    stopError: 'Stop error',
+    stopError: 'Stop error'
   }
 }

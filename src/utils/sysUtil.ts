@@ -1,11 +1,9 @@
-import { arch, hostname, platform, type } from '@tauri-apps/plugin-os'
-import { locale } from '@tauri-apps/plugin-os'
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { arch, hostname, locale, platform, type } from '@tauri-apps/plugin-os'
 import {
   isPermissionGranted,
+  type Options,
   requestPermission,
-  sendNotification,
-  type Options
+  sendNotification
 } from '@tauri-apps/plugin-notification'
 import { getVersion } from '@tauri-apps/api/app'
 

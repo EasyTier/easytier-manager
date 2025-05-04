@@ -1,3 +1,5 @@
+// @ts-ignore
+// @ts-nocheck
 import type { Form, FormExpose } from '@/components/Form'
 import type { ElForm, ElFormItem } from 'element-plus'
 import { ref, unref, nextTick } from 'vue'

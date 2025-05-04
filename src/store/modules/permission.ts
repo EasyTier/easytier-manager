@@ -1,3 +1,5 @@
+// @ts-ignore
+// @ts-nocheck
 import { defineStore } from 'pinia'
 import { asyncRouterMap, constantRouterMap } from '@/router'
 import {

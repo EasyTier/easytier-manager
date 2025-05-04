@@ -1,0 +1,87 @@
+{
+  // 指定 schema 文件路径，用于验证配置文件格式
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  // 应用程序名称
+  "productName": "easytier-manager-pro",
+  // 应用程序版本号
+  "version": "3.1.0",
+  // 应用程序唯一标识符
+  "identifier": "easytier-manager-pro",
+  // 构建相关配置
+  "build": {
+    // 前端构建输出目录
+    "frontendDist": "../dist",
+    // 开发服务器 URL
+    "devUrl": "http://localhost:4000",
+    // 开发命令执行前的命令
+    "beforeDevCommand": "pnpm dev",
+    // 构建命令执行前的命令
+    "beforeBuildCommand": "pnpm build"
+  },
+  // 应用程序配置
+  "app": {
+    // 窗口配置
+    "windows": [
+      {
+        // 窗口标题
+        "title": "EasyTier 管理器 Pro",
+        // 窗口宽度（像素）
+        "width": 1000,
+        // 窗口高度（像素）
+        "height": 650,
+        // 是否可调整大小
+        "resizable": true,
+        // 是否全屏显示
+        "fullscreen": false,
+        // 是否居中显示
+        "center": true,
+        // 是否可见
+        "visible": true,
+        // 是否显示窗口装饰（如标题栏、边框等）
+        "decorations": true,
+        // 是否透明
+        "transparent": false,
+        // 是否启用开发者工具
+        "devtools": false
+      }
+    ],
+    // 安全相关配置
+    "security": {
+      // 内容安全策略（CSP）
+      "csp": null
+    }
+  },
+  // 打包配置
+  "bundle": {
+    // 是否启用打包
+    "active": true,
+    // 打包目标平台
+    "targets": "all",
+    // 应用程序类别
+    "category": "DeveloperTool",
+    // 应用程序简短描述
+    "shortDescription": "EasyTier 管理器 Pro",
+    // 应用程序详细描述
+    "longDescription": "EasyTier 管理器 Pro",
+    // 应用程序图标
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    // 应用程序资源文件
+    "resources": [
+      "resource/*"
+    ]
+  },
+  // 插件配置
+  "plugins": {
+    // Shell 插件配置
+    "shell": {
+      // 允许打开的 URL 模式
+      "open": "*"
+    }
+  }
+}

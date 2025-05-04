@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// @ts-ignore
+// @ts-nocheck
 import { ElDrawer, ElDivider, ElMessage } from 'element-plus'
 import { ref, unref } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'

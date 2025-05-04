@@ -41,6 +41,7 @@ export default defineComponent({
     })
 
     const routers = computed(() =>
+      // @ts-ignore
       unref(layout) === 'cutMenu' ? permissionStore.getMenuTabRouters : permissionStore.getRouters
     )
 

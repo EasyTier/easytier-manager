@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { Collapse } from '@/components/Collapse'
 import { LocaleDropdown } from '@/components/LocaleDropdown'
 import { SizeDropdown } from '@/components/SizeDropdown'
-import { Screenfull } from '@/components/Screenfull'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
@@ -17,7 +16,7 @@ const appStore = useAppStore()
 // 计算属性
 const breadcrumb = computed(() => appStore.getBreadcrumb)
 const hamburger = computed(() => appStore.getHamburger)
-const screenfull = computed(() => appStore.getScreenfull)
+// const screenfull = computed(() => appStore.getScreenfull)
 const size = computed(() => appStore.getSize)
 const layout = computed(() => appStore.getLayout)
 const locale = computed(() => appStore.getLocale)
@@ -53,7 +52,12 @@ const toDocumentEasyTier = () => open('https://github.com/EasyTier/EasyTier')
         </el-tooltip>
       </div>
       <div class="mr-10 custom-hover" @click="toDocumentEasytierManager">
-        <el-tooltip trigger="click" content="EasyTier 管理器 Github" placement="bottom" effect="light">
+        <el-tooltip
+          trigger="click"
+          content="EasyTier 管理器 Github"
+          placement="bottom"
+          effect="light"
+        >
           <Icon :size="18" icon="devicon:github" class="cursor-pointer" />
         </el-tooltip>
       </div>
