@@ -31,6 +31,8 @@ export const useEasyTierStore = defineStore(
       status: 'true',
       date: dayjs().format('YYYYMMDD').toString()
     })
+    // 当前选择的列（存储prop值）
+    const selectedColumns = ref(['rx_bytes', 'tx_bytes', 'nat_type'])
     const setConfigList = (list) => {
       configList.value = list
     }
@@ -184,6 +186,9 @@ export const useEasyTierStore = defineStore(
       publicPeerList.value = localRes
       return publicPeerList.value
     }
+    const setSelectedColumns = (list) => {
+      selectedColumns.value = list
+    }
     return {
       configPath,
       configList,
@@ -199,6 +204,7 @@ export const useEasyTierStore = defineStore(
       defaultFormData,
       errRunNotify,
       os,
+      selectedColumns,
       setConfigList,
       setConfigWebList,
       setFileList,
@@ -218,7 +224,8 @@ export const useEasyTierStore = defineStore(
       setOs,
       setConfigPath,
       getCoreReleaseInfo,
-      getPublicPeerList
+      getPublicPeerList,
+      setSelectedColumns
     }
   },
   {

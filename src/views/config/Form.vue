@@ -473,6 +473,30 @@
         </el-col>
       </el-row>
       <el-row>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="使用魔法DNS，您可以使用域名访问其他节点，例如：<hostname>.et.net。魔法DNS将修改您的系统DNS设置，请谨慎启用。 [env:ET_ACCEPT_DNS=] [possible values: true, false]"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.accept_dns')" prop="flags.accept_dns">
+              <el-switch v-model="formData.flags.accept_dns" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="如果为true，则不允许使用了与本网络不相同的网络名称和密码的节点通过本节点进行握手或中转 [env: ET_PRIVATE_MODE=] [possible values: true, false]"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.private_mode')" prop="flags.private_mode">
+              <el-switch v-model="formData.flags.private_mode" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
         <el-col :span="24">
           <el-tooltip trigger="click" placement="top">
             <template #content>

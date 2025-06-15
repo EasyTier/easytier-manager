@@ -122,20 +122,9 @@ const checkCorePath = async () => {
     })
   }
 }
-const copyCorePath = async () => {
-  // 拷贝
-  const { copy, copied, isSupported } = useClipboard({
-    source: await join(await resourceDir(), RESOURCE_PATH),
-    legacy: true
-  })
-  if (!isSupported) {
-    ElMessage.error(t('setting.copyFailed'))
-  } else {
-    await copy()
-    if (unref(copied)) {
-      ElMessage.success(t('setting.copySuccess'))
-    }
-  }
+const openConfigPath = async () => {
+  const configPath = await join(await resourceDir(), 'config')
+  await openPath(configPath)
 }
 const openCorePath = async () => {
   const resourcePath = await join(await resourceDir(), RESOURCE_PATH)
@@ -302,7 +291,9 @@ onMounted(async () => {
           <el-button type="primary" @click="openCorePath"
             >{{ t('easytier.openCorePath') }}
           </el-button>
-          <el-button type="info" @click="copyCorePath">{{ t('easytier.copyCorePath') }}</el-button>
+          <el-button type="info" @click="openConfigPath">{{
+            t('easytier.openConfigPath')
+          }}</el-button>
         </el-descriptions-item>
 
         <el-descriptions-item>

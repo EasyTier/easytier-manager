@@ -19,7 +19,7 @@ import {
   runEasyTierCore
 } from '@/utils/shellUtil'
 import { notify, sleep } from '@/utils/sysUtil'
-import { CopyDocument } from '@element-plus/icons-vue'
+import { CopyDocument, Setting } from '@element-plus/icons-vue'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
 import { useClipboard } from '@vueuse/core'
 import dayjs from 'dayjs'
@@ -96,13 +96,29 @@ const nodeInfoSchema = reactive<DescriptionsSchema[]>([
   }
 ])
 const delayColorMap = [
-  { max: 10, color: 'green' },
-  { min: 11, max: 80, color: '#45b558' },
-  { min: 81, max: 150, color: '#72d582' },
-  { min: 151, max: 250, color: '#ffc54d' },
-  { min: 251, max: 350, color: '#ffc54d' },
-  { min: 351, color: 'red' }
+  { index: 0, min: 0, max: 10, color: 'green' },
+  { index: 1, min: 10, max: 80, color: '#45b458' },
+  { index: 2, min: 80, max: 150, color: '#71d481' },
+  { index: 3, min: 150, max: 250, color: '#fdc44d' },
+  { index: 4, min: 250, max: 350, color: '#fd884d' },
+  { index: 5, min: 350, max: Infinity, color: 'red' }
 ]
+
+// 所有可选列配置（除固定列外）
+const optionalColumns = ref([
+  { prop: 'rx_bytes', label: 'easytier.rx_bytes' },
+  { prop: 'tx_bytes', label: 'easytier.tx_bytes' },
+  { prop: 'nat_type', label: 'easytier.nat_type' },
+  { prop: 'loss_rate', label: 'easytier.loss_rate' },
+  { prop: 'tunnel_proto', label: 'easytier.tunnel_proto' },
+  { prop: 'version', label: 'easytier.version' }
+])
+
+// 计算实际显示的动态列
+const visibleDynamicColumns = computed(() => {
+  return optionalColumns.value.filter((col) => easyTierStore.selectedColumns.includes(col.prop))
+})
+
 watch(
   () => currentDepartment.value,
   (val) => {
@@ -271,8 +287,10 @@ const getPeerInfo = async () => {
       if (value.ipv4 && value.ipv4.includes('/')) {
         value.ipv4 = value.ipv4.split('/')[0]
       } else {
-        const suffixName = value.hostname ? value.hostname.split('_')[1] : ''
-        value.ipv4 = '服务器' + suffixName
+        if (value.cost.trim() !== 'Local') {
+          const suffixName = value.hostname ? value.hostname.split('_')[1] : ''
+          value.ipv4 = '服务器' + suffixName
+        }
       }
 
       value.cost = routeCost(value.cost)
@@ -442,17 +460,35 @@ const copyIp = async (data) => {
     }
   }
 }
+/**
+ * 根据延迟值获取对应的颜色
+ * @param {number | string} delay - 延迟时间
+ * @returns {string} 对应的颜色字符串
+ */
 const getDelayColor = (delay) => {
-  const value = parseFloat(delay) // 确保是数字
-  for (const range of delayColorMap) {
-    const { min, max } = range
-    const isMinOk = min === undefined ? true : value > min
-    const isMaxOk = max === undefined ? true : value <= max
-    if (isMinOk && isMaxOk) {
-      return range.color
-    }
+  // 1. 转换输入为浮点数，兼容各种数字和字符串形式
+  const value = parseFloat(delay)
+  // 2. 优先处理无效数字的情况，增加代码健壮性
+  if (isNaN(value)) {
+    return 'gray' // 如果输入无法转换为有效数字，直接返回默认色
   }
-  return 'gray' // 默认颜色
+  // 3. 使用 Array.prototype.find() 查找匹配的区间，代码更简洁
+  // find 会返回第一个满足条件的元素，如果找不到则返回 undefined
+  const matchedRange = delayColorMap.find((range) => value >= range.min && value < range.max)
+  // 4. 返回匹配到的颜色，否则返回默认颜色（比如 value 为负数时）
+  return matchedRange ? matchedRange.color : 'gray'
+}
+
+// 列选择器相关方法
+const selectAllColumns = () => {
+  easyTierStore.setSelectedColumns(optionalColumns.value.map((col) => col.prop))
+}
+
+const clearAllColumns = () => {
+  easyTierStore.setSelectedColumns([])
+}
+const selectedColumnsChange = (val) => {
+  easyTierStore.setSelectedColumns(val)
 }
 onMounted(async () => {
   // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
@@ -483,7 +519,7 @@ onMounted(async () => {
       <small
         >注：当前配置是否在运行，以<b>选择框后的状态或表格数据</b>为主；如果是精简魔改系统，运行状态可能不准确，有数据更新则为运行</small
       >
-      <div class="mt-3 mb-10px">
+      <div class="mt-3 mb-10px flex">
         <ElSelect
           v-model="currentNodeKey"
           placeholder="选择配置"
@@ -526,7 +562,59 @@ onMounted(async () => {
         </BaseButton>
         <BaseButton type="info" @click="viewLogAction">{{ t('easytier.view_log') }}</BaseButton>
         <!-- <BaseButton type="primary" @click="refreshAction">{{ t('common.refresh') }}</BaseButton> -->
+        <div class="column-selector">
+          <!-- 弹出式列选择器 -->
+          <el-popover
+            placement="bottom-start"
+            :width="260"
+            trigger="click"
+            popper-class="column-selector-popover"
+          >
+            <template #reference>
+              <el-button type="primary" size="small" class="column-config-btn" :icon="Setting">
+                列设置
+              </el-button>
+            </template>
+
+            <div class="column-config-panel">
+              <div class="panel-header">
+                <span class="panel-title">选择要显示的列</span>
+                <div class="panel-actions">
+                  <el-button size="small" text @click="selectAllColumns"> 全选</el-button>
+                  <el-button size="small" text @click="clearAllColumns"> 清空</el-button>
+                </div>
+              </div>
+
+              <div class="column-list">
+                <el-checkbox-group
+                  v-model="easyTierStore.selectedColumns"
+                  class="column-checkbox-group"
+                  @change="selectedColumnsChange"
+                >
+                  <el-checkbox
+                    v-for="item in optionalColumns"
+                    :key="item.prop"
+                    :value="item.prop"
+                    :label="item.prop"
+                    class="column-checkbox"
+                  >
+                    {{ t(item.label) }}
+                  </el-checkbox>
+                </el-checkbox-group>
+              </div>
+
+              <div class="panel-footer">
+                <span class="selected-count">
+                  已选择 {{ easyTierStore.selectedColumns.length }} /
+                  {{ optionalColumns.length }} 列
+                </span>
+              </div>
+            </div>
+          </el-popover>
+        </div>
       </div>
+      <!-- 列选择器 -->
+
       <el-table
         :data="peerInfo"
         style="width: 100%; margin-top: 10px"
@@ -541,6 +629,8 @@ onMounted(async () => {
           prop="ipv4"
           :label="t('easytier.ipv4Vir')"
           width="125"
+          align="center"
+          header-align="center"
           show-overflow-tooltip
         >
           <template #default="{ row }">
@@ -554,40 +644,55 @@ onMounted(async () => {
           prop="hostname"
           :label="t('easytier.hostname')"
           min-width="90"
+          align="center"
+          header-align="center"
           show-overflow-tooltip
         />
-        <el-table-column prop="cost" :label="t('easytier.cost')" show-overflow-tooltip>
-          <!-- <template #default="{ row }">
-            <span>{{ routeCost(row.cost) }}</span>
-          </template> -->
+        <el-table-column
+          prop="cost"
+          :label="t('easytier.cost')"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <el-tag v-if="row.cost === '本机'" type="primary">{{ row.cost }}</el-tag>
+            <el-tag v-else :type="row.cost === '直连' ? 'success' : 'info'">{{ row.cost }}</el-tag>
+          </template>
         </el-table-column>
-        <el-table-column prop="lat_ms" :label="t('easytier.lat_ms')" show-overflow-tooltip>
+        <el-table-column
+          prop="lat_ms"
+          :label="t('easytier.lat_ms')"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <span :style="{ color: row.delayColor }">{{ row.lat_ms }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="rx_bytes" :label="t('easytier.rx_bytes')" show-overflow-tooltip>
-          <!-- <template #default="{ row }">
-            <span>{{ rxBytes(row.rx_bytes) }}</span>
-          </template> -->
+        <el-table-column
+          v-for="col in visibleDynamicColumns"
+          :key="col.prop"
+          :prop="col.prop"
+          :label="t(col.label)"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
+        />
+        <!-- <el-table-column prop="rx_bytes" :label="t('easytier.rx_bytes')" show-overflow-tooltip>
         </el-table-column>
         <el-table-column prop="tx_bytes" :label="t('easytier.tx_bytes')" show-overflow-tooltip>
-          <!-- <template #default="{ row }">
-            <span>{{ txBytes(row.tx_bytes) }}</span>
-          </template> -->
         </el-table-column>
         <el-table-column prop="loss_rate" :label="t('easytier.loss_rate')" show-overflow-tooltip>
-          <!-- <template #default="{ row }">
-            <span>{{ lossRate(row.loss_rate) }}</span>
-          </template> -->
         </el-table-column>
-        <el-table-column prop="nat_type" :label="t('easytier.nat_type')" show-overflow-tooltip />
-        <!-- <el-table-column
+        <el-table-column
           prop="tunnel_proto"
           :label="t('easytier.tunnel_proto')"
           show-overflow-tooltip
-        /> -->
-        <el-table-column prop="version" :label="t('easytier.version')" show-overflow-tooltip />
+        />
+        <el-table-column prop="nat_type" :label="t('easytier.nat_type')" show-overflow-tooltip />
+        <el-table-column prop="version" :label="t('easytier.version')" show-overflow-tooltip /> -->
       </el-table>
     </ContentWrap>
 
@@ -629,5 +734,81 @@ onMounted(async () => {
 .switch-color {
   --el-switch-on-color: #05b900;
   --el-switch-off-color: #ec2323;
+}
+
+.column-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+
+  .selector-label {
+    font-size: 14px;
+    color: var(--el-text-color-regular);
+    white-space: nowrap;
+  }
+
+  .column-select {
+    max-width: 300px;
+    min-width: 200px;
+  }
+
+  .column-config-btn {
+    margin-left: 8px;
+  }
+}
+
+// 弹出式列选择器样式
+.column-selector-popover {
+  .column-config-panel {
+    .panel-header {
+      display: flex;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--el-border-color-light);
+      justify-content: space-between;
+      align-items: center;
+
+      .panel-title {
+        font-weight: 500;
+        color: var(--el-text-color-primary);
+      }
+
+      .panel-actions {
+        display: flex;
+        gap: 8px;
+      }
+    }
+
+    .column-list {
+      max-height: 200px;
+      overflow-y: auto;
+
+      .column-checkbox-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .column-checkbox {
+          margin: 0;
+
+          .el-checkbox__label {
+            font-size: 13px;
+          }
+        }
+      }
+    }
+
+    .panel-footer {
+      padding-top: 8px;
+      margin-top: 12px;
+      border-top: 1px solid var(--el-border-color-light);
+
+      .selected-count {
+        font-size: 12px;
+        color: var(--el-text-color-secondary);
+      }
+    }
+  }
 }
 </style>

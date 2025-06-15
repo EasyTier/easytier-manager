@@ -43,7 +43,9 @@ const defaultFormData: FormData | any = {
     compression_algorithm: undefined,
     bind_device: true,
     disable_kcp_input: false,
-    enable_kcp_proxy: false
+    enable_kcp_proxy: false,
+    accept_dns: false,
+    private_mode: false
   }
 }
 const defaultFormWebData: FormWebData = {

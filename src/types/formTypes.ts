@@ -42,6 +42,8 @@ interface Flags {
   bind_device: boolean
   disable_kcp_input: boolean
   enable_kcp_proxy: boolean
+  accept_dns: boolean
+  private_mode: boolean
 }
 
 interface FormData {
