@@ -1,7 +1,8 @@
 name: 需求建议
 description: 提出针对本项目的想法和建议
 title: "[FEATURE]"
-labels: enhancement
+labels: [ "enhancement" ]
+type: "Feature"
 body:
   - type: markdown
     id: environment
