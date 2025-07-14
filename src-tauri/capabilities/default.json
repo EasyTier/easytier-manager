@@ -2,9 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
@@ -109,6 +107,11 @@
         },
         {
           "args": true,
+          "cmd": "powershell",
+          "name": "powershell"
+        },
+        {
+          "args": true,
           "cmd": "nohup",
           "name": "nohup"
         },
@@ -179,6 +182,11 @@
         },
         {
           "args": true,
+          "cmd": "powershell",
+          "name": "powershell"
+        },
+        {
+          "args": true,
           "cmd": "runas",
           "name": "runas"
         },
@@ -197,7 +205,9 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "https://**" }
+        {
+          "url": "https://**"
+        }
       ]
     }
   ]

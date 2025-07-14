@@ -10,11 +10,7 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "jsxImportSource": "vue",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "baseUrl": "./",
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
@@ -26,21 +22,17 @@
     "noImplicitAny": false,
     "skipLibCheck": true,
     "paths": {
-      "@/*": [
-        "src/*"
-      ]
+      "@/*": ["src/*"]
     },
     "types": [
       "@intlify/unplugin-vue-i18n/types",
       "vite/client",
       "element-plus/global",
       "@types/qrcode",
-      "vite-plugin-svg-icons/client"
+      "vite-plugin-svg-icons/client",
+      "@tauri-apps/api"
     ]
   },
-  "include": [
-    "src",
-    "types/**/*.d.ts"
-  ]
+  "include": ["src", "types/**/*.d.ts", "auto-imports.d.ts", "components.d.ts", "vite.config.ts"]
   // "exclude": ["dist", "node_modules"]
 }

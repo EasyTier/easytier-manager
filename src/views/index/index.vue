@@ -169,7 +169,7 @@ const getConfigList = async () => {
     }
     easyTierStore.setConfigList(tmpList)
   } catch (e) {
-    error('获取配置异常' + e)
+    error(`获取配置异常${e}`)
   }
 }
 // 从easyTierStore.runningList 同步 runningTag
@@ -327,10 +327,10 @@ const updateRunningList = async (res?: any) => {
   return res
 }
 const startAction = async () => {
-  info('开始运行配置:' + currentNodeKey.value.fileName!)
+  info(`开始运行配置:${currentNodeKey.value.fileName!}`)
   await runEasyTierCore(currentNodeKey.value.fileName!)
     .then((res) => {
-      info('运行配置结果:' + JSON.stringify(res))
+      info(`运行配置结果:${JSON.stringify(res)}`)
       easyTierStore.stopSetRoute = false
       getNodeInfo()
       getPeerInfo()
@@ -356,7 +356,7 @@ const startAction = async () => {
     .finally(() => currentNodeKeyChange())
 }
 const stopAction = async () => {
-  info('停止运行配置:' + currentNodeKey.value.configFileName)
+  info(`停止运行配置:${currentNodeKey.value.configFileName}`)
   const item = easyTierStore.getRunningItem(currentNodeKey.value.configFileName)
   if (item && item.pid) {
     const res = await killProcess(item.pid)
@@ -424,7 +424,7 @@ const currentNodeKeyChange = async () => {
     easyTierStore.setStopLoop(true)
     await getConfigList()
   } catch (e: any) {
-    error('异常:' + JSON.stringify(e))
+    error(`异常:${JSON.stringify(e)}`)
   }
 }
 

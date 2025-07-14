@@ -1,7 +1,7 @@
 <template>
   <div class="form">
     <el-form
-      :model="formData"
+      :model="localFormData"
       ref="formRef"
       :rules="rules"
       :scroll-to-error="true"
@@ -15,7 +15,7 @@
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.hostname')" prop="hostname">
             <el-input
-              v-model="formData.hostname"
+              v-model="localFormData.hostname"
               type="text"
               maxlength="36"
               show-word-limit
@@ -26,7 +26,7 @@
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.instance_name')" prop="instance_name">
             <el-input
-              v-model="formData.instance_name"
+              v-model="localFormData.instance_name"
               type="text"
               maxlength="36"
               show-word-limit
@@ -39,7 +39,7 @@
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.network_name')" prop="network_identity.network_name">
             <el-input
-              v-model="formData.network_identity.network_name"
+              v-model="localFormData.network_identity.network_name"
               type="text"
               maxlength="36"
               show-word-limit
@@ -53,7 +53,7 @@
             prop="network_identity.network_secret"
           >
             <el-input
-              v-model="formData.network_identity.network_secret"
+              v-model="localFormData.network_identity.network_secret"
               type="password"
               :show-password="true"
               maxlength="64"
@@ -65,12 +65,12 @@
       <el-row>
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.dhcp')" prop="dhcp">
-            <el-switch v-model="formData.dhcp" />
+            <el-switch v-model="localFormData.dhcp" />
           </el-form-item>
         </el-col>
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.ipv4Vir')" prop="ipv4">
-            <el-input v-model="formData.ipv4" type="text" :disabled="ipv4Disabled" clearable />
+            <el-input v-model="localFormData.ipv4" type="text" :disabled="ipv4Disabled" clearable />
           </el-form-item>
         </el-col>
       </el-row>
@@ -103,7 +103,7 @@
           <el-tooltip trigger="click" content="支持手动输入" placement="top">
             <el-form-item :label="t('easytier.listeners')" prop="listeners">
               <el-select
-                v-model="formData.listeners"
+                v-model="localFormData.listeners"
                 clearable
                 filterable
                 allow-create
@@ -130,7 +130,7 @@
           >
             <el-form-item :label="t('easytier.mapped_listeners')" prop="mapped_listeners">
               <el-select
-                v-model="formData.mapped_listeners"
+                v-model="localFormData.mapped_listeners"
                 clearable
                 filterable
                 allow-create
@@ -173,11 +173,24 @@
         </el-col>
       </el-row>
       <el-row>
+        <el-col :span="24">
+          <el-tooltip
+            trigger="click"
+            content="路由，将流量路由到指定的网络。例如：10.0.0.0/8,192.168.0.0/16"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.routes')" prop="flags.routes">
+              <el-input v-model="localFormData.flags.routes" type="text" clearable />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
         <el-col :md="12" :sm="12" :xs="12">
           <el-tooltip trigger="click" content="支持手动输入" placement="top">
             <el-form-item :label="t('easytier.exit_nodes')" prop="exit_nodes">
               <el-select
-                v-model="formData.exit_nodes"
+                v-model="localFormData.exit_nodes"
                 clearable
                 filterable
                 allow-create
@@ -200,7 +213,7 @@
               :label="t('easytier.config_exit_nodes_route')"
               prop="config_exit_nodes_route"
             >
-              <el-switch v-model="formData.config_exit_nodes_route" />
+              <el-switch v-model="localFormData.config_exit_nodes_route" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -230,7 +243,11 @@
               :label="t('easytier.vpn_wireguard_listen')"
               prop="vpn_portal_config.wireguard_listen"
             >
-              <el-input v-model="vpnPortalConfig.wireguard_listen" type="text" clearable />
+              <el-input
+                v-model="localFormData.vpn_portal_config.wireguard_listen"
+                type="text"
+                clearable
+              />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -243,13 +260,13 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.rpc_portal')" prop="rpc_portal">
-              <el-input v-model="formData.rpc_portal" type="text" clearable />
+              <el-input v-model="localFormData.rpc_portal" type="text" clearable />
             </el-form-item>
           </el-tooltip>
         </el-col>
         <el-col :span="12" v-if="consoleLoggerVisible">
           <el-form-item :label="t('easytier.console_log_level')" prop="console_logger.level">
-            <el-select v-model="formData.console_logger.level" clearable filterable>
+            <el-select v-model="localFormData.console_logger.level" clearable filterable>
               <el-option
                 v-for="(item, index) in file_logger_levelOptions"
                 :key="index"
@@ -264,7 +281,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item :label="t('easytier.file_log_level')" prop="file_logger.level">
-            <el-select v-model="formData.file_logger.level" clearable>
+            <el-select v-model="localFormData.file_logger.level" clearable>
               <el-option
                 v-for="(item, index) in file_logger_levelOptions"
                 :key="index"
@@ -276,14 +293,19 @@
         </el-col>
         <el-col :span="12">
           <el-form-item :label="t('easytier.file_log_file')" prop="file_logger.file">
-            <el-input v-model="formData.file_logger.file" type="text" disabled clearable />
+            <el-input v-model="localFormData.file_logger.file" type="text" disabled clearable />
           </el-form-item>
         </el-col>
       </el-row>
       <el-row>
         <el-col :md="24" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.file_log_dir')" prop="file_logger.dir">
-            <el-input v-model="formData.file_logger.dir" :disabled="true" type="text" clearable />
+            <el-input
+              v-model="localFormData.file_logger.dir"
+              :disabled="true"
+              type="text"
+              clearable
+            />
           </el-form-item>
         </el-col>
       </el-row>
@@ -292,7 +314,7 @@
         <el-col :span="12">
           <el-tooltip trigger="click" content="连接到对等节点时使用的默认协议" placement="top">
             <el-form-item :label="t('easytier.default_protocol')" prop="flags.default_protocol">
-              <el-radio-group v-model="formData.flags.default_protocol">
+              <el-radio-group v-model="localFormData.flags.default_protocol">
                 <el-radio
                   v-for="(item, index) in flags_default_protocolOptions"
                   :key="index"
@@ -311,7 +333,7 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.latency_first')" prop="flags.latency_first">
-              <el-switch v-model="formData.flags.latency_first" />
+              <el-switch v-model="localFormData.flags.latency_first" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -321,7 +343,7 @@
           <el-tooltip trigger="click" content="TUN接口名称，为空则随机生成" placement="top">
             <el-form-item :label="t('easytier.dev_name')" prop="flags.dev_name">
               <el-input
-                v-model="formData.flags.dev_name"
+                v-model="localFormData.flags.dev_name"
                 type="text"
                 maxlength="24"
                 show-word-limit
@@ -336,7 +358,7 @@
             prop="flags.data_compress_algo"
           >
             <el-select
-              v-model="formData.flags.data_compress_algo"
+              v-model="localFormData.flags.data_compress_algo"
               @change="compressChange"
               clearable
             >
@@ -353,19 +375,19 @@
       <el-row>
         <el-col :span="12">
           <el-form-item :label="t('easytier.enable_encryption')" prop="flags.enable_encryption">
-            <el-switch v-model="formData.flags.enable_encryption" />
+            <el-switch v-model="localFormData.flags.enable_encryption" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item :label="t('easytier.enable_ipv6')" prop="flags.enable_ipv6">
-            <el-switch v-model="formData.flags.enable_ipv6" />
+            <el-switch v-model="localFormData.flags.enable_ipv6" />
           </el-form-item>
         </el-col>
       </el-row>
       <el-row>
         <el-col :span="12">
           <el-form-item :label="t('easytier.multi_thread')" prop="flags.multi_thread">
-            <el-switch v-model="formData.flags.multi_thread" />
+            <el-switch v-model="localFormData.flags.multi_thread" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -375,7 +397,7 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.bind_device')" prop="flags.bind_device">
-              <el-switch v-model="formData.flags.bind_device" />
+              <el-switch v-model="localFormData.flags.bind_device" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -388,7 +410,7 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.enable_kcp_proxy')" prop="flags.enable_kcp_proxy">
-              <el-switch v-model="formData.flags.enable_kcp_proxy" />
+              <el-switch v-model="localFormData.flags.enable_kcp_proxy" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -399,7 +421,7 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.disable_kcp_input')" prop="flags.disable_kcp_input">
-              <el-switch v-model="formData.flags.disable_kcp_input" />
+              <el-switch v-model="localFormData.flags.disable_kcp_input" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -412,7 +434,7 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.no_tun')" prop="flags.no_tun">
-              <el-switch v-model="formData.flags.no_tun" />
+              <el-switch v-model="localFormData.flags.no_tun" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -423,7 +445,7 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.use_smoltcp')" prop="flags.use_smoltcp">
-              <el-switch v-model="formData.flags.use_smoltcp" />
+              <el-switch v-model="localFormData.flags.use_smoltcp" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -436,7 +458,7 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.disable_p2p')" prop="flags.disable_p2p">
-              <el-switch v-model="formData.flags.disable_p2p" />
+              <el-switch v-model="localFormData.flags.disable_p2p" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -450,7 +472,7 @@
               :label="t('easytier.disable_udp_hole_punching')"
               prop="flags.disable_udp_hole_punching"
             >
-              <el-switch v-model="formData.flags.disable_udp_hole_punching" />
+              <el-switch v-model="localFormData.flags.disable_udp_hole_punching" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -458,7 +480,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item :label="t('easytier.enable_exit_node')" prop="flags.enable_exit_node">
-            <el-switch v-model="formData.flags.enable_exit_node" />
+            <el-switch v-model="localFormData.flags.enable_exit_node" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -468,7 +490,7 @@
             placement="top"
           />
           <el-form-item :label="t('easytier.relay_all_peer_rpc')" prop="flags.relay_all_peer_rpc">
-            <el-switch v-model="formData.flags.relay_all_peer_rpc" />
+            <el-switch v-model="localFormData.flags.relay_all_peer_rpc" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -480,7 +502,7 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.accept_dns')" prop="flags.accept_dns">
-              <el-switch v-model="formData.flags.accept_dns" />
+              <el-switch v-model="localFormData.flags.accept_dns" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -491,7 +513,21 @@
             placement="top"
           >
             <el-form-item :label="t('easytier.private_mode')" prop="flags.private_mode">
-              <el-switch v-model="formData.flags.private_mode" />
+              <el-switch v-model="localFormData.flags.private_mode" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="proxy-forward-by-system,通过系统路由转发代理流量，而不是通过smoltcp。这可以提高性能，但需要管理员权限。 [env: ET_PROXY_FORWARD_BY_SYSTEM=] [possible values: true, false]"
+            placement="top"
+          >
+            <el-form-item
+              :label="t('easytier.proxy_forward_by_system')"
+              prop="flags.proxy_forward_by_system"
+            >
+              <el-switch v-model="localFormData.flags.proxy_forward_by_system" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -500,83 +536,120 @@
         <el-col :span="24">
           <el-tooltip trigger="click" placement="top">
             <template #content>
-              仅转发白名单网络的流量，支持通配符字符串。多个网络名称间可以使用英文空格间隔。<br />
-              如果该参数为空，则禁用转发。默认允许所有网络。<br />
-              例如：'*'（所有网络），'def*'（以def为前缀的网络），'net1 net2'（只允许net1和net2）"
+              <div> 中继网络白名单，允许中继流量到这些网络。例如：10.0.0.0/8,192.168.0.0/16</div>
             </template>
             <el-form-item
-              :label="t('easytier.foreign_network_whitelist')"
+              :label="t('easytier.relay_network_whitelist')"
               prop="flags.relay_network_whitelist"
             >
-              <el-input v-model="formData.flags.relay_network_whitelist" type="text" clearable />
-            </el-form-item>
-          </el-tooltip>
-        </el-col>
-      </el-row>
-      <!-- <el-divider direction="horizontal">以下尚未测试，建议使用编辑器添加(修改)</el-divider> -->
-      <el-row>
-        <el-col :md="24" :sm="12" :xs="12">
-          <el-tooltip
-            trigger="click"
-            content="manual-routes,手动分配路由CIDR，将禁用子网代理和从对等节点传播的wireguard路由。例如：192.168.0.0/16"
-            placement="top"
-          >
-            <el-form-item :label="t('easytier.manual_routes')" prop="flags.manual_routes">
-              <el-input v-model="formData.flags.manual_routes" type="text" clearable />
+              <el-input
+                v-model="localFormData.flags.relay_network_whitelist"
+                type="text"
+                clearable
+              />
             </el-form-item>
           </el-tooltip>
         </el-col>
       </el-row>
       <el-row>
-        <el-col :span="12">
+        <el-col :span="24">
           <el-tooltip
             trigger="click"
-            content="ipv6-listener,IPv6 监听器的URL，例如：tcp://[::]:11010，如果未设置，将在随机UDP端口上监听"
+            content="IPv6监听器，用于监听IPv6地址。例如：[::]:11010"
             placement="top"
           >
             <el-form-item :label="t('easytier.ipv6_listener')" prop="flags.ipv6_listener">
-              <el-input v-model="formData.flags.ipv6_listener" type="text" clearable />
+              <el-input v-model="localFormData.flags.ipv6_listener" type="text" clearable />
             </el-form-item>
           </el-tooltip>
         </el-col>
-        <el-col :span="12">
+      </el-row>
+      <el-row>
+        <el-col :span="24">
           <el-tooltip
             trigger="click"
-            content="socks5,启用 socks5 服务器，允许 socks5 客户端访问虚拟网络. 格式: <端口>，例如：1080，例如：socks5://0.0.0.0:1080"
+            content="SOCKS5代理，用于代理TCP流量。例如：127.0.0.1:1080"
             placement="top"
           >
             <el-form-item :label="t('easytier.socks5')" prop="flags.socks5">
-              <el-input v-model="formData.flags.socks5" type="text" clearable />
+              <el-input v-model="localFormData.flags.socks5" type="text" clearable />
             </el-form-item>
           </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-divider direction="horizontal">端口转发</el-divider>
+      <el-row>
+        <el-col :span="24">
+          <el-form-item>
+            <el-table :data="localFormData.port_forward" style="width: 100%">
+              <el-table-column prop="proto" :label="t('easytier.protocol')">
+                <template #default="scope">
+                  <el-select v-model="scope.row.proto" clearable>
+                    <el-option label="TCP" value="tcp" />
+                    <el-option label="UDP" value="udp" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column prop="src_port" :label="t('easytier.src_port')">
+                <template #default="scope">
+                  <el-input-number v-model="scope.row.src_port" :min="1" :max="65535" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="dest_addr" :label="t('easytier.dest_addr')">
+                <template #default="scope">
+                  <el-input v-model="scope.row.dest_addr" type="text" clearable />
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('common.action')">
+                <template #default="scope">
+                  <el-button type="danger" size="small" @click="removePortForward(scope.$index)">
+                    {{ t('common.delete') }}
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row justify="center">
+        <el-col :span="24">
+          <el-form-item>
+            <el-button type="primary" @click="addPortForward">
+              {{ t('easytier.add_port_forward') }}
+            </el-button>
+          </el-form-item>
         </el-col>
       </el-row>
     </el-form>
   </div>
 </template>
+
 <script setup lang="ts">
-import { useI18n } from '@/hooks/web/useI18n'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { getHostname } from '@/utils/machine'
+import { ElMessageBox, FormInstance, FormRules } from 'element-plus'
+import type { FormData } from '@/types/config'
 import { useEasyTierStore } from '@/store/modules/easytier'
-import { getHostname } from '@/utils/sysUtil'
-import { ElMessageBox } from 'element-plus'
-import { onBeforeMount, PropType, reactive, ref, toRefs, watch } from 'vue'
 
 const { t } = useI18n()
 const easyTierStore = useEasyTierStore()
-const props = defineProps({
-  formData: {
-    type: Object as PropType<FormData>,
-    required: true
+const props = defineProps<{
+  formData: FormData
+}>()
+
+const emits = defineEmits(['update:formData'])
+
+const localFormData = computed({
+  get: () => props.formData,
+  set: (value) => {
+    emits('update:formData', value)
   }
 })
-const { formData } = toRefs(props)
-const formRef = ref()
-const ipv4Disabled = ref(false)
-const consoleLoggerVisible = ref(false)
-const peers = ref<Array<any>>([])
-const proxyNetwork = ref<Array<any>>([])
+
+const formRef = ref<FormInstance>()
 const vpnPortalConfig = ref<any>({ client_cidr: '', wireguard_listen: '' })
-const rules = reactive({
+const rules = ref<FormRules>({
   hostname: [
     { required: true, trigger: ['blur', 'change'], message: '请输入主机名' },
     {
@@ -654,7 +727,6 @@ const mappedListenersOptions = reactive([
     value: 'tcp://123.123.123.123:11223'
   }
 ])
-
 const proxy_network_cidrOptions = reactive([
   {
     label: '192.168.0.0/24',
@@ -735,22 +807,31 @@ const getPublicPeers = async () => {
     peersOptions.value = data
   }
 }
+const ipv4Disabled = computed(() => {
+  return localFormData.value.dhcp
+})
+
+const consoleLoggerVisible = computed(() => {
+  return localFormData.value.console_logger
+})
+
+const peers = ref<string[]>([])
+const proxyNetwork = ref<string[]>([])
+
 watch(
-  () => formData.value.hostname,
+  () => localFormData.value.hostname,
   (value) => {
     if (value) {
-      formData.value.instance_name = value
+      localFormData.value.instance_name = value
     }
   }
 )
+
 watch(
-  () => formData.value.dhcp,
+  () => localFormData.value.dhcp,
   (value) => {
     if (value) {
-      ipv4Disabled.value = true
-      formData.value.ipv4 = undefined
-    } else {
-      ipv4Disabled.value = false
+      localFormData.value.ipv4 = undefined
     }
   }
 )
@@ -758,7 +839,7 @@ watch(
   () => vpnPortalConfig.value.client_cidr,
   (value) => {
     if (value) {
-      formData.value.vpn_portal_config.client_cidr = vpnPortalConfig.value.client_cidr
+      localFormData.value.vpn_portal_config.client_cidr = vpnPortalConfig.value.client_cidr
     }
   }
 )
@@ -766,12 +847,13 @@ watch(
   () => vpnPortalConfig.value.wireguard_listen,
   (value) => {
     if (value) {
-      formData.value.vpn_portal_config.wireguard_listen = vpnPortalConfig.value.wireguard_listen
+      localFormData.value.vpn_portal_config.wireguard_listen =
+        vpnPortalConfig.value.wireguard_listen
     }
   }
 )
 watch(
-  () => formData.value.config_exit_nodes_route,
+  () => localFormData.value.config_exit_nodes_route,
   (value) => {
     if (value) {
       ElMessageBox.alert('该功能暂不稳定，可能会导致断网，谨慎使用', '警告', {
@@ -781,64 +863,71 @@ watch(
     }
   }
 )
-onBeforeMount(async () => {
-  if (formData.value.dhcp) {
-    ipv4Disabled.value = true
-  }
-  if (formData.value.peer && formData.value.peer!.length > 0 && formData.value.peer[0].uri) {
-    formData.value.peer!.forEach((p) => peers.value.push(p.uri))
+onMounted(async () => {
+  if (
+    localFormData.value.peer &&
+    localFormData.value.peer.length > 0 &&
+    localFormData.value.peer[0].uri
+  ) {
+    peers.value = localFormData.value.peer.map((p) => p.uri)
   }
   if (
-    formData.value.proxy_network &&
-    formData.value.proxy_network!.length > 0 &&
-    formData.value.proxy_network[0].cidr
+    localFormData.value.proxy_network &&
+    localFormData.value.proxy_network.length > 0 &&
+    localFormData.value.proxy_network[0].cidr
   ) {
-    formData.value.proxy_network!.forEach((p) => proxyNetwork.value.push(p.cidr))
+    proxyNetwork.value = localFormData.value.proxy_network.map((p) => p.cidr)
   }
-  if (!formData.value.hostname || formData.value.hostname === '') {
-    formData.value.hostname = await getHostname()
+  if (!localFormData.value.hostname) {
+    localFormData.value.hostname = await getHostname()
   }
-  if (!formData.value.file_logger.file || formData.value.file_logger.file === '') {
-    formData.value.file_logger.file = 'easytier'
-  }
-  if (
-    !formData.value.vpn_portal_config.client_cidr ||
-    formData.value.vpn_portal_config.client_cidr === ''
-  ) {
-    vpnPortalConfig.value.client_cidr = formData.value.vpn_portal_config.client_cidr
-  } else {
-    vpnPortalConfig.value.client_cidr = ''
-  }
-  if (
-    !formData.value.vpn_portal_config.wireguard_listen ||
-    formData.value.vpn_portal_config.wireguard_listen === ''
-  ) {
-    vpnPortalConfig.value.wireguard_listen = formData.value.vpn_portal_config.wireguard_listen
-  } else {
-    vpnPortalConfig.value.wireguard_listen = ''
+  if (!localFormData.value.file_logger.file) {
+    localFormData.value.file_logger.file = 'easytier'
   }
   await getPublicPeers()
 })
-const peerChange = (value: any) => {
-  formData.value.peer = []
-  value.forEach((v) => formData.value.peer?.push({ uri: v }))
+
+const peerChange = (value: string[]) => {
+  localFormData.value.peer = value.map((v) => ({ uri: v }))
 }
-const compressChange = (value: any) => {
-  if (value === 1) {
-    formData.value.flags.data_compress_algo = undefined
+
+const compressChange = (value: string) => {
+  if (value === 'none') {
+    localFormData.value.flags.data_compress_algo = undefined
   }
 }
-const proxyNetworkChange = (value: any) => {
-  formData.value.proxy_network = []
-  value.forEach((v) => formData.value.proxy_network?.push({ cidr: v }))
+const proxyNetworkChange = (value: string[]) => {
+  localFormData.value.proxy_network = value.map((v) => ({ cidr: v }))
 }
+
+const addPortForward = () => {
+  if (!localFormData.value.port_forward) {
+    localFormData.value.port_forward = []
+  }
+  localFormData.value.port_forward.push({
+    proto: 'tcp',
+    src_port: 0,
+    dest_addr: ''
+  })
+}
+
+const removePortForward = (index: number) => {
+  localFormData.value.port_forward.splice(index, 1)
+}
+
 const validateForm = () => {
-  return formRef.value.validate()
+  return formRef.value?.validate()
 }
-defineExpose({ validateForm })
+
+defineExpose({
+  validateForm
+})
 </script>
+
 <style scoped>
 .form {
-  margin-right: 20px;
+  height: calc(100vh - 200px);
+  padding: 10px;
+  overflow-y: auto;
 }
 </style>

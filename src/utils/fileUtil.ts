@@ -40,7 +40,7 @@ export const checkDir = async (dirPath: string = RESOURCE_PATH) => {
       await mkdir(dirPath, { baseDir: BaseDirectory.Resource, recursive: true })
     }
   } catch (e: any) {
-    error('创建resource目录时出错:' + JSON.stringify(e))
+    error(`创建resource目录时出错:${JSON.stringify(e)}`)
     throw e
   }
 }
@@ -122,7 +122,7 @@ export async function writeFileContent(
       await writeFile(filePath, content, finalOptions)
     }
   } catch (e: any) {
-    error('写入文件时出错:' + JSON.stringify(e))
+    error(`写入文件时出错:${JSON.stringify(e)}`)
     throw e
   }
 }
@@ -165,7 +165,7 @@ export async function readFileContent(
       return content
     }
   } catch (e: any) {
-    error(`Error reading file ${filePath}:` + JSON.stringify(e))
+    error(`Error reading file ${filePath}:${JSON.stringify(e)}`)
     return ''
   }
 }
@@ -177,7 +177,7 @@ export const listFiles = async (targetDir: string = RESOURCE_PATH) => {
     const entries = await readDir(targetDir, { baseDir: BaseDirectory.Resource })
     return entries.map((entry) => entry.name)
   } catch (e: any) {
-    error('Error listing resource files:' + JSON.stringify(e))
+    error(`Error listing resource files:${JSON.stringify(e)}`)
     return []
   }
 }
@@ -191,7 +191,7 @@ export const listTomlFiles = async (targetDir: string = CONFIG_PATH) => {
     const entries = await readDir(targetDir, { baseDir: BaseDirectory.Resource })
     return entries.filter((entry) => entry.name.endsWith('.toml')).map((entry) => entry.name)
   } catch (e: any) {
-    error('Error listing resource files:' + JSON.stringify(e))
+    error(`Error listing resource files:${JSON.stringify(e)}`)
     return []
   }
 }
@@ -215,7 +215,7 @@ export const getConfigJsonObj = async () => {
     })
     return JSON.parse(configJson as string)
   } catch (e: any) {
-    error('读取配置文件失败:' + JSON.stringify(e))
+    error(`读取配置文件失败:${JSON.stringify(e)}`)
     await writeConfigJsonObj({})
     return {}
   }
@@ -240,7 +240,7 @@ export const deleteFileOrDir = async (path: string) => {
  */
 export async function downloadFile(fileUrl: string): Promise<boolean> {
   try {
-    info('开始下载:' + fileUrl)
+    info(`开始下载:${fileUrl}`)
     // 使用 Tauri 的 http plugin
     const response = await fetch(fileUrl, {
       method: 'GET',
@@ -283,7 +283,7 @@ export async function downloadFile(fileUrl: string): Promise<boolean> {
 
     // 获取二进制数据
     const uint8Array = new Uint8Array(await response.arrayBuffer())
-    info('开始写入文件:' + savePath)
+    info(`开始写入文件:${savePath}`)
 
     // 写入文件
     await writeFileContent(savePath, uint8Array, {
@@ -297,7 +297,7 @@ export async function downloadFile(fileUrl: string): Promise<boolean> {
     })
     return true
   } catch (e: any) {
-    error('下载文件时出错:' + JSON.stringify(e))
+    error(`下载文件时出错:${JSON.stringify(e)}`)
     ElNotification({
       title: t('common.reminder'),
       message: t('easytier.downLoadError'),
@@ -316,7 +316,7 @@ export async function openPath(path: string) {
   try {
     await open(path)
   } catch (e: any) {
-    error('打开资源管理器失败:' + JSON.stringify(e))
+    error(`打开资源管理器失败:${JSON.stringify(e)}`)
   }
 }
 
@@ -370,7 +370,7 @@ export async function extractFile(
           baseDir: BaseDirectory.Resource
         })
       } catch (e: any) {
-        error(`处理文件 ${filePath} 时出错:` + JSON.stringify(e))
+        error(`处理文件 ${filePath} 时出错:${JSON.stringify(e)}`)
       }
     }
 
@@ -387,7 +387,7 @@ export async function extractFile(
     // await deleteFileOrDir(dirPath)
     return true
   } catch (e: any) {
-    error('解压文件时出错:' + JSON.stringify(e))
+    error(`解压文件时出错:${JSON.stringify(e)}`)
     ElNotification({
       title: t('common.reminder'),
       message: t('easytier.extractError'),

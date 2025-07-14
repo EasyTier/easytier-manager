@@ -580,6 +580,10 @@ export default {
   },
   easytier: {
     id: 'ID',
+    port_forward: 'Port Forward',
+    bind_addr: 'Bind Address',
+    dst_addr: 'Destination Address',
+    proxy_forward_by_system: 'System Proxy Forward',
     peerId: 'Peer ID',
     peerInfo: 'Peer Info',
     ipv4Vir: 'virtual ipv4',

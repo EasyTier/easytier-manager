@@ -35,7 +35,6 @@ interface Flags {
   disable_udp_hole_punching: boolean
   multi_thread: boolean
   relay_all_peer_rpc: boolean
-  manual_routes: string | undefined
   ipv6_listener: string
   socks5?: string | undefined
   relay_network_whitelist?: string | undefined
@@ -44,6 +43,7 @@ interface Flags {
   enable_kcp_proxy: boolean
   accept_dns: boolean
   private_mode: boolean
+  proxy_forward_by_system: boolean
 }
 
 interface FormData {
@@ -54,6 +54,7 @@ interface FormData {
   ipv4?: string | undefined
   peer: Partial<Peer>[] | undefined | null
   listeners: any[]
+  routes: any[]
   mapped_listeners: any[]
   proxy_network: Partial<ProxyNetwork>[] | undefined | null
   exit_nodes: any[] | undefined
@@ -63,6 +64,7 @@ interface FormData {
   file_logger: Partial<FileLogger>
   vpn_portal_config: Partial<VpnPortalConfig> | any
   flags: Partial<Flags>
+  port_forward: { bind_addr: string; dst_addr: string; proto: string }[]
 }
 
 interface FormWebData {

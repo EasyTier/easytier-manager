@@ -113,6 +113,9 @@ const editForm = async (row: any) => {
     formData.value.vpn_portal_config.client_cidr = ''
     formData.value.vpn_portal_config.wireguard_listen = ''
   }
+  if (!formData.value.port_forward) {
+    formData.value.port_forward = []
+  }
   configFileName.value = row?.configFileName
   dialogVisible.value = true
 }
@@ -127,6 +130,8 @@ const AddAction = () => {
 const AddFormAction = async () => {
   dialogTitle.value = t('easytier.addNetConfigForm')
   formData.value = cloneDeep(DefaultData.defaultFormData)
+  formData.value.flags.proxy_forward_by_system = false
+  formData.value.port_forward = []
   configFileName.value = await getHostname()
   actionType.value = 'add'
   editType.value = 'form'
@@ -202,7 +207,7 @@ const addConfigAction = async () => {
         duration: 2000
       })
     } catch (e: any) {
-      error('表单新增报错：' + JSON.stringify(e))
+      error(`表单新增报错：${JSON.stringify(e)}`)
       ElNotification({
         title: t('common.reminder'),
         message: '表单新增报错',
@@ -236,7 +241,7 @@ const addConfigAction = async () => {
         duration: 2000
       })
     } catch (e: any) {
-      error('Error writing file:' + JSON.stringify(e))
+      error(`Error writing file:${JSON.stringify(e)}`)
       ElNotification({
         title: t('common.reminder'),
         message: JSON.stringify(e),
@@ -298,7 +303,7 @@ const saveConfigAction = async () => {
           duration: 2000
         })
       } catch (e: any) {
-        error('表单保存报错：' + JSON.stringify(e))
+        error(`表单保存报错：${JSON.stringify(e)}`)
         ElNotification({
           title: t('common.reminder'),
           message: '表单保存报错',
@@ -334,7 +339,7 @@ const saveConfigAction = async () => {
         duration: 2000
       })
     } catch (e: any) {
-      error('Error writing file:' + JSON.stringify(e))
+      error(`Error writing file:${JSON.stringify(e)}`)
       ElNotification({
         title: t('common.reminder'),
         message: JSON.stringify(e),
@@ -377,7 +382,7 @@ const delConfig = async (row?: any) => {
     })
 }
 const installServiceHandle = async (row: any) => {
-  info('安装服务:' + JSON.stringify(row))
+  info(`安装服务:${JSON.stringify(row)}`)
   ElMessageBox.confirm(t('easytier.installServiceMessage'), t('common.reminder'), {
     confirmButtonText: t('common.ok'),
     cancelButtonText: t('common.cancel'),
@@ -397,7 +402,7 @@ const installServiceHandle = async (row: any) => {
     const configPath = await join(await resourceDir(), CONFIG_PATH, row.fileName)
     installServiceOnWindows(PREFIX_SVC + row.configFileName, '-c ' + configPath)
       .then((res) => {
-        info('服务安装:' + JSON.stringify(res))
+        info(`服务安装:${JSON.stringify(res)}`)
         if (res) {
           ElNotification({
             title: t('common.reminder'),
@@ -408,7 +413,7 @@ const installServiceHandle = async (row: any) => {
         }
       })
       .catch((e) => {
-        error('服务安装失败:' + JSON.stringify(e))
+        error(`服务安装失败:${JSON.stringify(e)}`)
         ElNotification({
           title: t('common.reminder'),
           message: '服务安装失败',
@@ -689,7 +694,7 @@ onMounted(async () => {
           />
         </el-form-item>
       </div>
-      <Form v-if="editType === 'form'" :form-data="formData" ref="formRef" />
+      <Form v-if="editType === 'form'" v-model:form-data="formData" ref="formRef" />
       <div class="edit-container h-60vh" v-if="editType !== 'form'">
         <CodeEditor
           ref="MonacoEditRef"

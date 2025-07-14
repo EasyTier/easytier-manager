@@ -238,7 +238,7 @@ const handleCellClick = (row: any) => {
 }
 // ---------- 服务相关 -------------------
 const installServiceHandle = async (row: FormWebData) => {
-  info('安装服务:' + JSON.stringify(row))
+  info(`安装服务:${JSON.stringify(row)}`)
   ElMessageBox.confirm(t('easytier.installServiceMessage'), t('common.reminder'), {
     confirmButtonText: t('common.ok'),
     cancelButtonText: t('common.cancel'),
@@ -259,7 +259,7 @@ const installServiceHandle = async (row: FormWebData) => {
     const args = `--config-server ${row.protocol}://${row.host}:${row.port}/${row.userName}`
     installServiceOnWindows(PREFIX_SVC_WEB + row.configFileName, args)
       .then((res) => {
-        info('服务安装:' + JSON.stringify(res))
+        info(`服务安装:${JSON.stringify(res)}`)
         if (res) {
           ElNotification({
             title: t('common.reminder'),
@@ -270,7 +270,7 @@ const installServiceHandle = async (row: FormWebData) => {
         }
       })
       .catch((e) => {
-        error('服务安装失败:' + JSON.stringify(e))
+        error(`服务安装失败:${JSON.stringify(e)}`)
         ElNotification({
           title: t('common.reminder'),
           message: '服务安装失败',
@@ -366,7 +366,7 @@ const stopServiceHandle = async (row: FormWebData) => {
     .catch((e) => {
       ElNotification({
         title: t('common.reminder'),
-        message: '服务停止失败 ' + JSON.stringify(e),
+        message: `服务停止失败 ${JSON.stringify(e)}`,
         type: 'error',
         duration: 8000
       })

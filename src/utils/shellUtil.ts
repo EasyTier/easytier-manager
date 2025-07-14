@@ -45,7 +45,7 @@ export async function executeCmd(
     }
     return output.stdout.trim() || output
   } catch (e: any) {
-    error('执行程序失败:' + JSON.stringify(e))
+    error(`执行程序失败:${JSON.stringify(e)}`)
     throw e
   }
 }
@@ -105,14 +105,14 @@ export async function executeBack(
       finalArgs = ['nohup', binPath, ...args]
       finalProgram = 'sudo'
     }
-    info('执行命令：' + finalProgram)
-    info('执行参数：' + JSON.stringify(finalArgs))
+    info(`执行命令：${finalProgram}`)
+    info(`执行参数：${JSON.stringify(finalArgs)}`)
     // 创建命令对象
     const command = Command.create(finalProgram, finalArgs, options)
 
     // 监听输出(可选)
     command.stdout.on('data', (line) => {
-      info(`[${program}] 输出:` + line)
+      info(`[${program}] 输出:${line}`)
     })
     // command.stderr.on('data', (line) => {
     //   error(`[${program}] stderr:`, line)
@@ -125,7 +125,7 @@ export async function executeBack(
 
     // 监听错误
     command.on('error', (e: any) => {
-      error(`[${program}] 错误:` + JSON.stringify(e))
+      error(`[${program}] 错误:${e}`)
     })
 
     // 启动进程
@@ -134,7 +134,7 @@ export async function executeBack(
     info(`[${program}] 后台进程已启动, PID: ${child.pid}`)
     return child.pid
   } catch (e: any) {
-    error('启动后台程序失败:' + JSON.stringify(e))
+    error(`启动后台程序失败:${e}`)
     throw error
   }
 }
@@ -148,7 +148,7 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
       program,
       args: ['-c', `${configPath}`]
     })
-    info('运行结果：' + res)
+    info(`运行结果：${res}`)
     return res
   } catch (error) {
     console.error('运行 easytier-core失败:', error)
@@ -164,7 +164,7 @@ export async function runEasyTierCoreWeb(url: string): Promise<any> {
       program,
       args: ['--config-server', `${url}`]
     })
-    info('运行结果：' + res)
+    info(`运行结果：${res}`)
     return res
   } catch (error) {
     console.error('运行 easytier-core失败:', error)
@@ -223,18 +223,18 @@ export async function killProcess(pid: number, force: boolean = true): Promise<b
     if (platform === 'windows') {
       const args = force ? ['/F', '/PID', pid.toString()] : ['/PID', pid.toString()]
       const result = await executeCmd('taskkill', args, { encoding: 'gbk' })
-      debug('强制终止进程', result)
+      debug(`强制终止进程 ${result}`)
     }
     // Unix-like 系统使用 kill 命令
     else {
       const signal = force ? '-9' : '-15' // SIGKILL vs SIGTERM
       const result = await executeCmd('kill', [signal, pid.toString()])
-      debug('强制终止进程', result)
+      debug(`强制终止进程 ${result}`)
     }
     info(`进程 ${pid} 已终止`)
     return true
   } catch (e: any) {
-    error(`终止进程 ${pid} 失败:` + JSON.stringify(e))
+    error(`终止进程 ${pid} 失败:${e}`)
     return false
   }
 }
@@ -254,7 +254,7 @@ export async function killProcessWithSudo(pid: number, force: boolean = false): 
     await executeCmd('sudo', ['kill', signal, pid.toString()])
     return true
   } catch (e: any) {
-    error(`使用 sudo 终止进程 ${pid} 失败:` + JSON.stringify(e))
+    error(`使用 sudo 终止进程 ${pid} 失败:${e}`)
     return false
   }
 }
@@ -285,71 +285,82 @@ export const testWMIC = async () => {
  * @returns {Promise<Array>} - 返回一个包含程序信息的数组对象
  */
 export const getRunningProcesses = async (
-  programName: string = 'easytier'
+  programName: string = 'easytier-core'
 ): Promise<Array<any>> => {
   return new Promise(async (resolve, reject) => {
     let args: string[] = []
     let program = ''
     let encoding = 'utf-8'
     const processInfo: any[] = []
-    const platform = getPlatform()
+    const platform = await getPlatform()
+
     if (platform === 'windows') {
-      // Windows 使用 WMIC 命令
-      // wmic process where "name like '%easytier%'" get Caption,commandline,ExecutablePath,ProcessId,WorkingSetSize /format:csv
-      // wmic process where "name like '%easytier-core%'" get Caption,commandline,ExecutablePath,ProcessId,WorkingSetSize /format:csv
-      program = 'wmic'
+      // 新的 PowerShell 命令
+      const psCommand = `Get-CimInstance -ClassName Win32_Process -Filter "Name LIKE '%${programName}%'" | Select-Object Caption, CommandLine, ExecutablePath, ProcessId, WorkingSetSize | ConvertTo-Csv -NoTypeInformation`
+      program = 'powershell'
+      args = ['-Command', `& {${psCommand}}`]
       encoding = 'gbk'
-      args = [
-        'process',
-        'where',
-        `name like '%easytier%'`,
-        'get',
-        'Caption,commandline,ExecutablePath,ProcessId,WorkingSetSize',
-        '/format:csv'
-      ]
     } else if (platform === 'macos' || platform === 'linux') {
       // macOS 和 Linux 使用 ps 命令
       program = 'ps'
-      args = ['-eo', 'comm,args,pid,rss', '|', 'grep', 'easytier']
+      args = ['-eo', 'comm,args,pid,rss', '|', 'grep', programName]
     } else {
       reject(new Error('Unsupported OS'))
       return
     }
+
     executeCmd(program, args, { encoding })
       .then((result) => {
         if (platform === 'windows') {
-          // 解析 Windows 的 CSV 输出
-          const lines = result.trim().split('\n').slice(1) // 去掉第一行标题
-          lines.forEach((line) => {
-            const [_node, caption, commandline, executablePath, pid, workingSetSize] =
-              line.split(',')
-            if (commandline.includes(programName)) {
-              const process = {
-                name: caption,
-                commandLine: commandline,
-                path: executablePath,
-                pid: parseInt(pid),
-                memory: parseInt(workingSetSize),
-                fileName: programName
+          // 解析 PowerShell 的 CSV 输出
+          const lines = result.trim().split('\n').slice(1) // 去掉标题行
+          lines.forEach((line: string) => {
+            // "Caption","CommandLine","ExecutablePath","ProcessId","WorkingSetSize"
+            const values = line
+              .slice(1, -1)
+              .split('","')
+              .map((v) => v.trim())
+
+            if (values.length >= 5) {
+              const [caption, commandLine, executablePath, processId, workingSetSize] = values
+              if (commandLine && commandLine.includes(programName)) {
+                const process = {
+                  name: caption,
+                  commandLine: commandLine,
+                  path: executablePath,
+                  pid: parseInt(processId, 10),
+                  memory: parseInt(workingSetSize, 10),
+                  fileName: programName
+                }
+                processInfo.push(process)
               }
-              processInfo.push(process)
             }
           })
         } else if (platform === 'macos' || platform === 'linux') {
           // 解析 macOS 和 Linux 的 ps 输出
-          const lines = result.trim().split('\n').slice(1) // 去掉第一行标题
-          lines.forEach((line) => {
-            const [comm, args, pid, rss] = line.trim().split(/\s+/)
-            if (args.includes(programName)) {
-              const process = {
-                name: comm,
-                commandLine: args,
-                path: args, // ps 命令不直接提供可执行文件路径
-                pid: parseInt(pid),
-                memory: parseInt(rss) * 1024, // rss 单位是 KB
-                fileName: programName
+          const lines = result.trim().split('\n')
+          lines.forEach((line: string) => {
+            const parts = line.trim().split(/\s+/)
+            if (parts.length >= 4) {
+              const [comm, ...argsParts] = parts
+              const pidIndex = argsParts.findIndex((p) => !isNaN(parseInt(p, 10)))
+              if (pidIndex > -1) {
+                const commandLine = argsParts.slice(0, pidIndex).join(' ')
+                const pid = argsParts[pidIndex]
+                const rss = argsParts[pidIndex + 1]
+
+                if (commandLine.includes(programName)) {
+                  const process = {
+                    name: comm,
+                    commandLine: commandLine,
+                    path: comm, // ps 命令不直接提供可执行文件路径
+                    pid: parseInt(pid, 10),
+                    memory: parseInt(rss, 10) * 1024, // rss 单位是 KB
+                    fileName: programName
+                  }
+                  processInfo.push(process)
+                }
               }
-              processInfo.push(process)
             }
           })
         }
@@ -408,7 +419,7 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
     try {
       // 服务是否存在
       const exist: any = await checkServiceOnWindows(serviceName)
-      info('服务是否存在:' + JSON.stringify(exist))
+      info(`服务是否存在:${JSON.stringify(exist)}`)
       if (exist) {
         resolve(true)
         return
@@ -429,7 +440,7 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
       // const args11 = ['set', serviceName, 'AppStderr', `${logsPath}\\service.log`]
       // const args12 = ['set', serviceName, 'AppTimestampLog', '1']
       await executeCmd(NSSM_NAME, args1, { encoding: 'gbk' }).then(async (res) => {
-        info('安装服务结果:' + JSON.stringify(res))
+        info(`安装服务结果:${JSON.stringify(res)}`)
         if (
           res &&
           (res.code! === 0 ||
@@ -454,7 +465,7 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
         resolve(false)
       })
     } catch (e: any) {
-      error('安装服务失败:' + JSON.stringify(e))
+      error(`安装服务失败:${e}`)
       resolve(false)
     }
   })
@@ -469,14 +480,14 @@ export const uninstallServiceOnWindows = (serviceName: string) => {
     try {
       const args = ['remove', serviceName, 'confirm']
       const res: any = await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
-      info('删除服务:' + JSON.stringify(res))
+      info(`删除服务:${JSON.stringify(res)}`)
       if (res && (res.code! === 0 || res.includes('success'))) {
         resolve(true)
       } else {
         resolve(false)
       }
     } catch (e: any) {
-      error('删除服务出错:' + JSON.stringify(e))
+      error(`删除服务出错:${e}`)
       resolve(false)
     }
   })
@@ -498,17 +509,14 @@ export const startServiceOnWindows = (serviceName: string) => {
         resolve(false)
         return
       }
-      if (res && (res.code! === 0 || res.includes('SERVICE'))) {
-        resolve(true)
-      } else {
-        resolve(false)
-      }
+      resolve(true)
     } catch (e: any) {
-      error('启动服务出错:' + JSON.stringify(e))
+      error('启动服务出错:', e)
       resolve(false)
     }
   })
 }
+
 /**
  * Windows 停止服务
  * @param serviceName 服务名
@@ -519,91 +527,81 @@ export const stopServiceOnWindows = (serviceName: string) => {
     try {
       const args = ['stop', serviceName]
       await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
-      await sleep(1500)
+      await sleep(2000)
       const res = await checkServiceOnWindows(serviceName)
       info('停止服务:' + JSON.stringify(res))
-      if (JSON.stringify(res).includes('SERVICE_STOP_PENDING')) {
-        // nssm processes easytier-Legion2222
-        const processInfo = await executeCmd(NSSM_NAME, ['processes', serviceName], {
-          encoding: 'gbk'
-        })
-        const processList = processInfo.split(' ')
-        if (processList.length > 0) {
-          await killProcess(parseInt(processList[0]))
-          resolve(true)
-          return
-        }
+      if (JSON.stringify(res).includes('SERVICE_STOPPED')) {
+        resolve(true)
+        return
       }
-      if (res && (res.code! === 0 || res.includes('SERVICE'))) {
+      resolve(false)
+    } catch (e: any) {
+      error('停止服务出错:', e)
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * Windows 检测路由是否存在
+ * @param ip
+ * @returns
+ */
+export const checkRouteOnWindows = async (ip: string) => {
+  return new Promise(async (resolve) => {
+    try {
+      const res = await executeCmd('route', ['print', '-4', ip], { encoding: 'gbk' })
+      if (res.includes(ip)) {
         resolve(true)
       } else {
         resolve(false)
       }
     } catch (e: any) {
-      error('停止服务出错:' + JSON.stringify(e))
+      error('检测路由失败:', e)
       resolve(false)
     }
   })
 }
 
 /**
- * 判断Windows中是否已经添加过该路由
- */
-export const checkRouteOnWindows = async (ip: string) => {
-  return new Promise(async (resolve) => {
-    try {
-      const args = ['print', '-4']
-      const res: any = await executeCmd('route', args, { encoding: 'gbk' })
-      info('检测路由:' + JSON.stringify(res))
-      if (res && res.includes(ip)) {
-        resolve(true)
-      }
-      resolve(false)
-    } catch (e: any) {
-      error('检测路由出错:' + JSON.stringify(e))
-      resolve(false)
-    }
-  })
-}
-
-/**
- * 在Windows中添加路由
+ * Windows 添加路由
+ * @param ip
+ * @returns
  */
 export const addRouteOnWindows = async (ip: string) => {
   return new Promise(async (resolve) => {
     try {
-      // route add 0.0.0.0 mask 0.0.0.0 192.168.1.1
-      const args = ['add', '0.0.0.0', 'mask', '0.0.0.0', ip]
-      console.log('添加路由:', args.join(' '))
-      const res: any = await executeCmd('route', args, { encoding: 'gbk' })
-      info('添加路由:' + JSON.stringify(res))
-      if (res && res.includes('操作完成')) {
+      const res = await executeCmd('route', ['add', ip, 'mask', '255.255.255.255', '0.0.0.0'], {
+        encoding: 'gbk'
+      })
+      if (res.includes('OK!')) {
         resolve(true)
+      } else {
+        resolve(false)
       }
-      resolve(false)
     } catch (e: any) {
-      error('添加路由出错:' + JSON.stringify(e))
+      error('添加路由失败:', e)
       resolve(false)
     }
   })
 }
 
 /**
- * 在Windows中删除路由
+ * Windows 删除路由
+ * @param ip
+ * @returns
  */
 export const delRouteOnWindows = async (ip: string) => {
   return new Promise(async (resolve) => {
     try {
-      // route delete 0.0.0.0 mask 0.0.0.0 192.168.1.1
-      const args = ['delete', '0.0.0.0', ip]
-      const res: any = await executeCmd('route', args, { encoding: 'gbk' })
-      info('删除路由:' + JSON.stringify(res))
-      if (res && res.includes('OK')) {
+      const res = await executeCmd('route', ['delete', ip], { encoding: 'gbk' })
+      if (res.includes('OK!')) {
         resolve(true)
+      } else {
+        resolve(false)
       }
-      resolve(false)
     } catch (e: any) {
-      error('删除路由出错:' + JSON.stringify(e))
+      error('删除路由失败:', e)
       resolve(false)
     }
   })

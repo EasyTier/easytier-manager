@@ -24,8 +24,20 @@ export const PREFIX_SVC = 'easytier-'
 export const PREFIX_SVC_WEB = 'easytierweb-'
 export const GITHUB_MIRROR_URL = [
   {
+    value: 'https://gh-proxy.net/',
+    label: 'https://gh-proxy.net/'
+  },
+  {
     value: 'https://gh-proxy.com/',
     label: 'https://gh-proxy.com/'
+  },
+  {
+    value: 'https://ghproxy.1888866.xyz/',
+    label: 'https://ghproxy.1888866.xyz/'
+  },
+  {
+    value: 'https://fastgit.cc/',
+    label: 'https://fastgit.cc/'
   },
   {
     value: 'https://ghproxy.cfd/',
@@ -40,12 +52,12 @@ export const GITHUB_MIRROR_URL = [
     label: 'https://github.boki.moe/'
   },
   {
-    value: 'https://ghproxy.1888866.xyz/',
-    label: 'https://ghproxy.1888866.xyz/'
-  },
-  {
     value: 'https://hub.gitmirror.com/',
     label: 'https://hub.gitmirror.com/'
+  },
+  {
+    value: 'https://gh.monlor.com/',
+    label: 'https://gh.monlor.com/'
   }
 ]
 
