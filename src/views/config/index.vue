@@ -395,7 +395,7 @@ const installServiceHandle = async (row: any) => {
       return
     }
     const configPath = await join(await resourceDir(), CONFIG_PATH, row.fileName)
-    installServiceOnWindows(PREFIX_SVC + row.configFileName, '-c ' + configPath)
+    installServiceOnWindows(PREFIX_SVC + row.configFileName, '-c "' + configPath + '"')
       .then((res) => {
         info('服务安装:' + JSON.stringify(res))
         if (res) {
