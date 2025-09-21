@@ -1,4 +1,4 @@
-import { CONFIG_PATH, LOG_PATH, RESOURCE_PATH } from '@/constants/easytier'
+import { CONFIG_PATH, LOG_PATH, RESOURCE_PATH, USER_AGENT } from '@/constants/easytier'
 // import { useI18n } from '@/hooks/web/useI18n'
 import { t } from '@/utils/i18nUtil'
 import { dirname, extname, join, resourceDir } from '@tauri-apps/api/path'
@@ -245,15 +245,14 @@ export async function downloadFile(fileUrl: string): Promise<boolean> {
     const response = await fetch(fileUrl, {
       method: 'GET',
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.95 Safari/537.36',
+        'User-Agent': USER_AGENT,
         Accept: '*/*',
         'Cache-Control': 'no-cache',
         'Upgrade-Insecure-Requests': '1'
       },
       // 增加超时时间
       connectTimeout: 30000,
-      maxRedirections: 2
+      maxRedirections: 1
       // responseType: ResponseType.Binary,
       // 添加下载进度监听
       // onDownloadProgress: (progress) => {

@@ -96,8 +96,15 @@
                   v-for="(item, index) in peersOptions"
                   :key="index"
                   :label="item.name"
-                  :value="item.description"
-                />
+                  :value="item.address"
+                >
+                  <span style="float: left">{{ item.name }}</span>
+                  <span
+                    style="float: right; font-size: 13px; color: var(--el-text-color-secondary)"
+                  >
+                    v{{ item.version }}
+                  </span>
+                </el-option>
               </el-select>
             </el-form-item>
           </el-tooltip>
@@ -714,11 +721,13 @@ const rules = ref<FormRules>({
 const peersOptions = ref([
   {
     name: '官方服务器',
-    description: 'tcp://public.easytier.top:11010'
+    address: 'tcp://public.easytier.top:11010',
+    version: ''
   },
   {
     name: '群友提供',
-    description: 'tcp://c.oee.icu:60006'
+    address: 'tcp://c.oee.icu:60006',
+    version: ''
   }
 ])
 const listenersOptions = reactive([

@@ -8,7 +8,6 @@ import { CONFIG_PATH, LOG_PATH } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
 import { useTrayStore } from '@/store/modules/trayStore'
-import { parseNodeInfo, parsePeerInfo } from '@/utils/easyTierUtil'
 import { listTomlFiles, readFileContent } from '@/utils/fileUtil'
 import {
   addRouteOnWindows,
@@ -26,7 +25,8 @@ import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox, ElNotification, ElOption, ElSelect, ElTree } from 'element-plus'
 import * as toml from 'smol-toml'
 import { computed, onMounted, reactive, ref, unref, watch } from 'vue'
-
+// 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
+attachConsole()
 const { t } = useI18n()
 const easyTierStore = useEasyTierStore()
 const trayStore = useTrayStore()
@@ -55,44 +55,28 @@ const tableRowClassName = ({ rowIndex }: { row: any; rowIndex: number }) => {
 
 const nodeInfoSchema = reactive<DescriptionsSchema[]>([
   {
-    field: 'Hostname',
+    field: 'hostname',
     label: t('easytier.hostname')
   },
   {
-    field: 'Virtual IP',
+    field: 'ipv4_addr',
     label: t('easytier.ipv4Vir')
   },
   {
-    field: 'Public IP',
+    field: 'stun_info.public_ip[0]',
     label: t('easytier.ipPublic')
   },
   {
-    field: 'UDP Stun Type',
+    field: 'stun_info.udp_nat_type',
     label: t('easytier.nat_type')
   },
   {
-    field: 'Peer ID',
-    label: t('easytier.peerId')
-  },
-  {
-    field: 'Proxy CIDRs',
+    field: 'proxy_cidrs',
     label: t('easytier.proxy_network')
   },
   {
-    field: 'Listener 1',
-    label: t('easytier.listener1')
-  },
-  {
-    field: 'Listener 2',
-    label: t('easytier.listener2')
-  },
-  {
-    field: 'Listener 3',
-    label: t('easytier.listener3')
-  },
-  {
-    field: 'Listener 4',
-    label: t('easytier.listener4')
+    field: 'listeners',
+    label: t('easytier.listeners')
   }
 ])
 const delayColorMap = [
@@ -228,7 +212,7 @@ const getNodeInfo = async () => {
     if (easyTierStore.stopLoop || retryTime > maxRetry) {
       break
     }
-    const res = await runEasyTierCli(['node'])
+    const res = await runEasyTierCli(['--output', 'json', 'node'])
     if (res === 403) {
       easyTierStore.setStopLoop(true)
       runningTag2.value = false
@@ -244,13 +228,14 @@ const getNodeInfo = async () => {
     ) {
       retryTime = maxRetry
     }
-    nodeInfo.value = parseNodeInfo(res) as string
+    // nodeInfo.value = parseNodeInfo(res) as string
+    nodeInfo.value = JSON.parse(res)
     runningTag2.value = true
     await sleep(10000)
   }
 }
 const getPeerInfo = async () => {
-  await sleep(2000)
+  await sleep(4000)
   let retryTime = 1
   while (true) {
     // todo 可配置retryTime
@@ -264,6 +249,8 @@ const getPeerInfo = async () => {
     const res = await runEasyTierCli([
       '-p',
       (data.rpc_portal as String).replace('0.0.0.0', '127.0.0.1'),
+      '--output',
+      'json',
       'peer'
     ])
     if (res === 403) {
@@ -278,7 +265,8 @@ const getPeerInfo = async () => {
     } else {
       retryTime = 0
     }
-    peerInfo.value = parsePeerInfo(res)
+    // peerInfo.value = parsePeerInfo(res)
+    peerInfo.value = JSON.parse(res)
     const filter = peerInfo.value.filter((value) => value.ipv4 && value.cost !== 'Local')
     const filter1 = peerInfo.value.filter(
       (value) => value.ipv4 && value.cost !== 'Local' && value.cost === 'p2p'
@@ -329,11 +317,11 @@ const updateRunningList = async (res?: any) => {
 const startAction = async () => {
   info(`开始运行配置:${currentNodeKey.value.fileName!}`)
   await runEasyTierCore(currentNodeKey.value.fileName!)
-    .then((res) => {
-      info(`运行配置结果:${JSON.stringify(res)}`)
+    .then((_res) => {
+      // info(`运行配置结果:${JSON.stringify(res)}`)
       easyTierStore.stopSetRoute = false
-      getNodeInfo()
-      getPeerInfo()
+      // getNodeInfo()
+      // getPeerInfo()
       updateRunningList()
       easyTierStore.setStopLoop(false)
       easyTierStore.setP2pNotify(true)

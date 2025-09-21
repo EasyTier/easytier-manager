@@ -39,8 +39,9 @@ export async function executeCmd(
     })
     // 执行并等待完成
     const output = await command.execute()
-    // info('执行命令输出:' + JSON.stringify(output))
-    if (output.code && output.code !== 0 && output.code !== 1) {
+    if ((output.code && output.code !== 0) || output.stderr) {
+      error(`执行参数:${JSON.stringify(args)}`)
+      error(`执行程序失败:${output.stderr || '未知错误'}`)
       return output.stderr.trim() || output.stdout.trim() || output
     }
     return output.stdout.trim() || output
@@ -300,9 +301,18 @@ export const getRunningProcesses = async (
 
     if (platform === 'windows') {
       // 新的 PowerShell 命令
-      const psCommand = `Get-CimInstance -ClassName Win32_Process -Filter "Name LIKE '%${programName}%'" | Select-Object Caption, CommandLine, ExecutablePath, ProcessId, WorkingSetSize | ConvertTo-Csv -NoTypeInformation`
+      const psCommand = `\
+        Get-CimInstance -ClassName Win32_Process -Filter "CommandLine LIKE '%${programName}%'" |\
+        Select-Object @{N='name';E={$_.Caption}},\
+                      @{N='commandLine';E={$_.CommandLine}},\
+                      @{N='path';E={$_.ExecutablePath}},\
+                      @{N='pid';E={$_.ProcessId}},\
+                      @{N='memory';E={$_.WorkingSetSize}} |\
+        ConvertTo-Json -Compress\
+      `.trim()
+
       program = 'powershell'
-      args = ['-Command', `& {${psCommand}}`]
+      args = ['-Command', psCommand]
       encoding = 'gbk'
     } else if (platform === 'macos' || platform === 'linux') {
       // macOS 和 Linux 使用 ps 命令
@@ -312,38 +322,54 @@ export const getRunningProcesses = async (
       reject(new Error('Unsupported OS'))
       return
     }
-
     executeCmd(program, args, { encoding })
-      .then((result) => {
-        if (result.code === 0) {
+      .then((res) => {
+        res = JSON.parse(res || '[]')
+        res = Array.isArray(res) ? res : []
+        const result = res.filter((r) => !r.name.includes('powershell.exe'))
+        if (result.length === 0) {
           resolve(processInfo)
           return
         }
         if (platform === 'windows') {
-          // 解析 PowerShell 的 CSV 输出
-          const lines = result.trim().split('\n').slice(1) // 去掉标题行
-          lines.forEach((line: string) => {
-            // "Caption","CommandLine","ExecutablePath","ProcessId","WorkingSetSize"
-            const values = line
-              .slice(1, -1)
-              .split('","')
-              .map((v) => v.trim())
-
-            if (values.length >= 5) {
-              const [caption, commandLine, executablePath, processId, workingSetSize] = values
-              if (commandLine && commandLine.includes(programName)) {
-                const process = {
-                  name: caption,
-                  commandLine: commandLine,
-                  path: executablePath,
-                  pid: parseInt(processId, 10),
-                  memory: parseInt(workingSetSize, 10),
-                  fileName: programName
-                }
-                processInfo.push(process)
+          // 解析JSON 输出
+          result.forEach((p) => {
+            if (p.commandLine && p.commandLine.includes(programName)) {
+              const process = {
+                name: p.name,
+                commandLine: p.commandLine,
+                path: p.path,
+                pid: parseInt(p.pid, 10) || 0,
+                memory: parseInt(p.memory, 10) || 0,
+                fileName: programName
               }
+              processInfo.push(process)
             }
           })
+          // 解析 PowerShell 的 CSV 输出
+          // const lines = result.trim().split('\n').slice(1) // 去掉标题行
+          // lines.forEach((line: string) => {
+          //   // "Caption","CommandLine","ExecutablePath","ProcessId","WorkingSetSize"
+          //   const values = line
+          //     .slice(1, -1)
+          //     .split('","')
+          //     .map((v) => v.trim())
+          //
+          //   if (values.length >= 5) {
+          //     const [caption, commandLine, executablePath, processId, workingSetSize] = values
+          //     if (commandLine && commandLine.includes(programName)) {
+          //       const process = {
+          //         name: caption,
+          //         commandLine: commandLine,
+          //         path: executablePath,
+          //         pid: parseInt(processId, 10),
+          //         memory: parseInt(workingSetSize, 10),
+          //         fileName: programName
+          //       }
+          //       processInfo.push(process)
+          //     }
+          //   }
+          // })
         } else if (platform === 'macos' || platform === 'linux') {
           // 解析 macOS 和 Linux 的 ps 输出
           const lines = result.trim().split('\n')

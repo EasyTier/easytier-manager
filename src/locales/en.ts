@@ -716,6 +716,7 @@ export default {
     proxy_forward_by_system: 'System Proxy Forward',
     add_port_forward: 'add port forward',
     src_port: 'src port',
+    tcp_whitelist: 'TCP port whitelist',
     udp_whitelist: 'UDP port whitelist'
   }
 }

@@ -719,6 +719,7 @@ export default {
     bind_addr: '源地址',
     dst_addr: '目标地址',
     startMinimized: '启动最小化到托盘',
-    tcp_whitelist: 'TCP 端口白名单'
+    tcp_whitelist: 'TCP 端口白名单',
+    udp_whitelist: 'UDP 端口白名单'
   }
 }

@@ -158,40 +158,23 @@ export const useEasyTierStore = defineStore(
       return releaseInfo.value
     }
     const getPublicPeerList = async () => {
-      const localRes = JSON.parse(localStorage.getItem('publicPeerList') || '[]')
-      const isGet = JSON.parse(localStorage.getItem('publicPeerListIsGet') || defaultStatus)
-      const date = dayjs().format('YYYYMMDD').toString()
-      if ((isGet.data !== date && isGet.status === 'false') || publicPeerList.value.length === 0) {
-        let res, response
-        try {
-          response = await fetch(MONITOR_LIST, {
-            method: 'GET',
-            headers: { 'User-Agent': USER_AGENT },
-            connectTimeout: 5000
-          })
-          res = await response.json()
-        } catch {
-          response = await fetch(MONITOR_LIST, {
-            method: 'GET',
-            headers: { 'User-Agent': USER_AGENT },
-            connectTimeout: 5000
-          })
-          res = await response.json()
-        }
-        if (res && res.code === 0) {
-          publicPeerList.value = res.data.list
-          localStorage.setItem('publicPeerList', JSON.stringify(publicPeerList.value))
-          localStorage.setItem(
-            'publicPeerListIsGet',
-            JSON.stringify({
-              status: 'true',
-              date
-            })
-          )
-          return publicPeerList.value
-        }
+      const response = await fetch(MONITOR_LIST, {
+        method: 'GET',
+        headers: {
+          'User-Agent': USER_AGENT,
+          accept: 'application/json, text/plain, */*',
+          Referer: 'https://uptime.easytier.cn/'
+        },
+        connectTimeout: 10000
+      })
+      const res = await response.json()
+      console.log('getPublicPeerList', res)
+      if (res && res.success) {
+        publicPeerList.value = res.data.items
+        localStorage.setItem('publicPeerList', JSON.stringify(publicPeerList.value))
+        return publicPeerList.value
       }
-      publicPeerList.value = localRes
+      publicPeerList.value = JSON.parse(localStorage.getItem('publicPeerList') || '[]')
       return publicPeerList.value
     }
     const setSelectedColumns = (list) => {
