@@ -663,10 +663,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getHostname } from '@/utils/machine'
+import { getHostname } from '@/utils/sysUtil'
 import { ElMessageBox, FormInstance, FormRules } from 'element-plus'
-import type { FormData } from '@/types/config'
 import { useEasyTierStore } from '@/store/modules/easytier'
+
+/**
+ * 表单数据类型定义
+ */
+interface FormData {
+  // 允许任意字符串类型的键
+  [key: string]: any
+}
 
 const { t } = useI18n()
 const easyTierStore = useEasyTierStore()

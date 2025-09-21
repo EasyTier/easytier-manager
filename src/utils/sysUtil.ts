@@ -13,8 +13,7 @@ import { getVersion } from '@tauri-apps/api/app'
  * 可能的值有 linux、macos、ios、freebsd、dragonfly、netbsd、openbsd、solaris、android、windows
  */
 export const getPlatform = () => {
-  const currentPlatform = platform()
-  return currentPlatform
+  return platform()
 }
 
 /**
@@ -23,8 +22,7 @@ export const getPlatform = () => {
  * 可能的值有 `'linux'` on Linux, `'macos'` on macOS, `'windows'` on Windows, `'ios'` on iOS and `'android'` on Android.
  */
 export const getOsType = () => {
-  const currentOsType = type()
-  return currentOsType
+  return type()
 }
 
 /**
@@ -33,16 +31,14 @@ export const getOsType = () => {
  * 可能的值有 `'x86'`, `'x86_64'`, `'arm'`, `'aarch64'`, `'mips'`, `'mips64'`, `'powerpc'`, `'powerpc64'`, `'riscv64'`, `'s390x'`, `'sparc64'`.
  */
 export const getArch = () => {
-  const currentArch = arch()
-  return currentArch
+  return arch()
 }
 /**
  * 获取系统名
  * @returns 返回当前系统名
  */
 export const getHostname = async () => {
-  const currentHostname = await hostname()
-  return currentHostname
+  return await hostname()
 }
 /**
  * 获取当前系统语言
@@ -85,6 +81,5 @@ export const notify = async (
  * 获取当前App的版本
  */
 export const getAppVersion = async () => {
-  const appVersion = await getVersion()
-  return appVersion
+  return await getVersion()
 }
