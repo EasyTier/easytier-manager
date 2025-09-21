@@ -26,7 +26,20 @@ import { cloneDeep, template } from 'lodash-es'
 import { onMounted, reactive, ref, unref } from 'vue'
 
 const { t } = useI18n()
-const { clear: storageClear } = useStorage('localStorage')
+const { getStorage, setStorage, clear: storageClear } = useStorage('localStorage')
+
+const minimizeOnStart = ref(false)
+const autoRunNetwork = ref(false) // 新增
+
+const handleMinimizeChange = (value: boolean) => {
+  setStorage('settings.minimizeOnStart', value.toString())
+}
+
+// 新增函数
+const handleAutoRunNetworkChange = (value: boolean) => {
+  setStorage('settings.autoRunNetwork', value.toString())
+}
+
 const easyTierStore = useEasyTierStore()
 const fileName = ref('')
 const checkCorePathSuccess = ref(false)
@@ -44,46 +57,80 @@ const verOptions = ref(cloneDeep(DEFAULT_VER_OPTIONS))
 const mirrorUrlSelect = ref<string>('')
 
 const downLoadCore = async () => {
+  const maxRetries = GITHUB_MIRROR_URL.length
   for (let i = 0; i < GITHUB_MIRROR_URL.length; i++) {
-    ElNotification({
-      title: '下载中',
-      message: `使用加速源${i + 1}下载`,
-      type: 'info',
-      duration: 8000
-    })
-    let url =
-      GITHUB_MIRROR_URL[i].value +
-      GITHUB_EASYTIER +
-      GITHUB_DOWN_URL +
-      '/' +
-      verSelect.value +
-      fileName.value
-    const res = await downloadFile(url)
-    if (res) {
-      return
-    } else {
-      // 如果所有加速链接都下载失败，则尝试直接下载
-      if (i === GITHUB_MIRROR_URL.length - 1) {
-        url = GITHUB_EASYTIER + GITHUB_DOWN_URL + '/' + verSelect.value + fileName.value
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const notification = ElNotification({
+        title: '下载中',
+        message: `使用加速源 ${i + 1} (尝试 ${attempt}/${maxRetries})...`,
+        type: 'info',
+        duration: 0
+      })
+      try {
+        const url =
+          GITHUB_MIRROR_URL[i].value +
+          GITHUB_EASYTIER +
+          GITHUB_DOWN_URL +
+          '/' +
+          verSelect.value +
+          fileName.value
         const res = await downloadFile(url)
         if (res) {
-          return
-        } else {
-          ElMessageBox.confirm('所有下载链接下载失败，请手动下载！', {
-            cancelButtonText: '取消',
-            confirmButtonText: '手动下载',
-            type: 'error',
-            // 点击确定则打开Github下载页面
-            callback: async (value) => {
-              if (value === 'confirm') {
-                await openPath(GITHUB_EASYTIER)
-              }
-            }
+          notification.close()
+          ElNotification({
+            title: '下载成功',
+            message: '内核文件下载完成',
+            type: 'success',
+            duration: 3000
           })
+          return
         }
+      } catch (error) {
+        console.error(`下载失败 (源 ${i + 1}, 尝试 ${attempt}):`, error)
+      } finally {
+        notification.close()
+      }
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000
+        await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
   }
+
+  // 如果所有镜像和重试都失败，则尝试直接从 GitHub 下载
+  try {
+    const notification = ElNotification({
+      title: '下载中',
+      message: '正在尝试从 GitHub 直接下载...',
+      type: 'info',
+      duration: 0
+    })
+    const url = GITHUB_EASYTIER + GITHUB_DOWN_URL + '/' + verSelect.value + fileName.value
+    const res = await downloadFile(url)
+    notification.close()
+    if (res) {
+      ElNotification({
+        title: '下载成功',
+        message: '内核文件下载完成',
+        type: 'success',
+        duration: 3000
+      })
+      return
+    }
+  } catch (error) {
+    console.error('GitHub 直接下载失败:', error)
+  }
+
+  ElMessageBox.confirm('所有下载方式均失败，请检查网络连接或手动下载！', {
+    cancelButtonText: '取消',
+    confirmButtonText: '手动下载',
+    type: 'error',
+    callback: async (value) => {
+      if (value === 'confirm') {
+        await openPath(GITHUB_EASYTIER)
+      }
+    }
+  })
 }
 const installCore = async () => {
   ElMessageBox.confirm('安装将会停止所有正在运行的节点，请确认是否继续', t('common.delWarning'), {
@@ -91,10 +138,26 @@ const installCore = async () => {
     cancelButtonText: t('common.delCancel'),
     type: 'warning'
   }).then(async () => {
-    // 停止所有节点
-    await stopAllNodes()
-    const zipPath = await join(RESOURCE_PATH, fileName.value.replace('/', ''))
-    await extractFile(zipPath, RESOURCE_PATH)
+    try {
+      // 停止所有节点
+      await stopAllNodes()
+      const zipPath = await join(RESOURCE_PATH, fileName.value.replace('/', ''))
+      await extractFile(zipPath, RESOURCE_PATH)
+      ElNotification({
+        title: '安装成功',
+        message: '内核安装完成',
+        type: 'success',
+        duration: 3000
+      })
+    } catch (e: any) {
+      console.error('安装失败:', e)
+      ElNotification({
+        title: '安装失败',
+        message: `提取文件时发生错误: ${e.message || e}`,
+        type: 'error',
+        duration: 8000
+      })
+    }
   })
 }
 const verSelectChange = (val: string) => {
@@ -104,7 +167,6 @@ const verSelectChange = (val: string) => {
     osArch: getArch(),
     version: val
   })
-  console.log(fileName.value)
 }
 const checkCorePath = async () => {
   const res = await runEasyTierCli(['-V'])
@@ -193,7 +255,6 @@ const checkUpdate = async () => {
     })
     data = await response.json()
   } catch {
-    console.log('获取新版本失败')
     ElNotification({
       title: t('common.reminder'),
       message: '获取新版本失败',
@@ -233,6 +294,10 @@ const checkUpdate = async () => {
 // }
 
 onMounted(async () => {
+  // init settings
+  minimizeOnStart.value = getStorage('settings.minimizeOnStart') === 'true'
+  autoRunNetwork.value = getStorage('settings.autoRunNetwork') === 'true' // 新增
+
   const ver = await runEasyTierCli(['-V'])
   if (ver && ver !== 403) {
     form.coreVersion = ver
@@ -291,9 +356,9 @@ onMounted(async () => {
           <el-button type="primary" @click="openCorePath"
             >{{ t('easytier.openCorePath') }}
           </el-button>
-          <el-button type="info" @click="openConfigPath">{{
-            t('easytier.openConfigPath')
-          }}</el-button>
+          <el-button type="info" @click="openConfigPath"
+            >{{ t('easytier.openConfigPath') }}
+          </el-button>
         </el-descriptions-item>
 
         <el-descriptions-item>
@@ -418,6 +483,21 @@ onMounted(async () => {
             {{ t('easytier.feedback') }}
           </el-button>
         </el-descriptions-item>
+
+        <!-- 启动设置 -->
+        <el-card class="box-card" style="margin-bottom: 20px">
+          <template #header>
+            <div class="card-header">
+              <span>启动设置</span>
+            </div>
+          </template>
+          <el-form-item :label="'启动后最小化'">
+            <el-switch v-model="minimizeOnStart" @change="handleMinimizeChange" />
+          </el-form-item>
+          <el-form-item :label="'启动后自动运行网络'">
+            <el-switch v-model="autoRunNetwork" @change="handleAutoRunNetworkChange" />
+          </el-form-item>
+        </el-card>
 
         <el-descriptions-item>
           <template #label>

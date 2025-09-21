@@ -63,8 +63,8 @@ interface FormData {
   console_logger: Partial<ConsoleLogger> | any
   file_logger: Partial<FileLogger>
   vpn_portal_config: Partial<VpnPortalConfig> | any
-  flags: Partial<Flags>
   port_forward: { bind_addr: string; dst_addr: string; proto: string }[]
+  flags: Partial<Flags>
 }
 
 interface FormWebData {

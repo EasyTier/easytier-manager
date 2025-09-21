@@ -36,6 +36,11 @@ import App from './App.vue'
 
 import './permission'
 import { clearLogs } from './utils/fileUtil'
+import { useStorage } from '@/hooks/web/useStorage'
+import { useEasyTierStore } from '@/store/modules/easytier'
+
+// 引入 Tauri API
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 // 创建实例
 const setupAll = async () => {
@@ -47,6 +52,8 @@ const setupAll = async () => {
 
   setupStore(app)
 
+  const easyTierStore = useEasyTierStore()
+
   setupGlobCom(app)
 
   setupElementPlus(app)
@@ -56,6 +63,22 @@ const setupAll = async () => {
   setupPermission(app)
 
   app.mount('#app')
+
+  // 检查启动设置
+  const { getStorage } = useStorage('localStorage')
+
+  // 1. 启动后最小化
+  if (getStorage('settings.minimizeOnStart') === 'true') {
+    // 延迟一下确保窗口已经创建
+    setTimeout(() => {
+      getCurrentWindow().hide()
+    }, 100)
+  }
+
+  // 2. 启动后自动运行网络
+  if (getStorage('settings.autoRunNetwork') === 'true') {
+    easyTierStore.autorun()
+  }
 }
 
 setupAll()

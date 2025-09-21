@@ -150,8 +150,8 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
     })
     info(`运行结果：${res}`)
     return res
-  } catch (error) {
-    console.error('运行 easytier-core失败:', error)
+  } catch (e) {
+    error(`运行 easytier-core失败:${JSON.stringify(e)}`)
     return 403
   }
 }
@@ -166,8 +166,8 @@ export async function runEasyTierCoreWeb(url: string): Promise<any> {
     })
     info(`运行结果：${res}`)
     return res
-  } catch (error) {
-    console.error('运行 easytier-core失败:', error)
+  } catch (e) {
+    error(`运行 easytier-core失败:${JSON.stringify(e)}`)
     return 403
   }
 }
@@ -182,8 +182,8 @@ export async function runEasyTierCli(args: string[]): Promise<any> {
     //   program,
     //   args
     // })
-  } catch (error) {
-    console.error('获取结果失败:', error)
+  } catch (e) {
+    error(`获取结果失败:${JSON.stringify(e)}`)
     return 403
   }
 }
@@ -195,8 +195,8 @@ export async function runCmd(args: string[]): Promise<any> {
       program,
       args
     })
-  } catch (error) {
-    console.error('获取结果失败:', error)
+  } catch (e) {
+    error(`获取结果失败:${JSON.stringify(e)}`)
     return 403
   }
 }
@@ -241,10 +241,14 @@ export async function killProcess(pid: number, force: boolean = true): Promise<b
 
 // 停止所有节点
 export async function stopAllNodes() {
-  const processList = await getRunningProcesses('easytier-core')
-  processList.forEach(async (process) => {
-    await killProcess(process.pid)
-  })
+  try {
+    const processList = await getRunningProcesses('easytier-core')
+    processList.forEach(async (process) => {
+      await killProcess(process.pid)
+    })
+  } catch (e) {
+    error(`停止所有节点失败:${e}`)
+  }
 }
 
 // Linux/macOS 下使用 sudo 的示例
@@ -311,6 +315,10 @@ export const getRunningProcesses = async (
 
     executeCmd(program, args, { encoding })
       .then((result) => {
+        if (result.code === 0) {
+          resolve(processInfo)
+          return
+        }
         if (platform === 'windows') {
           // 解析 PowerShell 的 CSV 输出
           const lines = result.trim().split('\n').slice(1) // 去掉标题行

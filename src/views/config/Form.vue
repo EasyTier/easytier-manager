@@ -63,14 +63,19 @@
         </el-col>
       </el-row>
       <el-row>
-        <el-col :md="12" :sm="12" :xs="12">
+        <el-col :md="8" :sm="8" :xs="8">
           <el-form-item :label="t('easytier.dhcp')" prop="dhcp">
             <el-switch v-model="localFormData.dhcp" />
           </el-form-item>
         </el-col>
-        <el-col :md="12" :sm="12" :xs="12">
+        <el-col :md="8" :sm="8" :xs="8">
           <el-form-item :label="t('easytier.ipv4Vir')" prop="ipv4">
             <el-input v-model="localFormData.ipv4" type="text" :disabled="ipv4Disabled" clearable />
+          </el-form-item>
+        </el-col>
+        <el-col :md="8" :sm="8" :xs="8">
+          <el-form-item :label="t('easytier.ipv6Vir')" prop="ipv4">
+            <el-input v-model="localFormData.ipv6" type="text" :disabled="ipv4Disabled" clearable />
           </el-form-item>
         </el-col>
       </el-row>
@@ -577,10 +582,34 @@
           </el-tooltip>
         </el-col>
       </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="TCP port whitelist. Supports single ports (80) and ranges (8000-9000) 2.4以上版本支持"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.tcp_whitelist')" prop="tcp_whitelist">
+              <el-input v-model="localFormData.tcp_whitelist" type="text" clearable />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="UDP port whitelist. Supports single ports (53) and ranges (5000-6000) 2.4以上版本支持"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.udp_whitelist')" prop="udp_whitelist">
+              <el-input v-model="localFormData.udp_whitelist" type="text" clearable />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
       <el-divider direction="horizontal">端口转发</el-divider>
       <el-row>
         <el-col :span="24">
-          <el-form-item>
+          <el-form-item label-width="0">
             <el-table :data="localFormData.port_forward" style="width: 100%">
               <el-table-column prop="proto" :label="t('easytier.protocol')">
                 <template #default="scope">
@@ -590,14 +619,14 @@
                   </el-select>
                 </template>
               </el-table-column>
-              <el-table-column prop="src_port" :label="t('easytier.src_port')">
+              <el-table-column prop="bind_addr" :label="t('easytier.bind_addr')">
                 <template #default="scope">
-                  <el-input-number v-model="scope.row.src_port" :min="1" :max="65535" />
+                  <el-input v-model="scope.row.bind_addr" type="text" clearable />
                 </template>
               </el-table-column>
-              <el-table-column prop="dest_addr" :label="t('easytier.dest_addr')">
+              <el-table-column prop="dst_addr" :label="t('easytier.dst_addr')">
                 <template #default="scope">
-                  <el-input v-model="scope.row.dest_addr" type="text" clearable />
+                  <el-input v-model="scope.row.dst_addr" type="text" clearable />
                 </template>
               </el-table-column>
               <el-table-column :label="t('common.action')">
@@ -612,7 +641,7 @@
         </el-col>
       </el-row>
       <el-row justify="center">
-        <el-col :span="24">
+        <el-col :span="24" class="flex justify-center text-center">
           <el-form-item>
             <el-button type="primary" @click="addPortForward">
               {{ t('easytier.add_port_forward') }}
@@ -658,14 +687,7 @@ const rules = ref<FormRules>({
       message: '允许：字母 数字 _ -'
     }
   ],
-  instance_name: [
-    { required: true, trigger: ['blur', 'change'], message: '请输入实例名' },
-    {
-      pattern: /^[^一-龥]+$/,
-      trigger: ['blur', 'change'],
-      message: '允许：字母 数字 _ -'
-    }
-  ],
+  instance_name: [{ required: true, trigger: ['blur', 'change'], message: '请输入实例名' }],
   'network_identity.network_name': [
     {
       pattern: /^[^一-龥]+$/,
@@ -906,8 +928,8 @@ const addPortForward = () => {
   }
   localFormData.value.port_forward.push({
     proto: 'tcp',
-    src_port: 0,
-    dest_addr: ''
+    bind_addr: '0.0.0.0:12345',
+    dst_addr: '10.126.126.1:23456'
   })
 }
 

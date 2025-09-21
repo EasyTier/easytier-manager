@@ -580,13 +580,10 @@ export default {
   },
   easytier: {
     id: 'ID',
-    port_forward: 'Port Forward',
-    bind_addr: 'Bind Address',
-    dst_addr: 'Destination Address',
-    proxy_forward_by_system: 'System Proxy Forward',
     peerId: 'Peer ID',
     peerInfo: 'Peer Info',
     ipv4Vir: 'virtual ipv4',
+    ipv6Vir: 'virtual ipv6',
     ipv4Local: 'local ipv4',
     ipPublic: 'public ip',
     hostname: 'hostname',
@@ -711,6 +708,14 @@ export default {
     host: 'Host',
     port: 'Port',
     stopSuccess: 'Stop success',
-    stopError: 'Stop error'
+    stopError: 'Stop error',
+    startMinimized: 'Start Minimized',
+    port_forward: 'Port Forward',
+    bind_addr: 'Bind Address',
+    dst_addr: 'Destination Address',
+    proxy_forward_by_system: 'System Proxy Forward',
+    add_port_forward: 'add port forward',
+    src_port: 'src port',
+    udp_whitelist: 'UDP port whitelist'
   }
 }

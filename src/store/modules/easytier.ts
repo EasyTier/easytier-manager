@@ -1,4 +1,12 @@
-import { CORE_INFO_API, DEFAULT_VER_OPTIONS, MONITOR_LIST, USER_AGENT } from '@/constants/easytier'
+import {
+  CORE_INFO_API,
+  DEFAULT_VER_OPTIONS,
+  MONITOR_LIST,
+  PREFIX_SVC,
+  USER_AGENT
+} from '@/constants/easytier'
+import { listTomlFiles } from '@/utils/fileUtil'
+import { startServiceOnWindows } from '@/utils/shellUtil'
 import { resourceDir } from '@tauri-apps/api/path'
 import { fetch } from '@tauri-apps/plugin-http'
 import dayjs from 'dayjs'
@@ -189,6 +197,16 @@ export const useEasyTierStore = defineStore(
     const setSelectedColumns = (list) => {
       selectedColumns.value = list
     }
+    const autorun = async () => {
+      const autoRun = localStorage.getItem('settings.autoRun')
+      if (autoRun === 'true') {
+        const fileList = await listTomlFiles()
+        for (const f of fileList) {
+          const configName = f.replace('.toml', '')
+          await startServiceOnWindows(PREFIX_SVC + configName)
+        }
+      }
+    }
     return {
       configPath,
       configList,
@@ -225,7 +243,8 @@ export const useEasyTierStore = defineStore(
       setConfigPath,
       getCoreReleaseInfo,
       getPublicPeerList,
-      setSelectedColumns
+      setSelectedColumns,
+      autorun
     }
   },
   {

@@ -7,6 +7,7 @@ const defaultFormData: FormData | any = {
   },
   dhcp: true,
   ipv4: undefined,
+  ipv6: undefined,
   peer: [{ uri: undefined }],
   listeners: [],
   mapped_listeners: [],
@@ -14,6 +15,8 @@ const defaultFormData: FormData | any = {
   proxy_network: [{ cidr: undefined }],
   exit_nodes: [],
   rpc_portal: '0.0.0.0:15888',
+  tcp_whitelist: [],
+  udp_whitelist: [],
   console_logger: { level: undefined },
   file_logger: {
     level: 'error',
@@ -45,7 +48,8 @@ const defaultFormData: FormData | any = {
     disable_kcp_input: false,
     enable_kcp_proxy: false,
     accept_dns: false,
-    private_mode: false
+    private_mode: false,
+    foreign_relay_bps_limit: undefined
   }
 }
 const defaultFormWebData: FormWebData = {

@@ -125,7 +125,6 @@ const getWebList = async () => {
       item.status = '运行中'
     }
     const status = await checkServiceOnWindows(PREFIX_SVC_WEB + item.configFileName)
-    console.log('status', status)
     const serviceStatus = serviceStatusDict(status)
     if (serviceStatus) {
       item.status = serviceStatus
@@ -183,7 +182,7 @@ const runWeb = async (row: any) => {
   if (row.webStartMethod === 1) {
     url = row.userName
   } else {
-    url = `udp://${row.host}:${row.port}/${row.userName}`
+    url = `${row.protocol}://${row.host}:${row.port}/${row.userName}`
   }
   // 执行 命令 easytier-core --config-server udp://服务器IP:端口/用户名
   const pid = await runEasyTierCoreWeb(url)
@@ -440,6 +439,13 @@ onMounted(async () => {
           align="center"
           show-overflow-tooltip
         />
+        <!--        <el-table-column
+                  prop="protocol"
+                  label="协议"
+                  header-align="center"
+                  align="center"
+                  show-overflow-tooltip
+                />-->
         <el-table-column
           prop="host"
           label="主机"

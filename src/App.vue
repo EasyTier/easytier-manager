@@ -6,7 +6,7 @@ import { useEasyTierStore } from '@/store/modules/easytier'
 import { useTrayStore } from '@/store/modules/trayStore'
 import { checkDir } from '@/utils/fileUtil'
 import { restoreStateCurrent, StateFlags } from '@tauri-apps/plugin-window-state'
-import { computed, onBeforeMount } from 'vue'
+import { computed, onBeforeMount, onMounted } from 'vue'
 
 const { getPrefixCls } = useDesign()
 
@@ -25,6 +25,16 @@ onBeforeMount(async () => {
   restoreStateCurrent(StateFlags.ALL)
   checkDir()
   easytierStore.setConfigPath()
+})
+
+import { emit } from '@tauri-apps/api/event'
+
+onMounted(() => {
+  easytierStore.autorun()
+  // 发送事件通知后端，前端已准备就绪
+  emit('frontend-ready').catch((e) => {
+    console.error('Failed to emit frontend-ready event:', e)
+  })
 })
 </script>
 

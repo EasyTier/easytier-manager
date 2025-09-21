@@ -574,6 +574,7 @@ export default {
     peerId: '节点ID',
     peerInfo: '当前节点信息',
     ipv4Vir: '虚拟IPv4',
+    ipv6Vir: '虚拟IPv6',
     ipv4Local: '本地IPv4',
     ipPublic: '公网IP',
     hostname: '主机名',
@@ -715,6 +716,9 @@ export default {
     proxy_forward_by_system: '内核转发子网代理',
     add_port_forward: '添加端口转发',
     src_port: '源端口',
-    dest_addr: '目标地址'
+    bind_addr: '源地址',
+    dst_addr: '目标地址',
+    startMinimized: '启动最小化到托盘',
+    tcp_whitelist: 'TCP 端口白名单'
   }
 }
