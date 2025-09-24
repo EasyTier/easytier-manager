@@ -205,15 +205,14 @@ const getNatType = (natType: string) => {
   }
 }
 const getNodeInfo = async () => {
-  await sleep(3000)
   const maxRetry = 10
   let retryTime = 1
   while (true) {
-    if (easyTierStore.stopLoop || retryTime > maxRetry) {
+    if (easyTierStore.stopLoop || retryTime >= maxRetry) {
       break
     }
     const res = await runEasyTierCli(['--output', 'json', 'node'])
-    if (res === 403) {
+    if (res.code === 403) {
       easyTierStore.setStopLoop(true)
       runningTag2.value = false
     }
@@ -222,9 +221,9 @@ const getNodeInfo = async () => {
       continue
     }
     if (
-      nodeInfo.value['Virtual IP'] &&
-      nodeInfo.value['Public IP'] &&
-      nodeInfo.value['UDP Stun Type']
+      nodeInfo.value['ipv4_addr'] &&
+      nodeInfo.value['stun_info']['udp_nat_type'] &&
+      nodeInfo.value['stun_info']['public_ip'].length > 0
     ) {
       retryTime = maxRetry
     }
@@ -253,7 +252,7 @@ const getPeerInfo = async () => {
       'json',
       'peer'
     ])
-    if (res === 403) {
+    if (res.code === 403) {
       easyTierStore.setStopLoop(true)
       easyTierStore.removeRunningList(currentNodeKey.value.configFileName)
       runningTag2.value = false
@@ -274,13 +273,16 @@ const getPeerInfo = async () => {
     peerInfo.value.forEach((value) => {
       if (value.ipv4 && value.ipv4.includes('/')) {
         value.ipv4 = value.ipv4.split('/')[0]
-      } else {
-        if (value.cost.trim() !== 'Local') {
-          const suffixName = value.hostname ? value.hostname.split('_')[1] : ''
-          value.ipv4 = '服务器' + suffixName
-        }
       }
-
+      if (value.hostname && value.hostname.includes('PublicServer_')) {
+        value.hostname = value.hostname.replace('PublicServer_', '')
+        value.ipv4 = '服务器'
+      }
+      // 暂时无法判断是否服务器
+      // if (value.cost.trim() !== 'Local') {
+      //     const suffixName = value.hostname ? value.hostname.split('_')[1] : ''
+      //     value.ipv4 = '服务器' + suffixName
+      //   }
       value.cost = routeCost(value.cost)
       value.nat_type = getNatType(value.nat_type)
       value.delayColor = getDelayColor(value.lat_ms)
@@ -329,7 +331,7 @@ const startAction = async () => {
       // 暂时不再自动展开
       // descriptionCollapse.value = true
       trayStore.setTrayTooltip('当前运行配置：' + currentNodeKey.value.configFileName)
-      // runningTag.value = true
+      runningTag2.value = true
     })
     .catch(() => {
       runningTag2.value = false
@@ -421,7 +423,7 @@ const wordWrapChange = (val: any) => {
 }
 const checkCore = async () => {
   const res = await runEasyTierCli(['-V'])
-  if (res === 403) {
+  if (res.code === 403) {
     ElMessageBox.alert(
       'easytier-core 或 easytier-cli 不存在或无可执行权限，请到设置页下载安装，或授予可执行权限<br><b>使用：</b><br>1.先到设置检测内核是否存在；<br>2.配置页新建组网配置；<br>3.工作台运行配置',
       t('common.reminder'),
@@ -623,7 +625,11 @@ onMounted(async () => {
         >
           <template #default="{ row }">
             <span>{{ row.ipv4 }}&nbsp;</span>
-            <el-icon v-if="row.ipv4" @click.stop="copyIp(row.ipv4)" size="14">
+            <el-icon
+              v-if="row.ipv4 && row.ipv4 !== '服务器'"
+              @click.stop="copyIp(row.ipv4)"
+              size="14"
+            >
               <CopyDocument />
             </el-icon>
           </template>

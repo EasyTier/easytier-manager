@@ -42,7 +42,10 @@ export async function executeCmd(
     if ((output.code && output.code !== 0) || output.stderr) {
       error(`执行参数:${JSON.stringify(args)}`)
       error(`执行程序失败:${output.stderr || '未知错误'}`)
-      return output.stderr.trim() || output.stdout.trim() || output
+      return {
+        code: JSON.parse(output.stdout || '{}').code || 403,
+        msg: output.stderr.trim() || output.stdout.trim() || output
+      }
     }
     return output.stdout.trim() || output
   } catch (e: any) {
