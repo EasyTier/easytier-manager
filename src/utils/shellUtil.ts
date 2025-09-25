@@ -315,7 +315,8 @@ export const getRunningProcesses = async (
       `.trim()
 
       program = 'powershell'
-      args = ['-Command', psCommand]
+      // 可选 ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCommand]
+      args = ['-NoProfile', '-Command', psCommand]
       encoding = 'gbk'
     } else if (platform === 'macos' || platform === 'linux') {
       // macOS 和 Linux 使用 ps 命令
