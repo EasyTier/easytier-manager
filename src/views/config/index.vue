@@ -1,5 +1,4 @@
 <script setup lang="tsx">
-import { BaseButton } from '@/components/Button'
 import { CodeEditor } from '@/components/CodeEditor'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Dialog } from '@/components/Dialog'
@@ -554,31 +553,62 @@ onMounted(async () => {
 <template>
   <div class="flex w-100% h-100%">
     <ContentWrap class="flex-[3]">
-      <div class="mb-10px">
-        <el-button type="primary" @click="AddAction">{{ t('easytier.addNetConfig') }}</el-button>
-        <el-button color="#48D1CC" @click="AddFormAction"
-          >{{ t('easytier.addNetConfigForm') }}
-        </el-button>
-        <el-button type="info" @click="createServerConfig" style="margin-left: 10px">
-          {{ t('easytier.createServerConfig') }}
-        </el-button>
-        <!-- <BaseButton type="info" @click="quickAction">{{ t('easytier.quickAction') }}</BaseButton> -->
-        <BaseButton type="success" @click="refreshAction">{{ t('common.refresh') }}</BaseButton>
+      <div class="flex items-center justify-between gap-12px mb-15px">
+        <div class="flex">
+          <el-button-group>
+            <el-button type="primary" @click="AddAction">
+              <Icon icon="ep:plus" class="mr-4px" />
+              {{ t('easytier.addNetConfig') }}
+            </el-button>
+            <el-button color="#48D1CC" @click="AddFormAction">
+              <Icon icon="ep:document" class="mr-4px" />
+              {{ t('easytier.addNetConfigForm') }}
+            </el-button>
+            <el-button type="info" @click="createServerConfig">
+              <Icon icon="ep:set-up" class="mr-4px" />
+              {{ t('easytier.createServerConfig') }}
+            </el-button>
+          </el-button-group>
+        </div>
+        <div class="flex">
+          <el-button type="success" plain @click="refreshAction">
+            <Icon icon="ep:refresh" class="mr-4px" />
+            {{ t('common.refresh') }}
+          </el-button>
+        </div>
       </div>
-      <el-text v-if="noWMIC" type="warning" effect="dark"
-        >当前系统没有 wmic
-        命令，建议安装服务，使用配置页面的服务启动停止组网，工作台的状态可能不准，或者忽略工作台的状态显示，只要表格有数据更新出来就是运行成功。<br
-      /></el-text>
-      <el-text v-if="easyTierStore.os === 'windows'" type="info" effect="dark"
-        >安装服务前检查程序尽量不要放在含有空格、中文路径的目录下；如果组网是由服务启动的，则只能使用启动服务和停止服务，无法使用首页的启动和停止
-      </el-text>
+
+      <div>
+        <el-alert
+          v-if="noWMIC"
+          title="系统限制提示"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="mb-10px"
+        >
+          <template #default>
+            当前系统没有 wmic
+            命令，建议安装服务，使用配置页面的服务启动停止组网，工作台的状态可能不准。
+          </template>
+        </el-alert>
+        <el-text v-if="noWMIC" type="warning" effect="dark"
+          >当前系统没有 wmic
+          命令，建议安装服务，使用配置页面的服务启动停止组网，工作台的状态可能不准，或者忽略工作台的状态显示，只要表格有数据更新出来就是运行成功。<br
+        /></el-text>
+        <el-text v-if="easyTierStore.os === 'windows'" type="info" effect="dark"
+          >安装服务前检查程序尽量不要放在含有空格、中文路径的目录下；如果组网是由服务启动的，则只能使用启动服务和停止服务，无法使用首页的启动和停止
+        </el-text>
+      </div>
+
       <el-table
         :data="easyTierStore.configList"
-        height="60vh"
+        height="calc(100vh - 280px)"
         table-layout="fixed"
         empty-text="No Data"
         border
         stripe
+        class="config-table"
       >
         <el-table-column
           type="index"
@@ -595,155 +625,212 @@ onMounted(async () => {
           align="center"
           show-overflow-tooltip
           sortable
-        />
+        >
+          <template #default="{ row }">
+            <span class="font-600">{{ row.configFileName }}</span>
+          </template>
+        </el-table-column>
         <el-table-column
           prop="serviceStatus"
           label="服务状态"
           header-align="center"
           align="center"
-          show-overflow-tooltip
-          sortable
+          width="120"
           v-if="easyTierStore.os === 'windows'"
         >
           <template #default="{ row }">
-            <el-text v-if="row.serviceStatus === '运行中'" type="success" effect="dark">
+            <el-tag
+              v-if="row.serviceStatus === '运行中'"
+              type="success"
+              effect="dark"
+              round
+              size="small"
+            >
               {{ row.serviceStatus }}
-            </el-text>
-            <el-text v-else-if="row.serviceStatus === '停止'" type="info" effect="dark">
+            </el-tag>
+            <el-tag
+              v-else-if="row.serviceStatus === '停止'"
+              type="info"
+              effect="plain"
+              round
+              size="small"
+            >
               {{ row.serviceStatus }}
-            </el-text>
-            <el-text v-else>{{ row.serviceStatus }}</el-text>
+            </el-tag>
+            <el-tag v-else type="warning" effect="light" round size="small">
+              {{ row.serviceStatus || '未知' }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" header-align="center" align="center">
+        <el-table-column label="配置管理" width="240" header-align="center" align="center">
           <template #default="{ row }">
-            <BaseButton type="primary" size="small" @click="edit(row)">
-              {{ t('easytier.editNetConfig') }}
-            </BaseButton>
-            <BaseButton type="primary" size="small" @click="editForm(row)">
-              {{ t('easytier.editNetConfigForm') }}
-            </BaseButton>
-            <BaseButton type="danger" size="small" @click="delConfig(row)">
-              {{ t('exampleDemo.del') }}
-            </BaseButton>
+            <div class="flex justify-center">
+              <el-button type="primary" size="small" @click="edit(row)">
+                <Icon icon="ep:edit" class="mr-2px" />
+                {{ t('easytier.editNetConfig') }}
+              </el-button>
+              <el-button type="success" size="small" @click="editForm(row)">
+                <Icon icon="ep:document" class="mr-2px" />
+                {{ t('easytier.editNetConfigForm') }}
+              </el-button>
+              <el-button type="danger" size="small" @click="delConfig(row)">
+                <Icon icon="ep:delete" class="mr-2px" />
+                {{ t('exampleDemo.del') }}
+              </el-button>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
           label="服务操作"
-          width="240"
+          width="150"
           header-align="center"
           align="center"
           v-if="easyTierStore.os === 'windows'"
         >
           <template #default="{ row }">
-            <el-row justify="center" class="mb-1">
-              <BaseButton type="success" size="small" @click="startServiceHandle(row)">
-                {{ t('easytier.startService') }}
-              </BaseButton>
-              <BaseButton type="warning" size="small" @click="stopServiceHandle(row)">
-                {{ t('easytier.stopService') }}
-              </BaseButton>
-            </el-row>
-            <el-row justify="center">
-              <BaseButton type="primary" size="small" @click="installServiceHandle(row)">
-                {{ t('easytier.installService') }}
-              </BaseButton>
-              <BaseButton type="danger" size="small" @click="uninstallServiceHandle(row)">
-                {{ t('easytier.uninstallService') }}
-              </BaseButton>
-            </el-row>
+            <div class="flex flex-col gap-5px">
+              <div class="flex justify-center gap-5px">
+                <el-button
+                  type="success"
+                  size="small"
+                  plain
+                  @click="startServiceHandle(row)"
+                  :disabled="row.serviceStatus === '运行中' || row.serviceStatus === '未安装'"
+                >
+                  启动
+                </el-button>
+                <el-button
+                  type="warning"
+                  size="small"
+                  plain
+                  @click="stopServiceHandle(row)"
+                  :disabled="row.serviceStatus === '停止' || row.serviceStatus === '未安装'"
+                >
+                  停止
+                </el-button>
+              </div>
+              <div class="flex justify-center gap-5px">
+                <el-button
+                  type="primary"
+                  size="small"
+                  link
+                  @click="installServiceHandle(row)"
+                  :disabled="row.serviceStatus !== '未安装'"
+                >
+                  安装服务
+                </el-button>
+                <el-button
+                  type="danger"
+                  size="small"
+                  link
+                  @click="uninstallServiceHandle(row)"
+                  :disabled="row.serviceStatus === '未安装'"
+                >
+                  卸载服务
+                </el-button>
+              </div>
+            </div>
           </template>
         </el-table-column>
       </el-table>
-      <div class="mt-3">
+      <div class="mt-20px flex justify-end">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 30, 40, 50, 100]"
-          :background="false"
-          layout="sizes, prev, pager, next, jumper, ->, total"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
           :total="total"
         />
       </div>
     </ContentWrap>
 
-    <Dialog v-model="dialogVisible" :title="dialogTitle" maxHeight="68vh">
-      <div style="display: inline; text-align: center; justify-content: center">
+    <Dialog v-model="dialogVisible" :title="dialogTitle" width="80%" maxHeight="68vh">
+      <div class="mb-20px">
         <el-form-item
           label="配置名称"
-          prop="configFileName"
-          class="ml-20 mr-10"
           :validate-status="errorMessage ? 'error' : ''"
           :error="errorMessage"
         >
-          <el-tooltip
-            trigger="click"
-            content="将作为配置文件名、服务名，最好使用字母、数字、-、_"
-            placement="top"
-          >
-            <Icon icon="memory:tooltip-start-alert" />
-          </el-tooltip>
           <el-input
             v-model="configFileName"
-            type="text"
-            style="width: 80%"
+            placeholder="请输入配置名称 (字母、数字、-、_)"
+            style="width: 100%"
             :disabled="actionType === 'edit'"
             @blur="checkConfigFileName"
             @change="configFileNameChange"
             clearable
-          />
+          >
+            <template #prefix>
+              <Icon icon="ep:collection-tag" />
+            </template>
+            <template #append>
+              <el-tooltip content="将作为配置文件名和服务名" placement="top">
+                <Icon icon="ep:info-filled" class="cursor-pointer" />
+              </el-tooltip>
+            </template>
+          </el-input>
         </el-form-item>
       </div>
-      <Form v-if="editType === 'form'" v-model:form-data="formData" ref="formRef" />
-      <div class="edit-container h-60vh" v-if="editType !== 'form'">
-        <CodeEditor
-          ref="MonacoEditRef"
-          v-model="dataConfig"
-          language="toml"
-          :languageSelector="false"
-          :themeSelector="false"
-        />
-      </div>
-      <template #footer>
-        <div style="text-align: left">
-          <span style="font-size: 10px; color: gray">部分字段点击名称或者输入选择会有提示</span>
+
+      <div class="dialog-content">
+        <Form v-if="editType === 'form'" v-model:form-data="formData" ref="formRef" />
+        <div
+          class="edit-container h-60vh border-1px border-solid border-[var(--el-border-color)]"
+          v-else
+        >
+          <CodeEditor
+            ref="MonacoEditRef"
+            v-model="dataConfig"
+            language="toml"
+            :languageSelector="false"
+            :themeSelector="false"
+          />
         </div>
-        <!-- <el-text v-if="editType === 'form'">请注意：如果使用表单编辑，会导致注释丢失 </el-text> -->
-        <BaseButton
-          v-if="actionType === 'add'"
-          type="primary"
-          :loading="saveLoading"
-          @click="addConfigAction"
-        >
-          {{ t('exampleDemo.add') }}
-        </BaseButton>
-        <BaseButton
-          v-if="actionType === 'edit'"
-          type="primary"
-          :loading="saveLoading"
-          @click="saveConfigAction"
-        >
-          {{ t('exampleDemo.save') }}
-        </BaseButton>
-        <BaseButton @click="dialogVisible = false">{{ t('dialogDemo.close') }}</BaseButton>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-between items-center w-100%">
+          <div class="text-12px text-[var(--el-text-color-secondary)]">
+            <Icon icon="ep:info-filled" class="mr-4px" />
+            部分字段点击名称或输入时会有提示
+          </div>
+          <div class="flex gap-10px">
+            <el-button @click="dialogVisible = false">{{ t('dialogDemo.close') }}</el-button>
+            <el-button
+              v-if="actionType === 'add'"
+              type="primary"
+              :loading="saveLoading"
+              @click="addConfigAction"
+            >
+              {{ t('exampleDemo.add') }}
+            </el-button>
+            <el-button
+              v-if="actionType === 'edit'"
+              type="primary"
+              :loading="saveLoading"
+              @click="saveConfigAction"
+            >
+              {{ t('exampleDemo.save') }}
+            </el-button>
+          </div>
+        </div>
       </template>
     </Dialog>
-    <!-- <Dialog v-model="quickDialogVisible" :title="dialogTitle">
-      <div class="flex justify-center items-center">
-        <el-button type="primary" size="large" @click="createServerConfig">{{
-          t('easytier.createServerConfig')
-        }}</el-button>
-      </div>
-    </Dialog> -->
   </div>
 </template>
-<style lang="less">
-// .@{elNamespace}-dialog {
-//   --el-dialog-width: 70%;
-// }
 
-.el-table__header {
-  width: 100% !important;
-  text-align: center;
+<style lang="less" scoped>
+.config-table {
+  :deep(.el-table__header) {
+    th {
+      font-weight: 700;
+      background-color: var(--el-fill-color-light);
+    }
+  }
+}
+
+.dialog-content {
+  margin-top: 10px;
 }
 </style>

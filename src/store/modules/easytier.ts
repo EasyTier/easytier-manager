@@ -29,6 +29,10 @@ export const useEasyTierStore = defineStore(
     const stopSetRoute = ref(false)
     // 是否 通知 全部节点建立 P2P 连接  true:通知  false:不同值
     const p2pNotify = ref(true)
+    // P2P 通知设置 true:开启  false:关闭
+    const p2pNotifySetting = ref(true)
+    // 锁定密码
+    const lockPassword = ref('')
     // 启动直接报错提示
     const errRunNotify = ref(true)
     const defaultFormData = ref()
@@ -97,6 +101,9 @@ export const useEasyTierStore = defineStore(
     }
     const setP2pNotify = (flag) => {
       p2pNotify.value = flag
+    }
+    const setP2pNotifySetting = (flag) => {
+      p2pNotifySetting.value = flag
     }
     const setDefaultFormData = (data) => {
       defaultFormData.value = data
@@ -202,6 +209,8 @@ export const useEasyTierStore = defineStore(
       stopLoop,
       stopSetRoute,
       p2pNotify,
+      p2pNotifySetting,
+      lockPassword,
       defaultFormData,
       errRunNotify,
       os,
@@ -220,6 +229,7 @@ export const useEasyTierStore = defineStore(
       getLastRunConfigName,
       setStopLoop,
       setP2pNotify,
+      setP2pNotifySetting,
       setDefaultFormData,
       setErrRunNotify,
       setOs,

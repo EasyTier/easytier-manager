@@ -101,7 +101,7 @@ export default defineComponent({
             <div
               class={[
                 `${prefixCls}-header`,
-                'relative h-50px flex justify-between items-center layout-border__bottom px-10px cursor-pointer'
+                'relative h-25px flex justify-between items-center layout-border__bottom px-10px cursor-pointer'
               ]}
               onClick={toggleClick}
             >

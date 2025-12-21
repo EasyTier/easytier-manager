@@ -30,6 +30,8 @@ const { getStorage, setStorage, clear: storageClear } = useStorage('localStorage
 
 const minimizeOnStart = ref(false)
 const autoRunNetwork = ref(false) // 新增
+const p2pNotify = ref(true)
+const lockPassword = ref('')
 
 const handleMinimizeChange = (value: boolean) => {
   setStorage('settings.minimizeOnStart', value.toString())
@@ -38,6 +40,15 @@ const handleMinimizeChange = (value: boolean) => {
 // 新增函数
 const handleAutoRunNetworkChange = (value: boolean) => {
   setStorage('settings.autoRunNetwork', value.toString())
+}
+
+const handleP2pNotifyChange = (value: boolean) => {
+  easyTierStore.setP2pNotifySetting(value)
+}
+
+const saveLockPassword = () => {
+  easyTierStore.lockPassword = lockPassword.value
+  ElMessage.success('锁定密码已保存')
 }
 
 const easyTierStore = useEasyTierStore()
@@ -52,28 +63,32 @@ const form = reactive({
   appLogLevel: ''
 })
 
-const verSelect = ref<string>('v2.1.1')
+const verSelect = ref<string>('v2.4.5')
 const verOptions = ref(cloneDeep(DEFAULT_VER_OPTIONS))
 const mirrorUrlSelect = ref<string>('')
 
 const downLoadCore = async () => {
-  const maxRetries = GITHUB_MIRROR_URL.length
-  for (let i = 0; i < GITHUB_MIRROR_URL.length; i++) {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  const mirrors = [...GITHUB_MIRROR_URL]
+  if (mirrorUrlSelect.value) {
+    mirrors.unshift({ label: '自定义', value: mirrorUrlSelect.value })
+  }
+
+  const maxRetriesPerMirror = 3
+  for (let i = 0; i < mirrors.length; i++) {
+    for (let attempt = 1; attempt <= maxRetriesPerMirror; attempt++) {
       const notification = ElNotification({
         title: '下载中',
-        message: `使用加速源 ${i + 1} (尝试 ${attempt}/${maxRetries})...`,
+        message: `使用加速源 ${mirrors[i].label} (尝试 ${attempt}/${maxRetriesPerMirror})...`,
         type: 'info',
         duration: 0
       })
       try {
+        let baseUrl = mirrors[i].value
+        if (!baseUrl.endsWith('/')) {
+          baseUrl += '/'
+        }
         const url =
-          GITHUB_MIRROR_URL[i].value +
-          GITHUB_EASYTIER +
-          GITHUB_DOWN_URL +
-          '/' +
-          verSelect.value +
-          fileName.value
+          baseUrl + GITHUB_EASYTIER + GITHUB_DOWN_URL + '/' + verSelect.value + fileName.value
         const res = await downloadFile(url)
         if (res) {
           notification.close()
@@ -86,11 +101,11 @@ const downLoadCore = async () => {
           return
         }
       } catch (error) {
-        console.error(`下载失败 (源 ${i + 1}, 尝试 ${attempt}):`, error)
+        console.error(`下载失败 (源 ${mirrors[i].label}, 尝试 ${attempt}):`, error)
       } finally {
         notification.close()
       }
-      if (attempt < maxRetries) {
+      if (attempt < maxRetriesPerMirror) {
         const delay = Math.pow(2, attempt) * 1000
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
@@ -297,6 +312,8 @@ onMounted(async () => {
   // init settings
   minimizeOnStart.value = getStorage('settings.minimizeOnStart') === 'true'
   autoRunNetwork.value = getStorage('settings.autoRunNetwork') === 'true' // 新增
+  p2pNotify.value = easyTierStore.p2pNotifySetting
+  lockPassword.value = easyTierStore.lockPassword
 
   const ver = await runEasyTierCli(['-V'])
   if (ver && ver !== 403) {
@@ -324,202 +341,252 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex w-100% h-100%">
-    <ContentWrap class="flex-[3]" :title="t('common.setting')">
-      <el-descriptions class="margin-top" :column="1" border>
-        <el-descriptions-item>
-          <template #label>
-            <div class="cell-item">
-              <Icon icon="ci:info" style="color: #8c8c8c" />
-              {{ t('easytier.coreVersion') }}
+  <div class="setting-container p-20px h-100% overflow-y-auto">
+    <ContentWrap :title="t('common.setting')">
+      <!-- 核心信息 -->
+      <el-card class="mb-20px shadow-sm">
+        <template #header>
+          <div class="flex items-center gap-8px font-600">
+            <Icon icon="ep:info-filled" class="text-primary" />
+            <span>核心程序信息</span>
+          </div>
+        </template>
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="内核版本">
+            <template #default>
+              <div class="flex items-center gap-10px">
+                <el-tag :type="form.coreVersion ? 'success' : 'danger'" effect="light">
+                  {{ form.coreVersion || '内核未安装' }}
+                </el-tag>
+                <el-button
+                  v-if="!form.coreVersion"
+                  type="primary"
+                  size="small"
+                  @click="checkCorePath"
+                >
+                  重新检测
+                </el-button>
+              </div>
+            </template>
+          </el-descriptions-item>
+          <el-descriptions-item label="核心路径">
+            <div class="flex flex-col gap-10px">
+              <div class="flex items-center gap-5px text-13px text-[var(--el-text-color-regular)]">
+                <Icon icon="heroicons:folder-solid" />
+                <span>{{ form.corePath }}</span>
+                <Icon
+                  v-if="checkCorePathSuccess"
+                  icon="lets-icons:check-fill"
+                  class="text-success"
+                />
+              </div>
+              <div class="flex gap-10px">
+                <el-button type="primary" size="small" plain @click="openCorePath">
+                  打开核心目录
+                </el-button>
+                <el-button type="info" size="small" plain @click="openConfigPath">
+                  打开配置目录
+                </el-button>
+              </div>
             </div>
-          </template>
-          {{
-            form.coreVersion
-              ? form.coreVersion
-              : '内核不存在!!! &nbsp;&nbsp;请下载安装内核，然后检测内核是否存在'
-          }}
-        </el-descriptions-item>
-        <el-descriptions-item>
-          <template #label>
-            <div class="cell-item">
-              <Icon icon="heroicons:folder-solid" style="color: #8c8c8c" />
-              {{ t('easytier.corePath') }}
-            </div>
-          </template>
-          {{ form.corePath }}
-          <Icon v-if="checkCorePathSuccess" icon="lets-icons:check-fill" style="color: #00bd16" />
-          <br />
-          <el-button type="warning" @click="checkCorePath"
-            >{{ t('easytier.checkCorePath') }}
-          </el-button>
-          <el-button type="primary" @click="openCorePath"
-            >{{ t('easytier.openCorePath') }}
-          </el-button>
-          <el-button type="info" @click="openConfigPath"
-            >{{ t('easytier.openConfigPath') }}
-          </el-button>
-        </el-descriptions-item>
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
 
-        <el-descriptions-item>
-          <template #label>
-            <div class="cell-item">
-              <Icon icon="lsicon:download-outline" />
-              {{ t('easytier.downLoadCore') }}
+      <!-- 下载安装 -->
+      <el-card class="mb-20px shadow-sm">
+        <template #header>
+          <div class="flex items-center gap-8px font-600">
+            <Icon icon="ep:download" class="text-primary" />
+            <span>内核下载与安装</span>
+          </div>
+        </template>
+        <div class="flex flex-col gap-15px">
+          <div class="text-13px text-[var(--el-text-color-secondary)] leading-22px">
+            <p>1. 选择或输入官方内核仓库的版本 (如: v2.1.1)</p>
+            <p>2. 加速链接为空时使用内置源，下载视网络情况而定</p>
+            <p>3. 下载完成后点击安装，安装成功后检测内核是否存在</p>
+          </div>
+          <div class="flex items-center gap-15px flex-wrap">
+            <div class="flex items-center gap-8px">
+              <span class="text-14px">版本:</span>
+              <el-select
+                v-model="verSelect"
+                filterable
+                allow-create
+                default-first-option
+                placeholder="选择版本"
+                style="width: 140px"
+                @change="verSelectChange"
+              >
+                <el-option
+                  v-for="item in verOptions"
+                  :key="item.name"
+                  :label="item.name"
+                  :value="item.tag_name"
+                />
+              </el-select>
             </div>
-          </template>
-          1.选择版本时可以手动输入，对应官方内核仓库的版本，例如：v2.1.1<br />
-          2.Github加速链接为空默认随机加速链接，下载视网络情况而定，一般30秒以内<br />
-          3.下载完后点击安装，安装成功后检测内核是否存在<br />
-          版本
-          <el-select
-            v-model="verSelect"
-            filterable
-            allow-create
-            default-first-option
-            :reserve-keyword="false"
-            placeholder="选择版本"
-            style="width: 120px"
-            @change="verSelectChange"
-          >
-            <el-option
-              v-for="item in verOptions"
-              :key="item.name"
-              :label="item.name"
-              :value="item.tag_name"
-            />
-          </el-select>
-          &emsp;Github加速链接
-          <el-input
-            type="text"
-            placeholder="例如:https://ghproxy.cn"
-            v-model="mirrorUrlSelect"
-            style="width: 45%; margin-left: 2px"
-            clearable
-          />
-          <br />
-          <el-button class="mt-2" type="primary" @click="downLoadCore"
-            >{{ t('easytier.rx_bytes') }}
-          </el-button>
-          <el-button class="mt-2" type="primary" @click="installCore"
-            >{{ t('easytier.installCore') }}
-          </el-button>
-        </el-descriptions-item>
-
-        <el-descriptions-item>
-          <template #label>
-            <div class="cell-item">
-              <Icon icon="icon-park-solid:log" />
-              {{ t('easytier.logPath') }}
+            <div class="flex items-center gap-8px flex-1 min-w-300px">
+              <span class="text-14px">Github 加速链接:</span>
+              <el-input
+                v-model="mirrorUrlSelect"
+                placeholder="例如: https://ghproxy.cn"
+                clearable
+                class="flex-1"
+              />
             </div>
-          </template>
-          {{ form.logPath }}<br />
-          <el-button type="primary" @click="openLogPath">{{ t('easytier.openLogPath') }}</el-button>
-          <br />
-          <!--  {{ form.logAppPath }}<br />
-                    <el-button type="primary" @click="openLogPath2"
-                      >{{ t('easytier.openAppLogPath') }}
-                    </el-button>-->
-          <!-- <el-button type="info" @click="copyLogPath">{{ t('easytier.copyLogPath') }}</el-button> -->
-        </el-descriptions-item>
-
-        <!-- <el-descriptions-item>
-          <template #label>
-            <div class="cell-item">
-              <Icon icon="icon-park-solid:log" />
-              {{ t('easytier.appLogLevel') }}
-            </div>
-          </template>
-          <el-select v-model="form.appLogLevel" style="width: 100px">
-            <el-option label="信息" value="info" />
-            <el-option label="警告" value="warn" />
-            <el-option label="调试" value="debug" />
-            <el-option label="错误" value="error" />
-            <el-option label="关闭" :value="false" />
-          </el-select>
-          <el-button type="primary" @click="changeAppLogLevel" class="ml-3"
-            >{{ t('formDemo.change') }}
-          </el-button>
-          当软件重启时会恢复默认
-        </el-descriptions-item> -->
-
-        <el-descriptions-item>
-          <template #label>
-            <div class="cell-item">
-              <Icon icon="skill-icons:github-light" />
-              {{ t('easytier.github') }}
-            </div>
-          </template>
-          {{ t('easytier.githubManage') }} :
-          <el-text type="primary" @click="openPath('https://github.com/xlc520/easytier-manager')">
-            https://github.com/xlc520/easytier-manager
-          </el-text>
-          <br />
-          {{ t('easytier.githubCore') }} :
-          <el-text type="primary" @click="openPath('https://github.com/EasyTier/EasyTier')">
-            https://github.com/EasyTier/EasyTier
-          </el-text>
-        </el-descriptions-item>
-
-        <el-descriptions-item>
-          <template #label>
-            <div class="cell-item">
-              <Icon icon="bi:window" />
-              {{ t('easytier.otherSetting') }}
-            </div>
-          </template>
-          <el-tooltip trigger="click" content="恢复窗口长宽大小" placement="top">
-            <el-button type="info" @click="restoreWinState"
-              >{{ t('easytier.restoreWinState') }}
+          </div>
+          <div class="flex gap-10px">
+            <el-button type="primary" @click="downLoadCore">
+              <Icon icon="ep:download" class="mr-4px" />
+              下载内核
             </el-button>
-          </el-tooltip>
-          <el-tooltip trigger="click" content="遇事不决，清除缓存" placement="top">
-            <el-button type="danger" @click="clearCache">{{ t('easytier.clearCache') }}</el-button>
-          </el-tooltip>
-          <el-button
-            type="primary"
-            @click="openPath('https://github.com/xlc520/easytier-manager/issues')"
-          >
-            {{ t('easytier.feedback') }}
-          </el-button>
-        </el-descriptions-item>
+            <el-button type="success" @click="installCore">
+              <Icon icon="ep:box" class="mr-4px" />
+              安装内核
+            </el-button>
+          </div>
+        </div>
+      </el-card>
 
-        <!-- 启动设置 -->
-        <el-card class="box-card" style="margin-bottom: 20px">
-          <template #header>
-            <div class="card-header">
-              <span>启动设置</span>
-            </div>
-          </template>
-          <el-form-item :label="'启动后最小化'">
+      <!-- 启动与安全设置 -->
+      <el-card class="mb-20px shadow-sm">
+        <template #header>
+          <div class="flex items-center gap-8px font-600">
+            <Icon icon="ep:operation" class="text-primary" />
+            <span>启动与安全设置</span>
+          </div>
+        </template>
+        <el-form label-width="180px" label-position="left">
+          <el-form-item label="启动后最小化到托盘">
             <el-switch v-model="minimizeOnStart" @change="handleMinimizeChange" />
+            <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
+              >开启后，启动程序将自动隐藏到系统托盘</span
+            >
           </el-form-item>
-          <el-form-item :label="'启动后自动运行网络'">
+          <el-form-item label="启动后自动运行网络">
             <el-switch v-model="autoRunNetwork" @change="handleAutoRunNetworkChange" />
+            <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
+              >开启后，启动程序将自动运行上次未停止的网络</span
+            >
           </el-form-item>
-        </el-card>
-
-        <el-descriptions-item>
-          <template #label>
-            <div class="cell-item">
-              <Icon icon="uil:info-circle" />
-              {{ t('easytier.appVersion') }}
+          <el-form-item label="P2P打洞成功通知">
+            <el-switch v-model="p2pNotify" @change="handleP2pNotifyChange" />
+            <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
+              >是否显示 P2P 打洞成功的弹窗提醒</span
+            >
+          </el-form-item>
+          <el-form-item label="访问锁定密码">
+            <div class="flex items-center gap-10px">
+              <el-input
+                v-model="lockPassword"
+                placeholder="留空表示不锁定"
+                show-password
+                style="width: 220px"
+              >
+                <template #prefix>
+                  <Icon icon="ep:lock" />
+                </template>
+              </el-input>
+              <el-button type="primary" @click="saveLockPassword">保存</el-button>
+              <span class="text-12px text-[var(--el-text-color-secondary)]"
+                >设置后，打开程序需要输入此密码</span
+              >
             </div>
-          </template>
-          {{ form.appVersion }}
-          <el-button class="ml-5" type="info" @click="checkUpdate"
-            >{{ t('easytier.checkUpdate') }}(简易版)
-          </el-button>
-        </el-descriptions-item>
-      </el-descriptions>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 日志与维护 -->
+      <el-card class="mb-20px shadow-sm">
+        <template #header>
+          <div class="flex items-center gap-8px font-600">
+            <Icon icon="ep:tools" class="text-primary" />
+            <span>日志与维护</span>
+          </div>
+        </template>
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="日志路径">
+            <div class="flex flex-col gap-10px">
+              <span class="text-13px text-[var(--el-text-color-regular)]">{{ form.logPath }}</span>
+            </div>
+            <el-button type="primary" size="small" plain @click="openLogPath">
+              打开日志目录
+            </el-button>
+          </el-descriptions-item>
+          <el-descriptions-item label="维护操作">
+            <div class="flex gap-10px">
+              <el-button type="info" size="small" @click="restoreWinState">
+                恢复窗口大小
+              </el-button>
+              <el-button type="danger" size="small" @click="clearCache"> 清除所有缓存</el-button>
+              <el-button type="primary" size="small" @click="checkUpdate"> 检查更新</el-button>
+            </div>
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <!-- 关于 -->
+      <el-card class="shadow-sm">
+        <template #header>
+          <div class="flex items-center gap-8px font-600">
+            <Icon icon="ep:link" class="text-primary" />
+            <span>关于与反馈</span>
+          </div>
+        </template>
+        <div class="flex flex-col gap-10px text-14px">
+          <div class="flex items-center gap-10px">
+            <span class="font-600">软件版本:</span>
+            <el-tag size="small">{{ form.appVersion }}</el-tag>
+          </div>
+          <div class="flex items-center gap-10px">
+            <span class="font-600">管理端开源:</span>
+            <el-link
+              type="primary"
+              :underline="false"
+              @click="openPath('https://github.com/xlc520/easytier-manager')"
+            >
+              https://github.com/xlc520/easytier-manager
+            </el-link>
+          </div>
+          <div class="flex items-center gap-10px">
+            <span class="font-600">EasyTier 内核:</span>
+            <el-link
+              type="primary"
+              :underline="false"
+              @click="openPath('https://github.com/EasyTier/EasyTier')"
+            >
+              https://github.com/EasyTier/EasyTier
+            </el-link>
+          </div>
+          <div class="mt-5px">
+            <el-button
+              type="primary"
+              link
+              @click="openPath('https://github.com/xlc520/easytier-manager/issues')"
+            >
+              提交反馈与建议
+            </el-button>
+          </div>
+        </div>
+      </el-card>
     </ContentWrap>
   </div>
 </template>
 
 <style scoped lang="less">
-.cell-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+.setting-container {
+  background-color: var(--el-fill-color-blank);
+
+  :deep(.el-card__header) {
+    padding: 12px 20px;
+    background-color: var(--el-fill-color-light);
+  }
+
+  :deep(.el-descriptions__label) {
+    width: 150px;
+    font-weight: 600;
+  }
 }
 </style>

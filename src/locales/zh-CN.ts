@@ -253,7 +253,8 @@ export default {
     dynamic: '动态',
     push: '推送',
     pushCode: 'Archer 推送 代码到 Github',
-    follow: '关注'
+    follow: '关注',
+    overview: '概览'
   },
   formDemo: {
     input: '输入框',
@@ -635,8 +636,8 @@ export default {
     stopNet: '停止当前配置',
     addNetConfig: '新增组网配置(编辑器)',
     addNetConfigForm: '新增组网配置(表单)',
-    editNetConfig: '编辑(编辑器)',
-    editNetConfigForm: '编辑(表单)',
+    editNetConfig: '编辑器',
+    editNetConfigForm: '表单',
     delNetConfig: '删除组网配置',
     reloadNetConfig: '重载组网配置',
     corePath: '内核路径',

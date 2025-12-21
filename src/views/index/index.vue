@@ -207,10 +207,16 @@ const getNatType = (natType: string) => {
 const getNodeInfo = async () => {
   const maxRetry = 10
   let retryTime = 1
+  let isFirstRun = true
   while (true) {
     if (easyTierStore.stopLoop || retryTime >= maxRetry) {
       break
     }
+    if (!isFirstRun) {
+      await sleep(10000)
+    }
+    isFirstRun = false
+
     const res = await runEasyTierCli(['--output', 'json', 'node'])
     if (res.code === 403) {
       easyTierStore.setStopLoop(true)
@@ -227,20 +233,26 @@ const getNodeInfo = async () => {
     ) {
       retryTime = maxRetry
     }
-    // nodeInfo.value = parseNodeInfo(res) as string
     nodeInfo.value = JSON.parse(res)
     runningTag2.value = true
-    await sleep(10000)
   }
 }
 const getPeerInfo = async () => {
-  await sleep(4000)
+  let isFirstRun = true
   let retryTime = 1
   while (true) {
-    // todo 可配置retryTime
     if (easyTierStore.stopLoop || retryTime > 5) {
       break
     }
+    // 如果不是第一次运行，则等待。第一次运行如果是启动后恢复状态，不需要等待太久
+    if (!isFirstRun) {
+      await sleep(5000)
+    } else {
+      // 第一次运行稍微等一下核心程序响应
+      await sleep(1000)
+      isFirstRun = false
+    }
+
     const temp = (await readFileContent(
       CONFIG_PATH + '/' + currentNodeKey.value.configFileName + '.toml'
     )) as string
@@ -289,6 +301,7 @@ const getPeerInfo = async () => {
     })
     runningTag2.value = true
     if (
+      easyTierStore.p2pNotifySetting &&
       easyTierStore.p2pNotify &&
       filter.length > 0 &&
       filter1.length > 0 &&
@@ -483,8 +496,8 @@ const selectedColumnsChange = (val) => {
 onMounted(async () => {
   // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
   await attachConsole()
-  await checkCore()
-  await getConfigList()
+  // 并行执行初始化任务
+  await Promise.all([checkCore(), getConfigList()])
   easyTierStore.loadRunningList()
   // getNodeInfo()
   // getPeerInfo()
@@ -492,6 +505,7 @@ onMounted(async () => {
   if (configName) {
     currentNodeKey.value.configFileName = configName
     currentNodeKey.value.fileName = configName + '.toml'
+    // 异步执行，不阻塞
     currentNodeKeyChange()
   }
 })
@@ -501,106 +515,115 @@ onMounted(async () => {
   <div class="flex w-100% h-100%">
     <ContentWrap class="flex-[3]">
       <Descriptions
-        :title="t('easytier.peerInfo')"
+        :title="t('workplace.overview')"
         :data="nodeInfo"
         :schema="nodeInfoSchema"
         :show="descriptionCollapse"
+        border
+        class="mb-10px"
       />
-      <small
-        >注：当前配置是否在运行，以<b>选择框后的状态或表格数据</b>为主；如果是精简魔改系统，运行状态可能不准确，有数据更新则为运行</small
+      <div
+        class="status-bar p-10px bg-[var(--el-bg-color-overlay)] border-rd-8px border-1px border-solid border-[var(--el-border-color-light)]"
       >
-      <div class="mt-3 mb-10px flex">
-        <ElSelect
-          v-model="currentNodeKey"
-          placeholder="选择配置"
-          class="mr-10px"
-          style="width: 240px"
-          default-first-option
-          value-key="configFileName"
-          @change="currentNodeKeyChange"
-        >
-          <ElOption
-            v-for="item in easyTierStore.configList"
-            :key="item.configFileName"
-            :label="item.configFileName"
-            :value="item"
-          />
-          <!--<ElOptionGroup v-for="group in allConfigOptions" :key="group.label" :label="group.label">
-          </ElOptionGroup>-->
-        </ElSelect>
-        <el-switch
-          v-model="runningTag"
-          class="mr-2 switch-color"
-          size="large"
-          inline-prompt
-          :active-text="t('easytier.running')"
-          :inactive-text="t('easytier.stopping')"
-          disabled
-        >
-          <template #active-action>
-            <span class="custom-active-action">v</span>
-          </template>
-          <template #inactive-action>
-            <span class="custom-inactive-action">×</span>
-          </template>
-        </el-switch>
-        <BaseButton type="success" @click="startAction" :disabled="runningTag || runningTag2"
-          >{{ t('easytier.startNet') }}
-        </BaseButton>
-        <BaseButton type="danger" @click="stopAction" :disabled="!runningTag && !runningTag2"
-          >{{ t('easytier.stopNet') }}
-        </BaseButton>
-        <BaseButton type="info" @click="viewLogAction">{{ t('easytier.view_log') }}</BaseButton>
-        <!-- <BaseButton type="primary" @click="refreshAction">{{ t('common.refresh') }}</BaseButton> -->
-        <div class="column-selector">
-          <!-- 弹出式列选择器 -->
-          <el-popover
-            placement="bottom-start"
-            :width="260"
-            trigger="click"
-            popper-class="column-selector-popover"
-          >
-            <template #reference>
-              <el-button type="primary" size="small" class="column-config-btn" :icon="Setting">
-                列设置
-              </el-button>
-            </template>
-
-            <div class="column-config-panel">
-              <div class="panel-header">
-                <span class="panel-title">选择要显示的列</span>
-                <div class="panel-actions">
-                  <el-button size="small" text @click="selectAllColumns"> 全选</el-button>
-                  <el-button size="small" text @click="clearAllColumns"> 清空</el-button>
-                </div>
-              </div>
-
-              <div class="column-list">
-                <el-checkbox-group
-                  v-model="easyTierStore.selectedColumns"
-                  class="column-checkbox-group"
-                  @change="selectedColumnsChange"
+        <div class="flex items-center justify-between w-100% flex-wrap gap-15px">
+          <div class="flex items-center flex-wrap gap-12px">
+            <div class="flex items-center gap-8px">
+              <span class="text-14px font-600 text-[var(--el-text-color-regular)]">选择配置:</span>
+              <ElSelect
+                v-model="currentNodeKey"
+                placeholder="请选择配置"
+                style="width: 180px"
+                value-key="configFileName"
+                @change="currentNodeKeyChange"
+              >
+                <ElOption
+                  v-for="item in easyTierStore.configList"
+                  :key="item.configFileName"
+                  :label="item.configFileName"
+                  :value="item"
+                />
+              </ElSelect>
+            </div>
+            <div class="flex items-center gap-8px">
+              <span class="text-14px font-600 text-[var(--el-text-color-regular)]">运行状态:</span>
+              <div
+                class="flex items-center px-10px py-4px border-rd-6px transition-all duration-300 bg-[var(--el-fill-color-light)] border-1px border-solid border-[var(--el-border-color-lighter)]"
+              >
+                <span
+                  class="w-8px h-8px border-rd-50% mr-8px"
+                  :class="
+                    runningTag
+                      ? 'bg-[var(--el-color-success)] shadow-[0_0_6px_var(--el-color-success)] animate-pulse'
+                      : 'bg-[var(--el-color-info)]'
+                  "
+                ></span>
+                <span
+                  class="text-13px font-600 select-none"
+                  :class="
+                    runningTag ? 'text-[var(--el-color-success)]' : 'text-[var(--el-color-info)]'
+                  "
                 >
-                  <el-checkbox
-                    v-for="item in optionalColumns"
-                    :key="item.prop"
-                    :value="item.prop"
-                    :label="item.prop"
-                    class="column-checkbox"
-                  >
-                    {{ t(item.label) }}
-                  </el-checkbox>
-                </el-checkbox-group>
-              </div>
-
-              <div class="panel-footer">
-                <span class="selected-count">
-                  已选择 {{ easyTierStore.selectedColumns.length }} /
-                  {{ optionalColumns.length }} 列
+                  {{ runningTag ? t('easytier.running') : t('easytier.stopping') }}
                 </span>
               </div>
             </div>
-          </el-popover>
+            <el-button type="success" @click="startAction" :disabled="runningTag || runningTag2">
+              {{ t('easytier.run') }}
+            </el-button>
+            <el-button type="danger" @click="stopAction" :disabled="!runningTag && !runningTag2">
+              {{ t('easytier.stop') }}
+            </el-button>
+            <el-button type="info" plain @click="viewLogAction">
+              {{ t('easytier.view_log') }}
+            </el-button>
+          </div>
+
+          <div class="flex items-center">
+            <el-popover
+              placement="bottom-end"
+              :width="260"
+              trigger="click"
+              popper-class="column-selector-popover"
+            >
+              <template #reference>
+                <el-button type="primary" :icon="Setting" size="small">
+                  {{ t('common.setting') }}
+                </el-button>
+              </template>
+              <div class="column-config-panel">
+                <div class="panel-header">
+                  <span class="panel-title">显示列设置</span>
+                  <div class="panel-actions">
+                    <el-button size="small" text @click="selectAllColumns"> 全选</el-button>
+                    <el-button size="small" text @click="clearAllColumns"> 清空</el-button>
+                  </div>
+                </div>
+                <div class="column-list">
+                  <el-checkbox-group
+                    v-model="easyTierStore.selectedColumns"
+                    class="column-checkbox-group"
+                    @change="selectedColumnsChange"
+                  >
+                    <el-checkbox
+                      v-for="item in optionalColumns"
+                      :key="item.prop"
+                      :value="item.prop"
+                      :label="item.prop"
+                      class="column-checkbox"
+                    >
+                      {{ t(item.label) }}
+                    </el-checkbox>
+                  </el-checkbox-group>
+                </div>
+                <div class="panel-footer">
+                  <span class="selected-count">
+                    已选择 {{ easyTierStore.selectedColumns.length }} /
+                    {{ optionalColumns.length }} 列
+                  </span>
+                </div>
+              </div>
+            </el-popover>
+          </div>
         </div>
       </div>
       <!-- 列选择器 -->
@@ -608,7 +631,7 @@ onMounted(async () => {
       <el-table
         :data="peerInfo"
         style="width: 100%; margin-top: 10px"
-        height="53vh"
+        height="60vh"
         :default-sort="{ prop: 'ipv4_addr', order: 'ascending' }"
         table-layout="fixed"
         :row-class-name="tableRowClassName"
