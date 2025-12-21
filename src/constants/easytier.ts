@@ -36,7 +36,14 @@ export const GITHUB_MIRROR_URL = [
     value: 'https://fastgit.cc/',
     label: 'https://fastgit.cc/'
   },
-
+  {
+    value: 'https://ghfast.top/',
+    label: 'https://ghfast.top/'
+  },
+  {
+    value: 'https://wget.la/',
+    label: 'https://wget.la/'
+  },
   {
     value: 'https://ghproxy.net/',
     label: 'https://ghproxy.net/'

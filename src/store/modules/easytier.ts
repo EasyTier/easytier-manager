@@ -31,6 +31,12 @@ export const useEasyTierStore = defineStore(
     const p2pNotify = ref(true)
     // P2P 通知设置 true:开启  false:关闭
     const p2pNotifySetting = ref(true)
+    // 启动后自动运行网络 true:开启  false:关闭
+    const autoRunNetworkSetting = ref(false)
+    // 启动后自动运行的网络配置名称
+    const autoRunConfigName = ref('')
+    // 刷新频率（秒）
+    const refreshInterval = ref(5)
     // 锁定密码
     const lockPassword = ref('')
     // 启动直接报错提示
@@ -104,6 +110,12 @@ export const useEasyTierStore = defineStore(
     }
     const setP2pNotifySetting = (flag) => {
       p2pNotifySetting.value = flag
+    }
+    const setAutoRunNetworkSetting = (flag) => {
+      autoRunNetworkSetting.value = flag
+    }
+    const setAutoRunConfigName = (name) => {
+      autoRunConfigName.value = name
     }
     const setDefaultFormData = (data) => {
       defaultFormData.value = data
@@ -210,6 +222,9 @@ export const useEasyTierStore = defineStore(
       stopSetRoute,
       p2pNotify,
       p2pNotifySetting,
+      autoRunNetworkSetting,
+      autoRunConfigName,
+      refreshInterval,
       lockPassword,
       defaultFormData,
       errRunNotify,
@@ -230,6 +245,8 @@ export const useEasyTierStore = defineStore(
       setStopLoop,
       setP2pNotify,
       setP2pNotifySetting,
+      setAutoRunNetworkSetting,
+      setAutoRunConfigName,
       setDefaultFormData,
       setErrRunNotify,
       setOs,

@@ -15,13 +15,28 @@ import {
 import { useI18n } from '@/hooks/web/useI18n'
 import { useStorage } from '@/hooks/web/useStorage'
 import { useEasyTierStore } from '@/store/modules/easytier'
-import { downloadFile, extractFile, getLogsDir, getResourceDir, openPath } from '@/utils/fileUtil'
+import {
+  downloadFile,
+  extractFile,
+  getLogsDir,
+  getResourceDir,
+  listTomlFiles,
+  openPath
+} from '@/utils/fileUtil'
 import { runEasyTierCli, stopAllNodes } from '@/utils/shellUtil'
 import { getAppVersion, getArch, getOsType } from '@/utils/sysUtil'
 import { appDataDir, appLogDir, join, resourceDir } from '@tauri-apps/api/path'
 import { fetch } from '@tauri-apps/plugin-http'
 import { useClipboard } from '@vueuse/core'
-import { ElInput, ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import {
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElMessageBox,
+  ElNotification,
+  ElOption,
+  ElSelect
+} from 'element-plus'
 import { cloneDeep, template } from 'lodash-es'
 import { onMounted, reactive, ref, unref } from 'vue'
 
@@ -29,21 +44,30 @@ const { t } = useI18n()
 const { getStorage, setStorage, clear: storageClear } = useStorage('localStorage')
 
 const minimizeOnStart = ref(false)
-const autoRunNetwork = ref(false) // 新增
+const autoRunNetwork = ref(false)
+const autoRunConfigName = ref('')
 const p2pNotify = ref(true)
+const refreshInterval = ref(5)
 const lockPassword = ref('')
 
 const handleMinimizeChange = (value: boolean) => {
   setStorage('settings.minimizeOnStart', value.toString())
 }
 
-// 新增函数
 const handleAutoRunNetworkChange = (value: boolean) => {
-  setStorage('settings.autoRunNetwork', value.toString())
+  easyTierStore.setAutoRunNetworkSetting(value)
+}
+
+const handleAutoRunConfigChange = (value: string) => {
+  easyTierStore.setAutoRunConfigName(value)
 }
 
 const handleP2pNotifyChange = (value: boolean) => {
   easyTierStore.setP2pNotifySetting(value)
+}
+
+const handleRefreshIntervalChange = (value: number) => {
+  easyTierStore.refreshInterval = value
 }
 
 const saveLockPassword = () => {
@@ -309,10 +333,27 @@ const checkUpdate = async () => {
 // }
 
 onMounted(async () => {
+  // 加载配置列表，供自动运行选择使用
+  if (easyTierStore.configList.length === 0) {
+    try {
+      const fileList = await listTomlFiles()
+      const tmpList: any = []
+      for (const f of fileList) {
+        const configName = f.replace('.toml', '')
+        tmpList.push({ configFileName: configName, fileName: f })
+      }
+      easyTierStore.setConfigList(tmpList)
+    } catch (e) {
+      console.error('获取配置异常', e)
+    }
+  }
+
   // init settings
   minimizeOnStart.value = getStorage('settings.minimizeOnStart') === 'true'
-  autoRunNetwork.value = getStorage('settings.autoRunNetwork') === 'true' // 新增
+  autoRunNetwork.value = easyTierStore.autoRunNetworkSetting
+  autoRunConfigName.value = easyTierStore.autoRunConfigName
   p2pNotify.value = easyTierStore.p2pNotifySetting
+  refreshInterval.value = easyTierStore.refreshInterval
   lockPassword.value = easyTierStore.lockPassword
 
   const ver = await runEasyTierCli(['-V'])
@@ -466,15 +507,50 @@ onMounted(async () => {
             >
           </el-form-item>
           <el-form-item label="启动后自动运行网络">
-            <el-switch v-model="autoRunNetwork" @change="handleAutoRunNetworkChange" />
-            <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
-              >开启后，启动程序将自动运行上次未停止的网络</span
-            >
+            <div class="flex flex-col gap-10px w-100%">
+              <div class="flex items-center">
+                <el-switch v-model="autoRunNetwork" @change="handleAutoRunNetworkChange" />
+                <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
+                  >开启后，启动程序将自动运行指定的或上次的网络配置</span
+                >
+              </div>
+              <div v-if="autoRunNetwork" class="flex items-center gap-10px">
+                <span class="text-12px text-[var(--el-text-color-regular)]">指定运行配置:</span>
+                <el-select
+                  v-model="autoRunConfigName"
+                  placeholder="默认运行上次配置"
+                  clearable
+                  style="width: 200px"
+                  @change="handleAutoRunConfigChange"
+                >
+                  <el-option
+                    v-for="item in easyTierStore.configList"
+                    :key="item.configFileName"
+                    :label="item.configFileName"
+                    :value="item.configFileName"
+                  />
+                </el-select>
+                <span class="text-12px text-[var(--el-text-color-secondary)]"
+                  >留空则自动运行上次未停止的网络</span
+                >
+              </div>
+            </div>
           </el-form-item>
           <el-form-item label="P2P打洞成功通知">
             <el-switch v-model="p2pNotify" @change="handleP2pNotifyChange" />
             <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
               >是否显示 P2P 打洞成功的弹窗提醒</span
+            >
+          </el-form-item>
+          <el-form-item label="工作台刷新频率">
+            <el-input-number
+              v-model="refreshInterval"
+              :min="2"
+              :max="60"
+              @change="handleRefreshIntervalChange"
+            />
+            <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
+              >工作台节点列表刷新间隔（秒），最低2秒</span
             >
           </el-form-item>
           <el-form-item label="访问锁定密码">

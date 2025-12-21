@@ -1,7 +1,7 @@
 import { CONFIG_PATH, NSSM_NAME } from '@/constants/easytier'
 import { invoke } from '@tauri-apps/api/core'
 import { join, resourceDir } from '@tauri-apps/api/path'
-import { attachConsole, debug, error, info } from '@tauri-apps/plugin-log'
+import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
 import { getCliDir, getCoreDir, getResourceDir } from './fileUtil'
 import { getPlatform, sleep } from './sysUtil'
@@ -40,8 +40,14 @@ export async function executeCmd(
     // 执行并等待完成
     const output = await command.execute()
     if ((output.code && output.code !== 0) || output.stderr) {
-      error(`执行参数:${JSON.stringify(args)}`)
-      error(`执行程序失败:${output.stderr || '未知错误'}`)
+      warn(`执行参数:${JSON.stringify(args)}`)
+      if (output.stderr.includes('由于目标计算机积极拒绝')) {
+        return {
+          code: JSON.parse(output.stdout || '{}').code || 403,
+          msg: output.stderr.trim() || output.stdout.trim() || output
+        }
+      }
+      error(`执行程序失败:${output.stdout || output.stderr || '未知错误'}`)
       return {
         code: JSON.parse(output.stdout || '{}').code || 403,
         msg: output.stderr.trim() || output.stdout.trim() || output

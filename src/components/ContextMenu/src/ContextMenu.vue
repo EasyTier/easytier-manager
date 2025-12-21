@@ -5,6 +5,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { useDesign } from '@/hooks/web/useDesign'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { ContextMenuSchema } from './types'
+
 const { getPrefixCls } = useDesign()
 
 const prefixCls = getPrefixCls('context-menu')
@@ -19,7 +20,7 @@ const props = defineProps({
     default: () => []
   },
   trigger: {
-    type: String as PropType<'click' | 'hover' | 'focus' | 'contextmenu'>,
+    type: String as PropType<'click' | 'hover' | 'contextmenu'>,
     default: 'contextmenu'
   },
   tagItem: {
@@ -64,7 +65,8 @@ defineExpose({
           :disabled="item.disabled"
           :command="item"
         >
-          <Icon :icon="item.icon" /> {{ t(item.label) }}
+          <Icon :icon="item.icon" />
+          {{ t(item.label) }}
         </ElDropdownItem>
       </ElDropdownMenu>
     </template>

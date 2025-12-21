@@ -172,7 +172,7 @@ const routeCost = (cost: string) => {
       return t('easytier.relay')
   }
 }
-const getNatType = (natType: string) => {
+const getNatType = (natType: any) => {
   /*
   Unknown = 0;
   OpenInternet = 1;
@@ -186,20 +186,36 @@ const getNatType = (natType: string) => {
   SymmetricEasyDec = 9;
   */
   switch (natType) {
+    case 3:
     case 'FullCone':
       return t('easytier.fullCone')
+    case 4:
     case 'Restricted':
       return t('easytier.restricted')
+    case 5:
     case 'PortRestricted':
       return t('easytier.portRestricted')
+    case 6:
     case 'Symmetric':
       return t('easytier.symmetric')
+    case 0:
     case 'Unknown':
       return t('easytier.unknown')
+    case 1:
     case 'OpenInternet':
       return t('easytier.openInternet')
+    case 2:
     case 'NoPAT':
       return t('easytier.noPAT')
+    case 7:
+    case 'SymUdpFirewall':
+      return 'SymUdpFirewall'
+    case 8:
+    case 'SymmetricEasyInc':
+      return 'SymmetricEasyInc'
+    case 9:
+    case 'SymmetricEasyDec':
+      return 'SymmetricEasyDec'
     default:
       return natType
   }
@@ -208,24 +224,27 @@ const getNodeInfo = async () => {
   const maxRetry = 10
   let retryTime = 1
   let isFirstRun = true
-  while (true) {
-    if (easyTierStore.stopLoop || retryTime >= maxRetry) {
+  while (!easyTierStore.stopLoop) {
+    if (retryTime >= maxRetry) {
       break
     }
     if (!isFirstRun) {
       await sleep(10000)
     }
+    if (easyTierStore.stopLoop) break
     isFirstRun = false
 
     const res = await runEasyTierCli(['--output', 'json', 'node'])
     if (res.code === 403) {
       easyTierStore.setStopLoop(true)
       runningTag2.value = false
+      break
     }
     if (!res) {
       retryTime++
       continue
     }
+    nodeInfo.value = JSON.parse(res)
     if (
       nodeInfo.value['ipv4_addr'] &&
       nodeInfo.value['stun_info']['udp_nat_type'] &&
@@ -233,25 +252,30 @@ const getNodeInfo = async () => {
     ) {
       retryTime = maxRetry
     }
-    nodeInfo.value = JSON.parse(res)
+    if (nodeInfo.value['ipv4_addr']) {
+      nodeInfo.value['stun_info']['udp_nat_type'] = getNatType(
+        nodeInfo.value['stun_info']['udp_nat_type']
+      )
+    }
     runningTag2.value = true
   }
 }
 const getPeerInfo = async () => {
   let isFirstRun = true
   let retryTime = 1
-  while (true) {
-    if (easyTierStore.stopLoop || retryTime > 5) {
+  while (!easyTierStore.stopLoop) {
+    if (retryTime > 5) {
       break
     }
     // 如果不是第一次运行，则等待。第一次运行如果是启动后恢复状态，不需要等待太久
     if (!isFirstRun) {
-      await sleep(5000)
+      await sleep(easyTierStore.refreshInterval * 1000)
     } else {
       // 第一次运行稍微等一下核心程序响应
       await sleep(1000)
       isFirstRun = false
     }
+    if (easyTierStore.stopLoop) break
 
     const temp = (await readFileContent(
       CONFIG_PATH + '/' + currentNodeKey.value.configFileName + '.toml'
@@ -268,7 +292,7 @@ const getPeerInfo = async () => {
       easyTierStore.setStopLoop(true)
       easyTierStore.removeRunningList(currentNodeKey.value.configFileName)
       runningTag2.value = false
-      continue
+      break
     }
     if (!res) {
       retryTime++
@@ -312,7 +336,6 @@ const getPeerInfo = async () => {
       easyTierStore.setP2pNotify(false)
     }
     // await getList()
-    await sleep(5000)
   }
 }
 const updateRunningList = async (res?: any) => {
@@ -501,12 +524,31 @@ onMounted(async () => {
   easyTierStore.loadRunningList()
   // getNodeInfo()
   // getPeerInfo()
-  const configName = easyTierStore.getLastRunConfigName()
+
+  // 确定要加载的配置名称
+  let configName = ''
+  if (easyTierStore.autoRunNetworkSetting && easyTierStore.autoRunConfigName) {
+    configName = easyTierStore.autoRunConfigName
+  } else {
+    configName = easyTierStore.getLastRunConfigName()
+  }
+
   if (configName) {
     currentNodeKey.value.configFileName = configName
     currentNodeKey.value.fileName = configName + '.toml'
-    // 异步执行，不阻塞
-    currentNodeKeyChange()
+
+    // 检查是否正在运行
+    const res = await updateRunningList()
+    const isRunning = res.some((item) => item.fileName === currentNodeKey.value.fileName)
+
+    if (isRunning) {
+      easyTierStore.setStopLoop(false)
+      getNodeInfo()
+      getPeerInfo()
+    } else if (easyTierStore.autoRunNetworkSetting) {
+      // 如果未运行且开启了自动启动，则执行启动
+      startAction()
+    }
   }
 })
 </script>
