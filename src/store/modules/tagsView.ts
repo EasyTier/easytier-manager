@@ -4,7 +4,6 @@ import { getRawRoute } from '@/utils/routerHelper'
 import { defineStore } from 'pinia'
 import { store } from '../index'
 import { findIndex } from '@/utils'
-import { useUserStoreWithOut } from './user'
 
 export interface TagsViewState {
   visitedViews: RouteLocationNormalizedLoaded[]
@@ -90,12 +89,7 @@ export const useTagsViewStore = defineStore('tagsView', {
     },
     // 删除所有tag
     delAllVisitedViews() {
-      const userStore = useUserStoreWithOut()
-
-      // const affixTags = this.visitedViews.filter((tag) => tag.meta.affix)
-      this.visitedViews = userStore.getUserInfo
-        ? this.visitedViews.filter((tag) => tag?.meta?.affix)
-        : []
+      this.visitedViews = this.visitedViews.filter((tag) => tag?.meta?.affix)
     },
     // 删除其它
     delOthersViews(view: RouteLocationNormalizedLoaded) {

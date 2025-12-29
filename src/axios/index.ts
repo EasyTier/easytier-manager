@@ -1,12 +1,10 @@
 import service from './service'
 import { CONTENT_TYPE } from '@/constants'
-import { useUserStoreWithOut } from '@/store/modules/user'
 import type { RequestConfig } from '@/axios/types'
 
 const request = (option: RequestConfig) => {
   const { url, method, params, data, headers, responseType } = option
 
-  const userStore = useUserStoreWithOut()
   return service.request({
     url: url,
     method,
@@ -15,7 +13,6 @@ const request = (option: RequestConfig) => {
     responseType: responseType,
     headers: {
       'Content-Type': CONTENT_TYPE,
-      [userStore.getTokenKey ?? 'Authorization']: userStore.getToken ?? '',
       ...headers
     }
   })

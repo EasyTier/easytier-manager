@@ -10,7 +10,10 @@
       size="default"
       @submit.prevent
     >
-      <el-divider direction="horizontal">主要参数</el-divider>
+      <el-divider direction="horizontal">
+        <el-icon class="mr-4px"><Setting /></el-icon>
+        主要参数
+      </el-divider>
       <el-row>
         <el-col :md="12" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.hostname')" prop="hostname">
@@ -289,7 +292,10 @@
           </el-form-item>
         </el-col>
       </el-row>
-      <el-divider direction="horizontal">日志设置</el-divider>
+      <el-divider direction="horizontal">
+        <el-icon class="mr-4px"><Document /></el-icon>
+        日志设置
+      </el-divider>
       <el-row>
         <el-col :span="12">
           <el-form-item :label="t('easytier.file_log_level')" prop="file_logger.level">
@@ -321,7 +327,10 @@
           </el-form-item>
         </el-col>
       </el-row>
-      <el-divider direction="horizontal">其他标志设置</el-divider>
+      <el-divider direction="horizontal">
+        <el-icon class="mr-4px"><Operation /></el-icon>
+        其他标志设置
+      </el-divider>
       <el-row>
         <el-col :span="12">
           <el-tooltip trigger="click" content="连接到对等节点时使用的默认协议" placement="top">
@@ -613,46 +622,74 @@
           </el-tooltip>
         </el-col>
       </el-row>
-      <el-divider direction="horizontal">端口转发</el-divider>
+      <el-divider direction="horizontal">
+        <el-icon class="mr-4px"><Connection /></el-icon>
+        端口转发
+      </el-divider>
       <el-row>
         <el-col :span="24">
           <el-form-item label-width="0">
-            <el-table :data="localFormData.port_forward" style="width: 100%">
-              <el-table-column prop="proto" :label="t('easytier.protocol')">
-                <template #default="scope">
-                  <el-select v-model="scope.row.proto" clearable>
-                    <el-option label="TCP" value="tcp" />
-                    <el-option label="UDP" value="udp" />
-                  </el-select>
+            <div
+              class="w-full bg-[var(--el-fill-color-blank)] rounded-8px border border-[var(--el-border-color-lighter)] overflow-hidden"
+            >
+              <el-table
+                :data="localFormData.port_forward"
+                style="width: 100%"
+                :header-cell-style="{
+                  background: 'var(--el-fill-color-light)',
+                  color: 'var(--el-text-color-primary)'
+                }"
+              >
+                <el-table-column prop="proto" :label="t('easytier.protocol')" width="120">
+                  <template #default="scope">
+                    <el-select v-model="scope.row.proto" placeholder="协议">
+                      <el-option label="TCP" value="tcp" />
+                      <el-option label="UDP" value="udp" />
+                    </el-select>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="bind_addr" :label="t('easytier.bind_addr')">
+                  <template #default="scope">
+                    <el-input
+                      v-model="scope.row.bind_addr"
+                      placeholder="例如: 0.0.0.0:12345"
+                      clearable
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column prop="dst_addr" :label="t('easytier.dst_addr')">
+                  <template #default="scope">
+                    <el-input
+                      v-model="scope.row.dst_addr"
+                      placeholder="例如: 10.126.126.1:23456"
+                      clearable
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column :label="t('common.action')" width="100" align="center">
+                  <template #default="scope">
+                    <el-button type="danger" link @click="removePortForward(scope.$index)">
+                      <el-icon class="mr-2px"><Delete /></el-icon>
+                      {{ t('common.delete') }}
+                    </el-button>
+                  </template>
+                </el-table-column>
+                <template #empty>
+                  <div class="py-20px text-[var(--el-text-color-secondary)]">
+                    暂无端口转发配置，点击下方按钮添加
+                  </div>
                 </template>
-              </el-table-column>
-              <el-table-column prop="bind_addr" :label="t('easytier.bind_addr')">
-                <template #default="scope">
-                  <el-input v-model="scope.row.bind_addr" type="text" clearable />
-                </template>
-              </el-table-column>
-              <el-table-column prop="dst_addr" :label="t('easytier.dst_addr')">
-                <template #default="scope">
-                  <el-input v-model="scope.row.dst_addr" type="text" clearable />
-                </template>
-              </el-table-column>
-              <el-table-column :label="t('common.action')">
-                <template #default="scope">
-                  <el-button type="danger" size="small" @click="removePortForward(scope.$index)">
-                    {{ t('common.delete') }}
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-form-item>
-        </el-col>
-      </el-row>
-      <el-row justify="center">
-        <el-col :span="24" class="flex justify-center text-center">
-          <el-form-item>
-            <el-button type="primary" @click="addPortForward">
-              {{ t('easytier.add_port_forward') }}
-            </el-button>
+              </el-table>
+
+              <div
+                class="p-12px bg-[var(--el-fill-color-extra-light)] border-t border-[var(--el-border-color-lighter)] flex justify-center"
+              >
+                <el-button type="primary" plain @click="addPortForward">
+                  <el-icon class="mr-4px"><Plus /></el-icon>
+                  {{ t('easytier.add_port_forward') }}
+                </el-button>
+              </div>
+            </div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -666,6 +703,7 @@ import { useI18n } from 'vue-i18n'
 import { getHostname } from '@/utils/sysUtil'
 import { ElMessageBox, FormInstance, FormRules } from 'element-plus'
 import { useEasyTierStore } from '@/store/modules/easytier'
+import { Connection, Delete, Document, Operation, Plus, Setting } from '@element-plus/icons-vue'
 
 /**
  * 表单数据类型定义
@@ -964,7 +1002,7 @@ defineExpose({
 
 <style scoped>
 .form {
-  height: calc(100vh - 200px);
+  height: calc(100vh - 250px);
   padding: 10px;
   overflow-y: auto;
 }

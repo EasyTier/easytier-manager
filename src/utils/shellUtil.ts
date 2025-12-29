@@ -39,21 +39,24 @@ export async function executeCmd(
     })
     // 执行并等待完成
     const output = await command.execute()
-    if ((output.code && output.code !== 0) || output.stderr) {
-      warn(`执行参数:${JSON.stringify(args)}`)
-      if (output.stderr.includes('由于目标计算机积极拒绝')) {
+    const code = output.code || 1
+    const stderr = output.stderr || ''
+    const stdout = output.stdout || ''
+    if ((code && code !== 0) || stderr) {
+      if (stderr.includes('由于目标计算机积极拒绝') || code === 3) {
         return {
-          code: JSON.parse(output.stdout || '{}').code || 403,
-          msg: output.stderr.trim() || output.stdout.trim() || output
+          code: code || 403,
+          msg: stderr.trim() || stdout.trim() || output
         }
       }
-      error(`执行程序失败:${output.stdout || output.stderr || '未知错误'}`)
+      warn(`执行参数:${JSON.stringify(args)}`)
+      warn(`执行程序失败:${stdout || stderr || '未知错误'}`)
       return {
-        code: JSON.parse(output.stdout || '{}').code || 403,
-        msg: output.stderr.trim() || output.stdout.trim() || output
+        code: code || 403,
+        msg: stderr.trim() || stdout.trim() || output
       }
     }
-    return output.stdout.trim() || output
+    return stdout.trim() || output
   } catch (e: any) {
     error(`执行程序失败:${JSON.stringify(e)}`)
     throw e
