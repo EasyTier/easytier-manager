@@ -44,6 +44,15 @@
 
 ![manage-step9](./doc/assets/manage-step9.png)
 
+### 详细说明：
+
+- 📖 [**界面功能介绍**](./doc/界面介绍.md) —— 快速了解软件各个按钮的作用
+- 📥 [**内核安装指南**](./doc/内核安装.md) —— 解决“未检测到内核”的问题
+- 🚀 [**快速组网教程**](./doc/快速组网指南.md) —— 手把手教你实现两台电脑互联
+- 🖥️ [**服务端配置**](./doc/服务端配置.md) —— 如何在公网服务器上部署
+- 🌐 [**Web 管理配置**](./doc/Web管理配置.md) —— 开启可视化管理后台
+- 🛠️ [**节点操作指南**](./doc/节点操作指南.md) —— 如何使用 Ping、远程桌面、Xshell 等快捷功能
+
 ### 各个包说明
 
 - `exe`：安装程序，安装后才可使用
@@ -192,5 +201,4 @@ pnpm run tauri
 
 [许可证-中文](./LICENSE.zh-cn.md)
 
-
-[![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
+[![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com 'Powered by DartNode - Free VPS for Open Source')
