@@ -19,7 +19,6 @@ import {
   runEasyTierCli,
   startServiceOnWindows,
   stopServiceOnWindows,
-  testWMIC,
   uninstallServiceOnWindows
 } from '@/utils/shellUtil'
 import { getHostname, getOsType, sleep } from '@/utils/sysUtil'
@@ -43,7 +42,6 @@ const dialogTitle = ref('')
 const actionType = ref('')
 const editType = ref('')
 const saveLoading = ref(false)
-const noWMIC = ref(false)
 const formRef = ref()
 const formData = ref<FormData>(cloneDeep(DefaultData.defaultFormData))
 const configFileName = ref<string | null>(null)
@@ -546,7 +544,6 @@ onMounted(async () => {
   getConfigList()
   logsDir.value = await getLogsDir()
   easyTierStore.setOs(await getOsType())
-  noWMIC.value = !(await testWMIC())
 })
 </script>
 
@@ -579,23 +576,6 @@ onMounted(async () => {
       </div>
 
       <div>
-        <el-alert
-          v-if="noWMIC"
-          title="系统限制提示"
-          type="warning"
-          :closable="false"
-          show-icon
-          class="mb-10px"
-        >
-          <template #default>
-            当前系统没有 wmic
-            命令，建议安装服务，使用配置页面的服务启动停止组网，工作台的状态可能不准。
-          </template>
-        </el-alert>
-        <el-text v-if="noWMIC" type="warning" effect="dark"
-          >当前系统没有 wmic
-          命令，建议安装服务，使用配置页面的服务启动停止组网，工作台的状态可能不准，或者忽略工作台的状态显示，只要表格有数据更新出来就是运行成功。<br
-        /></el-text>
         <el-text v-if="easyTierStore.os === 'windows'" type="info" effect="dark"
           >安装服务前检查程序尽量不要放在含有空格、中文路径的目录下；如果组网是由服务启动的，则只能使用启动服务和停止服务，无法使用首页的启动和停止
         </el-text>

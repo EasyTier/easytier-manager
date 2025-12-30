@@ -29,8 +29,8 @@ export async function executeCmd(
   options: SpawnOptions = {}
 ): Promise<any> {
   try {
-    // info('执行命令：' + program)
-    // info('执行参数：' + JSON.stringify(args))
+    // debug('执行命令：' + program)
+    // debug('执行参数：' + JSON.stringify(args))
     // 创建命令实例
     const command = Command.create(program, args, {
       cwd: options.cwd,
@@ -42,7 +42,10 @@ export async function executeCmd(
     const code = output.code || 1
     const stderr = output.stderr || ''
     const stdout = output.stdout || ''
-    if ((code && code !== 0) || stderr) {
+    // debug(`执行结果code：${code}`)
+    // debug(`执行结果stdout：${stdout}`)
+    // debug(`执行结果stderr：${stderr}`)
+    if (stderr || (code && code == 3)) {
       if (stderr.includes('由于目标计算机积极拒绝') || code === 3) {
         return {
           code: code || 403,
@@ -56,7 +59,7 @@ export async function executeCmd(
         msg: stderr.trim() || stdout.trim() || output
       }
     }
-    return stdout.trim() || output
+    return stdout.trim() || JSON.stringify(output)
   } catch (e: any) {
     error(`执行程序失败:${JSON.stringify(e)}`)
     throw e
