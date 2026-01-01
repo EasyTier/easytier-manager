@@ -1,6 +1,5 @@
 use chrono::Local;
 use std::os::windows::process::CommandExt;
-use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_log::{Target, TargetKind};
