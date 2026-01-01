@@ -28,6 +28,7 @@ tauri-plugin-log = "2.7.1"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-shell = "2.3.3"
+chrono = "0.4.42"
 
 # [profile.dev]
 # incremental = true # Compile your binary in smaller steps.

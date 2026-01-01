@@ -1,4 +1,6 @@
+use chrono::Local;
 use std::os::windows::process::CommandExt;
+use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_log::{Target, TargetKind};
@@ -85,12 +87,29 @@ pub fn run() {
     let _ = std::fs::create_dir_all(format!("{}/logs", get_exe_directory()));
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![run_command, run_cli, get_exe_directory])
+        .invoke_handler(tauri::generate_handler![
+            run_command,
+            run_cli,
+            get_exe_directory
+        ])
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = show_window(app);
         }))
         .plugin(
             tauri_plugin_log::Builder::new()
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .level(log::LevelFilter::Info)
+                .format(|out, message, record| {
+                    let date = Local::now().format("%Y-%m-%d %H:%M:%S");
+                    let target = record.target().split("@").next().unwrap_or(record.target());
+                    out.finish(format_args!(
+                        "{} {:<5} [{}]: {}",
+                        date,
+                        record.level(),
+                        target,
+                        message
+                    ))
+                })
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::LogDir {
