@@ -429,6 +429,9 @@ const viewLogAction = async () => {
       LOG_PATH + '/' + currentNodeKey.value.configFileName + '.' + date + '.log'
     )) as string
   }
+  if (!logData.value || logData.value === '') {
+    logData.value = (await readFileContent(LOG_PATH + '/' + 'easytier.log')) as string
+  }
   logDialogVisible.value = true
 }
 const currentNodeKeyChange = async () => {
@@ -755,8 +758,13 @@ onMounted(async () => {
       </el-table>
     </ContentWrap>
 
-    <Dialog v-model="logDialogVisible" :title="dialogTitle" maxHeight="60vh">
-      <div class="edit-container h-60vh">
+    <Dialog
+      :title="'日志-' + currentNodeKey.configFileName"
+      v-model="logDialogVisible"
+      maxHeight="70vh"
+      width="85%"
+    >
+      <div class="edit-container h-62vh">
         <el-form-item label="日志换行">
           <el-select
             v-model="wordWrap"

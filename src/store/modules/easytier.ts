@@ -1,8 +1,10 @@
 import {
   CORE_INFO_API,
+  DEFAULT_STUN_SERVER,
   DEFAULT_VER_OPTIONS,
   MONITOR_LIST,
   PREFIX_SVC,
+  STUN_SERVER_URL,
   USER_AGENT
 } from '@/constants/easytier'
 import { listTomlFiles } from '@/utils/fileUtil'
@@ -45,12 +47,17 @@ export const useEasyTierStore = defineStore(
     const os = ref('windows')
     const releaseInfo = ref([])
     const publicPeerList = ref([])
+    const stunServerList = ref([])
     const defaultStatus = JSON.stringify({
       status: 'true',
       date: dayjs().format('YYYYMMDD').toString()
     })
     // 当前选择的列（存储prop值）
     const selectedColumns = ref(['rx_bytes', 'tx_bytes', 'nat_type'])
+    // 默认服务安装方式
+    const defaultServiceInstallMethod = ref<'nssm' | 'official'>('nssm')
+    // 默认开机自启动
+    const defaultEnableAutostart = ref(true)
     const setConfigList = (list) => {
       configList.value = list
     }
@@ -176,6 +183,32 @@ export const useEasyTierStore = defineStore(
 
       return releaseInfo.value
     }
+
+    // 强制刷新版本信息（供按钮调用）
+    const refreshCoreReleaseInfo = async () => {
+      try {
+        const response = await fetch(CORE_INFO_API, {
+          method: 'GET',
+          headers: { 'User-Agent': USER_AGENT },
+          connectTimeout: 10000
+        })
+        releaseInfo.value = await response.json()
+        const date = dayjs().format('YYYYMMDD').toString()
+        localStorage.setItem('releaseInfo', JSON.stringify(releaseInfo.value))
+        localStorage.setItem(
+          'releaseInfoIsGet',
+          JSON.stringify({
+            status: 'true',
+            date
+          })
+        )
+        return releaseInfo.value
+      } catch (error) {
+        console.error('刷新版本信息失败:', error)
+        return releaseInfo.value.length > 0 ? releaseInfo.value : DEFAULT_VER_OPTIONS
+      }
+    }
+
     const getPublicPeerList = async () => {
       const response = await fetch(MONITOR_LIST, {
         method: 'GET',
@@ -187,7 +220,6 @@ export const useEasyTierStore = defineStore(
         connectTimeout: 10000
       })
       const res = await response.json()
-      console.log('getPublicPeerList', res)
       if (res && res.success) {
         publicPeerList.value = res.data.items
         localStorage.setItem('publicPeerList', JSON.stringify(publicPeerList.value))
@@ -196,8 +228,84 @@ export const useEasyTierStore = defineStore(
       publicPeerList.value = JSON.parse(localStorage.getItem('publicPeerList') || '[]')
       return publicPeerList.value
     }
+    const getStunServers = async () => {
+      // 优先从缓存读取
+      const cachedList = localStorage.getItem('stunServerList')
+      if (cachedList) {
+        try {
+          const parsed = JSON.parse(cachedList)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // @ts-ignore
+            stunServerList.value = parsed
+            // 后台静默更新（不阻塞返回）
+            fetchStunServersFromApi()
+            return stunServerList.value
+          }
+        } catch (e) {
+          console.error('解析 STUN 缓存失败:', e)
+        }
+      }
+
+      // 无缓存时，尝试从 API 获取
+      await fetchStunServersFromApi()
+      if (stunServerList.value.length === 0) {
+        // @ts-ignore
+        stunServerList.value = DEFAULT_STUN_SERVER
+      }
+      return stunServerList.value
+    }
+
+    // 从 API 获取 STUN 服务器列表
+    const fetchStunServersFromApi = async () => {
+      try {
+        const response = await fetch(STUN_SERVER_URL, {
+          method: 'GET',
+          headers: {
+            'User-Agent': USER_AGENT,
+            Accept: 'text/plain'
+          },
+          connectTimeout: 10000
+        })
+
+        const res = await response.text()
+        if (res && res.trim()) {
+          const newList = res
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0 && !line.startsWith('#'))
+
+          if (newList.length > 0) {
+            // @ts-ignore
+            stunServerList.value = newList
+            localStorage.setItem('stunServerList', JSON.stringify(newList))
+            return newList
+          }
+        }
+      } catch (error) {
+        console.error('获取 STUN 服务器列表失败:', error)
+      }
+      return []
+    }
+
+    // 强制刷新 STUN 服务器列表（供按钮调用）
+    const refreshStunServers = async () => {
+      const result = await fetchStunServersFromApi()
+      if (result.length === 0) {
+        // 如果获取失败，使用默认列表
+        // @ts-ignore
+        stunServerList.value = DEFAULT_STUN_SERVER
+      }
+      return stunServerList.value
+    }
+
     const setSelectedColumns = (list) => {
       selectedColumns.value = list
+    }
+    const setDefaultServiceInstallMethod = (method: 'nssm' | 'official') => {
+      defaultServiceInstallMethod.value = method
+    }
+    const setDefaultEnableAutostart = (enable: boolean) => {
+      defaultEnableAutostart.value = enable
     }
     const autorun = async () => {
       const autoRun = localStorage.getItem('settings.autoRun')
@@ -230,6 +338,8 @@ export const useEasyTierStore = defineStore(
       errRunNotify,
       os,
       selectedColumns,
+      defaultServiceInstallMethod,
+      defaultEnableAutostart,
       setConfigList,
       setConfigWebList,
       setFileList,
@@ -252,8 +362,13 @@ export const useEasyTierStore = defineStore(
       setOs,
       setConfigPath,
       getCoreReleaseInfo,
+      refreshCoreReleaseInfo,
       getPublicPeerList,
+      getStunServers,
+      refreshStunServers,
       setSelectedColumns,
+      setDefaultServiceInstallMethod,
+      setDefaultEnableAutostart,
       autorun
     }
   },

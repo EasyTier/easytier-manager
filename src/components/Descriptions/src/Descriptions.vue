@@ -120,11 +120,11 @@ export default defineComponent({
           ) : null}
 
           <ElCollapseTransition>
-            <div v-show={unref(show)} class={[`${prefixCls}-content`, 'p-20px']}>
+            <div v-show={unref(show)} class={[`${prefixCls}-content`, 'p-5px overflow-hidden']}>
               <ElRow
                 gutter={0}
                 {...unref(getBindValue)}
-                class="outline-1px outline-[var(--el-border-color-lighter)] outline-solid"
+                class="border-1px border-[var(--el-border-color-lighter)] border-solid"
               >
                 {props.schema.map((item) => {
                   return (
@@ -134,7 +134,7 @@ export default defineComponent({
                       class="flex items-stretch"
                     >
                       {props.direction === 'horizontal' ? (
-                        <div class="flex items-stretch bg-[var(--el-fill-color-light)] outline-1px outline-[var(--el-border-color-lighter)] outline-solid flex-1">
+                        <div class="flex items-stretch bg-[var(--el-fill-color-light)] border-1px border-[var(--el-border-color-lighter)] border-solid flex-1">
                           <div
                             {...getBindItemValue(item)}
                             class="w-120px text-left px-8px py-11px font-700 color-[var(--el-text-color-regular)] border-r-1px border-r-[var(--el-border-color-lighter)] border-r-solid "
@@ -148,7 +148,7 @@ export default defineComponent({
                           </div>
                         </div>
                       ) : (
-                        <div class="bg-[var(--el-fill-color-light)] outline-1px outline-[var(--el-border-color-lighter)] outline-solid flex-1">
+                        <div class="bg-[var(--el-fill-color-light)] border-1px border-[var(--el-border-color-lighter)] border-solid flex-1">
                           <div
                             {...getBindItemValue(item)}
                             class="text-left px-8px py-11px font-700 color-[var(--el-text-color-regular)] border-b-1px border-b-[var(--el-border-color-lighter)] border-b-solid"

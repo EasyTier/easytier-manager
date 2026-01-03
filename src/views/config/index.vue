@@ -15,12 +15,24 @@ import {
 } from '@/utils/fileUtil'
 import {
   checkServiceOnWindows,
+  checkServiceWithOfficialCli,
+  detectServiceInstallMethod,
   installServiceOnWindows,
+  installServiceWithOfficialCli,
   runEasyTierCli,
   startServiceOnWindows,
+  startServiceWithOfficialCli,
   stopServiceOnWindows,
-  uninstallServiceOnWindows
+  stopServiceWithOfficialCli,
+  uninstallServiceOnWindows,
+  uninstallServiceWithOfficialCli,
+  buildCoreArgsWithLogConfig
 } from '@/utils/shellUtil'
+import {
+  checkOfficialCliSupport,
+  getServiceInstallConfig,
+  saveServiceInstallConfig
+} from '@/utils/serviceConfigUtil'
 import { getHostname, getOsType, sleep } from '@/utils/sysUtil'
 import { join, resourceDir } from '@tauri-apps/api/path'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
@@ -48,11 +60,36 @@ const configFileName = ref<string | null>(null)
 const errorMessage = ref('')
 const logsDir = ref('')
 
+// 服务安装对话框
+const installServiceDialogVisible = ref(false)
+const currentInstallRow = ref<any>(null)
+const serviceInstallForm = ref({
+  installMethod: 'nssm' as 'nssm' | 'official',
+  description: '',
+  displayName: '',
+  enableAutostart: true
+})
+
 const checkServiceStatus = async () => {
   await sleep(1000)
   for (const item of easyTierStore.configList) {
-    const status = await checkServiceOnWindows(PREFIX_SVC + item.configFileName)
-    item.serviceStatus = serviceStatusDict(status)
+    const serviceName = PREFIX_SVC + item.configFileName
+
+    // 检测安装方式
+    const installMethod = await detectServiceInstallMethod(serviceName)
+
+    if (installMethod === 'nssm') {
+      const status = await checkServiceOnWindows(serviceName)
+      item.serviceStatus = serviceStatusDict(status)
+      item.installMethod = 'nssm'
+    } else if (installMethod === 'official') {
+      const status = await checkServiceWithOfficialCli(serviceName)
+      item.serviceStatus = serviceStatusDict(status)
+      item.installMethod = 'official'
+    } else {
+      item.serviceStatus = '未安装'
+      item.installMethod = 'none'
+    }
   }
 }
 const getConfigList = async () => {
@@ -379,139 +416,177 @@ const delConfig = async (row?: any) => {
     })
 }
 const installServiceHandle = async (row: any) => {
-  info(`安装服务:${JSON.stringify(row)}`)
-  ElMessageBox.confirm(t('easytier.installServiceMessage'), t('common.reminder'), {
-    confirmButtonText: t('common.ok'),
-    cancelButtonText: t('common.cancel'),
-    type: 'warning'
-  }).then(async () => {
-    const res = await runEasyTierCli(['-V'])
-    if (res === 403) {
-      ElNotification({
-        title: t('common.reminder'),
-        message:
-          'easytier-core 或 easytier-cli 不存在或无可执行权限，请到设置页下载安装，或授予可执行权限',
-        type: 'error',
-        duration: 6000
+  info(`准备安装服务:${JSON.stringify(row)}`)
+
+  // 验证 CLI 可用性
+  const res = await runEasyTierCli(['-V'])
+  if (res === 403) {
+    ElNotification({
+      title: t('common.reminder'),
+      message:
+        'easytier-core 或 easytier-cli 不存在或无可执行权限，请到设置页下载安装，或授予可执行权限',
+      type: 'error',
+      duration: 6000
+    })
+    return
+  }
+
+  // 加载配置或使用默认值
+  const savedConfig = getServiceInstallConfig(row.configFileName)
+  serviceInstallForm.value = {
+    installMethod: savedConfig.installMethod || easyTierStore.defaultServiceInstallMethod,
+    description: savedConfig.description || `EasyTier 组网,服务配置:${row.configFileName}`,
+    displayName: savedConfig.displayName || `EasyTier 组网 ${row.configFileName}`,
+    enableAutostart: savedConfig.enableAutostart ?? easyTierStore.defaultEnableAutostart
+  }
+
+  currentInstallRow.value = row
+  installServiceDialogVisible.value = true
+}
+
+const confirmInstallService = async () => {
+  const row = currentInstallRow.value
+  if (!row) return
+
+  installServiceDialogVisible.value = false
+
+  // 保存配置
+  saveServiceInstallConfig(row.configFileName, serviceInstallForm.value)
+
+  const configPath = await join(await resourceDir(), CONFIG_PATH, row.fileName)
+  const serviceName = PREFIX_SVC + row.configFileName
+
+  let result = false
+
+  if (serviceInstallForm.value.installMethod === 'official') {
+    // 检查官方 CLI 支持
+    const supported = await checkOfficialCliSupport()
+    if (!supported) {
+      ElMessageBox.confirm(
+        '当前版本不支持官方服务管理功能，是否使用 NSSM 方式安装？',
+        t('common.reminder'),
+        {
+          confirmButtonText: t('common.ok'),
+          cancelButtonText: t('common.cancel'),
+          type: 'warning'
+        }
+      ).then(async () => {
+        serviceInstallForm.value.installMethod = 'nssm'
+        const args = await buildCoreArgsWithLogConfig(row.fileName, configPath)
+        result = await installServiceOnWindows(serviceName, args)
+        handleInstallResult(result)
       })
       return
     }
-    const configPath = await join(await resourceDir(), CONFIG_PATH, row.fileName)
-    installServiceOnWindows(PREFIX_SVC + row.configFileName, '-c "' + configPath + '"')
-      .then((res) => {
-        info(`服务安装:${JSON.stringify(res)}`)
-        if (res) {
-          ElNotification({
-            title: t('common.reminder'),
-            message: '服务安装成功',
-            type: 'success',
-            duration: 3000
-          })
-        }
-      })
-      .catch((e) => {
-        error(`服务安装失败:${JSON.stringify(e)}`)
-        ElNotification({
-          title: t('common.reminder'),
-          message: '服务安装失败',
-          type: 'error',
-          duration: 3000
-        })
-      })
-      .finally(() => {
-        getConfigList()
-      })
-  })
+
+    result = await installServiceWithOfficialCli(serviceName, configPath, row.fileName, {
+      description: serviceInstallForm.value.description,
+      displayName: serviceInstallForm.value.displayName,
+      disableAutostart: !serviceInstallForm.value.enableAutostart
+    })
+  } else {
+    const args = await buildCoreArgsWithLogConfig(row.fileName, configPath)
+    result = await installServiceOnWindows(serviceName, args)
+  }
+
+  handleInstallResult(result)
 }
+
+const handleInstallResult = (result: boolean) => {
+  if (result) {
+    ElNotification({
+      title: t('common.reminder'),
+      message: '服务安装成功',
+      type: 'success',
+      duration: 3000
+    })
+  } else {
+    ElNotification({
+      title: t('common.reminder'),
+      message: '服务安装失败',
+      type: 'error',
+      duration: 3000
+    })
+  }
+  getConfigList()
+}
+
 const uninstallServiceHandle = async (row: any) => {
   ElMessageBox.confirm(t('easytier.uninstallServiceMessage'), t('common.reminder'), {
     confirmButtonText: t('common.ok'),
     cancelButtonText: t('common.cancel'),
     type: 'warning'
-  })
-    .then(async () => {
-      const res = await uninstallServiceOnWindows(PREFIX_SVC + row.configFileName)
-      if (res) {
-        ElNotification({
-          title: t('common.reminder'),
-          message: t('common.accessSuccess'),
-          type: 'success',
-          duration: 2000
-        })
-      } else {
-        ElNotification({
-          title: t('common.reminder'),
-          message: '服务删除失败',
-          type: 'error',
-          duration: 2000
-        })
-      }
-    })
-    .finally(async () => await getConfigList())
-}
-const startServiceHandle = async (row: any) => {
-  startServiceOnWindows(PREFIX_SVC + row.configFileName)
-    .then((res: any) => {
-      if (res) {
-        ElNotification({
-          title: t('common.reminder'),
-          message: '服务运行成功',
-          type: 'success',
-          duration: 2000
-        })
-        return
-      }
+  }).then(async () => {
+    const serviceName = PREFIX_SVC + row.configFileName
+    const installMethod = await detectServiceInstallMethod(serviceName)
+
+    let res = false
+    if (installMethod === 'official') {
+      res = await uninstallServiceWithOfficialCli(serviceName)
+    } else {
+      res = await uninstallServiceOnWindows(serviceName)
+    }
+
+    info(`卸载服务:${JSON.stringify(res)}`)
+    if (res) {
       ElNotification({
         title: t('common.reminder'),
-        message: '运行失败，未安装服务/配置文件错误/内核不存在',
-        type: 'error',
-        duration: 8000
-      })
-    })
-    .catch(() => {
-      ElNotification({
-        title: t('common.reminder'),
-        message: '运行失败，未安装服务/配置文件错误/内核不存在',
-        type: 'error',
-        duration: 8000
-      })
-    })
-    .finally(async () => await getConfigList())
-}
-const stopServiceHandle = async (row: any) => {
-  ElNotification({
-    title: t('common.reminder'),
-    message: '开始停止服务，请稍后(可能需要等待3-20秒)，如果显示停止中，再点击停止按钮',
-    type: 'warning',
-    duration: 10000
-  })
-  stopServiceOnWindows(PREFIX_SVC + row.configFileName)
-    .then((res: any) => {
-      if (res) {
-        ElNotification({
-          title: t('common.reminder'),
-          message: '服务停止成功',
-          type: 'success',
-          duration: 2000
-        })
-        return
-      }
-      ElNotification({
-        title: t('common.reminder'),
-        message: '服务停止失败',
-        type: 'error',
+        message: '服务卸载成功',
+        type: 'success',
         duration: 3000
       })
+    }
+    getConfigList()
+  })
+}
+const startServiceHandle = async (row: any) => {
+  const serviceName = PREFIX_SVC + row.configFileName
+  const installMethod = await detectServiceInstallMethod(serviceName)
+
+  let res = false
+  if (installMethod === 'official') {
+    res = await startServiceWithOfficialCli(serviceName)
+  } else {
+    res = await startServiceOnWindows(serviceName)
+  }
+
+  info(`启动服务:${JSON.stringify(res)}`)
+  if (res) {
+    ElNotification({
+      title: t('common.reminder'),
+      message: '服务启动成功',
+      type: 'success',
+      duration: 3000
     })
-    .catch((e) => {
-      ElNotification({
-        title: t('common.reminder'),
-        message: '服务停止失败 ' + JSON.stringify(e),
-        type: 'error',
-        duration: 8000
-      })
+  } else {
+    ElNotification({
+      title: t('common.reminder'),
+      message: '服务启动失败',
+      type: 'error',
+      duration: 3000
     })
-    .finally(async () => await getConfigList())
+  }
+  getConfigList()
+}
+const stopServiceHandle = async (row: any) => {
+  const serviceName = PREFIX_SVC + row.configFileName
+  const installMethod = await detectServiceInstallMethod(serviceName)
+
+  let res = false
+  if (installMethod === 'official') {
+    res = await stopServiceWithOfficialCli(serviceName)
+  } else {
+    res = await stopServiceOnWindows(serviceName)
+  }
+
+  info(`停止服务:${JSON.stringify(res)}`)
+  ElNotification({
+    title: t('common.reminder'),
+    message: '服务停止可能需要等待 3-20 秒，请稍后刷新查看服务状态',
+    type: 'info',
+    duration: 6000
+  })
+  getConfigList()
 }
 const createServerConfig = async () => {
   formData.value = cloneDeep(DefaultData.defaultFormData)
@@ -725,8 +800,8 @@ onMounted(async () => {
       </div>
     </ContentWrap>
 
-    <Dialog v-model="dialogVisible" :title="dialogTitle" width="80%" maxHeight="68vh">
-      <div class="mb-20px">
+    <Dialog v-model="dialogVisible" :title="dialogTitle" width="80%" maxHeight="70vh">
+      <div>
         <el-form-item
           label="配置名称"
           :validate-status="errorMessage ? 'error' : ''"
@@ -797,6 +872,46 @@ onMounted(async () => {
         </div>
       </template>
     </Dialog>
+
+    <!-- 服务安装配置对话框 -->
+    <ElDialog
+      v-model="installServiceDialogVisible"
+      :title="
+        t('easytier.installServiceDialogTitle', { configName: currentInstallRow?.configFileName })
+      "
+      width="600px"
+    >
+      <ElForm :model="serviceInstallForm" label-width="120px">
+        <ElFormItem :label="t('easytier.serviceInstallMethod')">
+          <ElRadioGroup v-model="serviceInstallForm.installMethod">
+            <ElRadio label="nssm">{{ t('easytier.installMethodNssm') }}</ElRadio>
+            <ElRadio label="official">{{ t('easytier.installMethodOfficial') }}</ElRadio>
+          </ElRadioGroup>
+        </ElFormItem>
+
+        <template v-if="serviceInstallForm.installMethod === 'official'">
+          <ElFormItem :label="t('easytier.serviceDisplayName')">
+            <ElInput v-model="serviceInstallForm.displayName" />
+          </ElFormItem>
+
+          <ElFormItem :label="t('easytier.serviceDescription')">
+            <ElInput v-model="serviceInstallForm.description" type="textarea" :rows="2" />
+          </ElFormItem>
+
+          <ElFormItem :label="t('easytier.serviceAutostart')">
+            <ElSwitch v-model="serviceInstallForm.enableAutostart" />
+          </ElFormItem>
+          <el-text
+            >注意：如果使用官方安装方法则无法识别多个配置文件，一旦安装成功，所有配置都会显示安装，暂时没有找到较好的解决方法</el-text
+          >
+        </template>
+      </ElForm>
+
+      <template #footer>
+        <ElButton @click="installServiceDialogVisible = false">{{ t('common.cancel') }}</ElButton>
+        <ElButton type="primary" @click="confirmInstallService">{{ t('common.ok') }}</ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -808,9 +923,5 @@ onMounted(async () => {
       background-color: var(--el-fill-color-light);
     }
   }
-}
-
-.dialog-content {
-  margin-top: 10px;
 }
 </style>

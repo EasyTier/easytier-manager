@@ -3,11 +3,52 @@ import { invoke } from '@tauri-apps/api/core'
 import { join, resourceDir } from '@tauri-apps/api/path'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
-import { getCliDir, getCoreDir, getResourceDir } from './fileUtil'
+import { getCliDir, getCoreDir, getResourceDir, readFileContent } from './fileUtil'
 import { getPlatform, sleep } from './sysUtil'
+import * as toml from 'smol-toml'
 
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
 attachConsole()
+
+/**
+ * 从配置文件中读取日志配置
+ * @param configFileName 配置文件名
+ * @returns 日志目录和日志级别
+ */
+async function getLogConfigFromFile(configFileName: string): Promise<{
+  logDir: string
+  logLevel: string
+}> {
+  try {
+    // 读取配置文件内容
+    const configContent = (await readFileContent(CONFIG_PATH + '/' + configFileName)) as string
+    const config = toml.parse(configContent) as any
+
+    // 获取日志配置，提供默认值
+    const logDir = config.file_logger?.dir || './log'
+    const logLevel = config.file_logger?.level || 'info'
+
+    return { logDir, logLevel }
+  } catch (e) {
+    error(`读取配置文件日志配置失败:${JSON.stringify(e)}`)
+    // 返回默认值
+    return { logDir: './log', logLevel: 'info' }
+  }
+}
+
+/**
+ * 构建 easytier-core 启动参数（包含日志配置）
+ * @param configFileName 配置文件名（如 server.toml）
+ * @param configPath 配置文件完整路径
+ * @returns 完整的启动参数字符串
+ */
+export async function buildCoreArgsWithLogConfig(
+  configFileName: string,
+  configPath: string
+): Promise<string> {
+  const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
+  return `--file-log-dir ${logDir} --file-log-level ${logLevel} --config-file "${configPath}"`
+}
 
 /**
  * 执行外部程序并等待其完成
@@ -42,9 +83,9 @@ export async function executeCmd(
     const code = output.code || 1
     const stderr = output.stderr || ''
     const stdout = output.stdout || ''
-    // debug(`执行结果code：${code}`)
-    // debug(`执行结果stdout：${stdout}`)
-    // debug(`执行结果stderr：${stderr}`)
+    // info(`执行结果code：${code}`)
+    // info(`执行结果stdout：${stdout}`)
+    // info(`执行结果stderr：${stderr}`)
     if (stderr || (code && code == 3)) {
       if (stderr.includes('由于目标计算机积极拒绝') || code === 3) {
         return {
@@ -59,7 +100,7 @@ export async function executeCmd(
         msg: stderr.trim() || stdout.trim() || output
       }
     }
-    return stdout.trim() || JSON.stringify(output)
+    return stdout.trim() || output
   } catch (e: any) {
     error(`执行程序失败:${JSON.stringify(e)}`)
     throw e
@@ -100,24 +141,25 @@ export async function executeBack(
     // 根据操作系统选择不同的命令
     const platform = await getPlatform()
     const binPath = await join(await getResourceDir(), program)
-    // const resourcePath = await getResourceDir()
     let finalProgram = program
     let finalArgs = args
     if (platform === 'windows') {
-      // start ["title"] [/d路径] [选项] 命令 [参数]
-      // cmd /c start "easytier-core" /b /D "C:\Program Files\resource" easytier-core -c "C:\Program Files\config\c95f9383-6ead-4360-97bc-0ee3897d11cf.toml"
-      // args = ['/c', 'start', `"${program}"`, '/b', '/d', `"${resourcePath}"`, program, ...args]
-      // cmd /c start "easytier-core" /b "C:\Program Files\resource\easytier-core" -c "C:\Program Files\config\c95f9383-6ead-4360-97bc-0ee3897d11cf.toml"
-      // args = ['/c', 'start', `"${program}"`, '/b', `"${binPath}"`, ...args]
       // Windows 下使用 start 命令在后台运行
-      finalArgs = ['/c', 'start', '', '/b', program, ...args]
+      // 注意：cmd /c 会将后面的参数拼接成字符串并通过 shell 解析
+      // 所以需要将整个命令构建成一个字符串，并正确处理包含空格的路径
+      // start 命令格式：start ["title"] [/d path] [options] command [parameters]
+      // 第一个引号参数被当作窗口标题，所以我们用空字符串 "" 作为标题
+      const quotedProgram = program.includes(' ') ? `"${program}"` : program
+      // 为包含空格的参数添加引号
+      const quotedArgs = args.map((arg) => (arg.includes(' ') ? `"${arg}"` : arg)).join(' ')
+      // 将整个命令拼接成一个字符串传递给 cmd /c
+      const commandStr = `start "" /b ${quotedProgram} ${quotedArgs}`
+      finalArgs = ['/c', commandStr]
       finalProgram = 'cmd'
-      // 使用 runas 提升权限
-      // finalArgs = ['/user:Administrator', '/c', 'start', '', '/b', `${binPath}`, ...args]
-      // finalProgram = 'runas'
     }
     if (platform === 'linux' || platform === 'macos') {
       // 使用 sudo 运行 nohup
+      // Unix 系统使用数组参数，Tauri 会正确处理包含空格的参数，不需要手动添加引号
       finalArgs = ['nohup', binPath, ...args]
       finalProgram = 'sudo'
     }
@@ -160,9 +202,20 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
   try {
     const configPath = await join(await resourceDir(), CONFIG_PATH, configFileName)
     const program = await getCoreDir()
+
+    // 读取配置文件获取日志配置
+    const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
+
     const res = await invoke('run_command', {
       program,
-      args: ['-c', `${configPath}`]
+      args: [
+        '--file-log-dir',
+        logDir,
+        '--file-log-level',
+        logLevel,
+        '--config-file',
+        `${configPath}`
+      ]
     })
     info(`运行结果：${res}`)
     return res
@@ -332,8 +385,10 @@ export const getRunningProcesses = async (
       encoding = 'gbk'
     } else if (platform === 'macos' || platform === 'linux') {
       // macOS 和 Linux 使用 ps 命令
-      program = 'ps'
-      args = ['-eo', 'comm,args,pid,rss', '|', 'grep', programName]
+      // 注意：管道符需要通过 shell 执行，所以使用 sh -c 包装整个命令
+      const psCommand = `ps -eo comm,args,pid,rss | grep ${programName}`
+      program = 'sh'
+      args = ['-c', psCommand]
     } else {
       reject(new Error('Unsupported OS'))
       return
@@ -435,6 +490,7 @@ export const checkServiceOnWindows = (serviceName: string): Promise<any> => {
       // Can't open service!\r\r\nOpenService(): The specified service does not exist as an installed service.
       if (res && (res.code! === 3 || res.includes('does not exist'))) {
         resolve(false)
+        return
       }
       resolve(res)
     } catch (e: any) {
@@ -464,7 +520,8 @@ nssm processes <servicename> # 显示服务关联的进程
 export const installServiceOnWindows = async (serviceName: string, args: string) => {
   return new Promise(async (resolve) => {
     const appDirectory = await getResourceDir()
-    const corePath = await join(appDirectory, 'easytier-core')
+    // Windows 需要 .exe 扩展名
+    const corePath = await join(appDirectory, 'easytier-core.exe')
     // const logsPath = await getLogsDir()
     try {
       // 服务是否存在
@@ -476,9 +533,11 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
       }
       // 检测文件是否存在
       // await fileExist(await join(LOG_PATH, 'service.log'))
-      const args1 = ['install', serviceName, `${corePath}`]
+      // 注意：Tauri Command.create 会将每个数组元素作为独立参数传递，不需要手动添加引号
+      // 引号只在通过 shell 解析字符串时需要
+      const args1 = ['install', serviceName, corePath]
       const args2 = ['set', serviceName, 'AppParameters', `${args}`]
-      const args3 = ['set', serviceName, 'AppDirectory', `${appDirectory}`]
+      const args3 = ['set', serviceName, 'AppDirectory', appDirectory]
       const args4 = ['set', serviceName, 'AppExit', 'Default', 'Restart']
       const args5 = ['set', serviceName, 'Description', `EasyTier 组网,服务配置:${serviceName}`]
       const args6 = ['set', serviceName, 'DisplayName', `EasyTier 组网 ${serviceName}`]
@@ -491,6 +550,18 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
       // const args12 = ['set', serviceName, 'AppTimestampLog', '1']
       await executeCmd(NSSM_NAME, args1, { encoding: 'gbk' }).then(async (res) => {
         info(`安装服务结果:${JSON.stringify(res)}`)
+        info(`安装服务结果:${res.code}`)
+        info(`安装服务结果:${res}`)
+        info(`安装服务结果:${res && res.code! === 0}`)
+        info(
+          `安装服务结果:${
+            res &&
+            (res.code! === 0 ||
+              res.code! === 1 ||
+              res.includes('success') ||
+              res.includes('installed'))
+          }`
+        )
         if (
           res &&
           (res.code! === 0 ||
@@ -590,6 +661,275 @@ export const stopServiceOnWindows = (serviceName: string) => {
       resolve(false)
     }
   })
+}
+
+/**
+ * 使用官方 easytier-cli 安装服务
+ */
+export const installServiceWithOfficialCli = async (
+  serviceName: string,
+  configPath: string,
+  configFileName: string,
+  options: {
+    description?: string
+    displayName?: string
+    disableAutostart?: boolean
+  } = {}
+) => {
+  return new Promise(async (resolve) => {
+    try {
+      const appDirectory = await getResourceDir()
+      const platform = await getPlatform()
+
+      // Windows 需要 .exe 扩展名
+      const coreFileName = platform === 'windows' ? 'easytier-core.exe' : 'easytier-core'
+      const corePath = await join(appDirectory, coreFileName)
+
+      // 构建命令参数
+      const args = ['service', 'install']
+
+      if (options.description) {
+        args.push('--description', options.description)
+      }
+
+      if (options.displayName) {
+        args.push('--display-name', options.displayName)
+      }
+
+      if (options.disableAutostart) {
+        args.push('--disable-autostart')
+      }
+
+      // 注意：Tauri Command.create 会将每个数组元素作为独立参数传递，不需要手动添加引号
+      args.push('--core-path', corePath)
+      args.push('--service-work-dir', appDirectory)
+
+      // 读取配置文件获取日志配置
+      const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
+
+      // 构建服务运行时的参数
+      // 格式: easytier-core --file-log-dir ./log --file-log-level info --config-file config.toml
+      args.push(
+        '--',
+        '--file-log-dir',
+        logDir,
+        '--file-log-level',
+        logLevel,
+        '--config-file',
+        configPath
+      )
+
+      // 执行安装
+      const res: any = await executeCmd('easytier-cli', args, { encoding: 'gbk' })
+
+      info(`官方CLI安装服务结果: ${JSON.stringify(res)}`)
+
+      if (
+        res &&
+        (res.code === 0 ||
+          res.code === undefined ||
+          res.includes('success') ||
+          res.includes('安装成功'))
+      ) {
+        resolve(true)
+        return
+      }
+      resolve(false)
+    } catch (e: any) {
+      error(`官方CLI安装服务失败: ${e}`)
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * 使用官方 easytier-cli 卸载服务
+ */
+export const uninstallServiceWithOfficialCli = async (serviceName: string) => {
+  return new Promise(async (resolve) => {
+    try {
+      const res: any = await executeCmd('easytier-cli', ['service', 'uninstall'], {
+        encoding: 'gbk'
+      })
+      info(`官方CLI卸载服务结果: ${JSON.stringify(res)}`)
+
+      if (
+        res &&
+        (res.code === 0 ||
+          res.code === undefined ||
+          res.includes('success') ||
+          res.includes('卸载成功'))
+      ) {
+        resolve(true)
+        return
+      }
+      resolve(false)
+    } catch (e: any) {
+      error(`官方CLI卸载服务失败: ${e}`)
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * 使用官方 easytier-cli 检查服务状态
+ */
+export const checkServiceWithOfficialCli = async (serviceName: string) => {
+  return new Promise(async (resolve) => {
+    try {
+      const res: any = await executeCmd('easytier-cli', ['service', 'status'], { encoding: 'gbk' })
+
+      info(`官方CLI检查服务状态: ${JSON.stringify(res)}`)
+
+      if (typeof res === 'string') {
+        const lowerRes = res.toLowerCase()
+
+        // 首先检查未安装状态（优先级最高）
+        if (
+          lowerRes.includes('not installed') ||
+          lowerRes.includes('未安装') ||
+          lowerRes.includes('does not exist') ||
+          lowerRes.includes('不存在')
+        ) {
+          resolve(false) // 未安装
+          return
+        }
+
+        // 检查运行状态
+        if (
+          lowerRes.includes('running') ||
+          lowerRes.includes('运行') ||
+          lowerRes.includes('started') ||
+          lowerRes.includes('active')
+        ) {
+          resolve('SERVICE_RUNNING')
+          return
+        }
+
+        // 检查停止状态
+        if (
+          lowerRes.includes('stopped') ||
+          lowerRes.includes('停止') ||
+          lowerRes.includes('inactive')
+        ) {
+          resolve('SERVICE_STOPPED')
+          return
+        }
+      }
+
+      // 检查返回对象的错误码
+      if (res && typeof res === 'object') {
+        // code 为 0 表示命令执行成功
+        if (res.code === 0) {
+          resolve('SERVICE_STOPPED')
+          return
+        }
+        // 其他错误码表示服务不存在或命令失败
+        if (res.code !== undefined && res.code !== 0) {
+          resolve(false)
+          return
+        }
+      }
+
+      // 默认未安装
+      resolve(false)
+    } catch (e: any) {
+      error(`官方CLI检查服务状态失败: ${e}`)
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * 使用官方 easytier-cli 启动服务
+ */
+export const startServiceWithOfficialCli = async (serviceName: string) => {
+  return new Promise(async (resolve) => {
+    try {
+      await executeCmd('easytier-cli', ['service', 'start'], { encoding: 'gbk' })
+      await sleep(2000)
+
+      const status = await checkServiceWithOfficialCli(serviceName)
+      resolve(status === 'SERVICE_RUNNING')
+    } catch (e: any) {
+      error(`官方CLI启动服务失败: ${e}`)
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * 使用官方 easytier-cli 停止服务
+ */
+export const stopServiceWithOfficialCli = async (serviceName: string) => {
+  return new Promise(async (resolve) => {
+    try {
+      await executeCmd('easytier-cli', ['service', 'stop'], { encoding: 'gbk' })
+      await sleep(2000)
+
+      const status = await checkServiceWithOfficialCli(serviceName)
+      resolve(status === 'SERVICE_STOPPED')
+    } catch (e: any) {
+      error(`官方CLI停止服务失败: ${e}`)
+      resolve(false)
+    }
+  })
+}
+
+/**
+ * 自动检测服务安装方式
+ */
+export const detectServiceInstallMethod = async (
+  serviceName: string
+): Promise<'nssm' | 'official' | 'none'> => {
+  // 从 serviceName 中提取 configFileName (移除 'easytier-' 前缀)
+  const configFileName = serviceName.replace(/^easytier-/, '')
+
+  // 优先从 localStorage 读取保存的安装方式
+  const SERVICE_CONFIG_PREFIX = 'service-config:'
+  const savedConfigStr = localStorage.getItem(SERVICE_CONFIG_PREFIX + configFileName)
+
+  if (savedConfigStr) {
+    try {
+      const savedConfig = JSON.parse(savedConfigStr)
+      const savedMethod = savedConfig.installMethod
+
+      // 如果有保存的安装方式，直接检查该方式的状态
+      if (savedMethod === 'nssm') {
+        const status = await checkServiceOnWindows(serviceName)
+        if (status && status !== false) {
+          return 'nssm'
+        }
+        // 如果服务已卸载，返回 none
+        return 'none'
+      } else if (savedMethod === 'official') {
+        const status = await checkServiceWithOfficialCli(serviceName)
+        if (status && status !== false) {
+          return 'official'
+        }
+        // 如果服务已卸载，返回 none
+        return 'none'
+      }
+    } catch (e) {
+      // 解析失败，继续使用自动检测
+      error(`解析服务配置失败: ${e}`)
+    }
+  }
+
+  // 没有保存的配置，使用自动检测（向后兼容旧版本安装的服务）
+  // 先检查 NSSM
+  const nssmStatus = await checkServiceOnWindows(serviceName)
+  if (nssmStatus && nssmStatus !== false) {
+    return 'nssm'
+  }
+
+  // 再检查官方 CLI
+  const officialStatus = await checkServiceWithOfficialCli(serviceName)
+  if (officialStatus && officialStatus !== false) {
+    return 'official'
+  }
+
+  return 'none'
 }
 
 /**

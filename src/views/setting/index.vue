@@ -49,6 +49,8 @@ const autoRunConfigName = ref('')
 const p2pNotify = ref(true)
 const refreshInterval = ref(5)
 const lockPassword = ref('')
+const defaultServiceInstallMethod = ref<'nssm' | 'official'>('nssm')
+const defaultEnableAutostart = ref(true)
 
 const handleMinimizeChange = (value: boolean) => {
   setStorage('settings.minimizeOnStart', value.toString())
@@ -73,6 +75,14 @@ const handleRefreshIntervalChange = (value: number) => {
 const saveLockPassword = () => {
   easyTierStore.lockPassword = lockPassword.value
   ElMessage.success('锁定密码已保存')
+}
+
+const handleServiceInstallMethodChange = (value: 'nssm' | 'official') => {
+  easyTierStore.setDefaultServiceInstallMethod(value)
+}
+
+const handleServiceAutostartChange = (value: boolean) => {
+  easyTierStore.setDefaultEnableAutostart(value)
 }
 
 const easyTierStore = useEasyTierStore()
@@ -207,6 +217,26 @@ const verSelectChange = (val: string) => {
     version: val
   })
 }
+
+// 刷新版本列表
+const verRefreshing = ref(false)
+const handleRefreshVersions = async () => {
+  verRefreshing.value = true
+  try {
+    const data = await easyTierStore.refreshCoreReleaseInfo()
+    if (data && data.length > 0) {
+      verOptions.value = data
+      verSelect.value = data[0].tag_name
+      verSelectChange(verSelect.value)
+      ElMessage.success('版本列表已更新')
+    }
+  } catch (error) {
+    ElMessage.error('获取版本列表失败')
+  } finally {
+    verRefreshing.value = false
+  }
+}
+
 const checkCorePath = async () => {
   const res = await runEasyTierCli(['-V'])
   if (res && res !== 403) {
@@ -355,6 +385,8 @@ onMounted(async () => {
   p2pNotify.value = easyTierStore.p2pNotifySetting
   refreshInterval.value = easyTierStore.refreshInterval
   lockPassword.value = easyTierStore.lockPassword
+  defaultServiceInstallMethod.value = easyTierStore.defaultServiceInstallMethod
+  defaultEnableAutostart.value = easyTierStore.defaultEnableAutostart
 
   const ver = await runEasyTierCli(['-V'])
   if (ver && ver !== 403) {
@@ -467,6 +499,14 @@ onMounted(async () => {
                   :value="item.tag_name"
                 />
               </el-select>
+              <el-button
+                :loading="verRefreshing"
+                @click="handleRefreshVersions"
+                title="获取最新版本列表"
+              >
+                <Icon icon="ep:refresh" class="mr-4px" />
+                刷新
+              </el-button>
             </div>
             <div class="flex items-center gap-8px flex-1 min-w-300px">
               <span class="text-14px">Github 加速链接:</span>
@@ -570,6 +610,34 @@ onMounted(async () => {
                 >设置后，打开程序需要输入此密码</span
               >
             </div>
+          </el-form-item>
+
+          <!-- 服务管理设置 -->
+          <el-divider content-position="left">服务管理设置</el-divider>
+
+          <el-form-item label="默认服务安装方式">
+            <div class="flex flex-col gap-10px w-100%">
+              <div class="flex items-center">
+                <el-select
+                  v-model="defaultServiceInstallMethod"
+                  style="width: 280px"
+                  @change="handleServiceInstallMethodChange"
+                >
+                  <el-option label="NSSM (推荐，兼容性好)" value="nssm" />
+                  <el-option label="官方 easytier-cli (v1.2.0+)" value="official" />
+                </el-select>
+                <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
+                  >新配置安装服务时的默认方式</span
+                >
+              </div>
+            </div>
+          </el-form-item>
+
+          <el-form-item label="默认开机自启动">
+            <el-switch v-model="defaultEnableAutostart" @change="handleServiceAutostartChange" />
+            <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
+              >安装服务时是否默认开机自启</span
+            >
           </el-form-item>
         </el-form>
       </el-card>

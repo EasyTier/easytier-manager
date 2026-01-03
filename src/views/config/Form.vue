@@ -6,7 +6,7 @@
       :rules="rules"
       :scroll-to-error="true"
       label-position="right"
-      label-width="160px"
+      label-width="140px"
       size="default"
       @submit.prevent
     >
@@ -15,7 +15,7 @@
         主要参数
       </el-divider>
       <el-row>
-        <el-col :md="12" :sm="12" :xs="12">
+        <el-col :md="24" :sm="24" :xs="24">
           <el-form-item :label="t('easytier.hostname')" prop="hostname">
             <el-input
               v-model="localFormData.hostname"
@@ -26,7 +26,7 @@
             />
           </el-form-item>
         </el-col>
-        <el-col :md="12" :sm="12" :xs="12">
+        <el-col :md="24" :sm="24" :xs="24">
           <el-form-item :label="t('easytier.instance_name')" prop="instance_name">
             <el-input
               v-model="localFormData.instance_name"
@@ -39,7 +39,7 @@
         </el-col>
       </el-row>
       <el-row>
-        <el-col :md="12" :sm="12" :xs="12">
+        <el-col :md="24" :sm="24" :xs="24">
           <el-form-item :label="t('easytier.network_name')" prop="network_identity.network_name">
             <el-input
               v-model="localFormData.network_identity.network_name"
@@ -50,7 +50,7 @@
             />
           </el-form-item>
         </el-col>
-        <el-col :md="12" :sm="12" :xs="12">
+        <el-col :md="24" :sm="24" :xs="24">
           <el-form-item
             :label="t('easytier.network_secret')"
             prop="network_identity.network_secret"
@@ -65,6 +65,27 @@
           </el-form-item>
         </el-col>
       </el-row>
+      <el-row :gutter="10">
+        <el-col :md="21" :sm="21" :xs="21">
+          <el-tooltip
+            trigger="click"
+            content="机器 ID，用于 Web 配置服务器识别机器，断线重连后恢复配置。默认从系统获取。"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.machine_id')" prop="machine_id">
+              <el-input
+                v-model="localFormData.machine_id"
+                type="text"
+                placeholder="默认从系统获取，建议保持唯一"
+                clearable
+              />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :md="2" :sm="2" :xs="2">
+          <el-button @click="generateMachineId" :icon="Refresh">生成</el-button>
+        </el-col>
+      </el-row>
       <el-row>
         <el-col :md="8" :sm="8" :xs="8">
           <el-form-item :label="t('easytier.dhcp')" prop="dhcp">
@@ -72,18 +93,18 @@
           </el-form-item>
         </el-col>
         <el-col :md="8" :sm="8" :xs="8">
-          <el-form-item :label="t('easytier.ipv4Vir')" prop="ipv4">
+          <el-form-item :label="t('easytier.ipv4Vir')" prop="ipv4" label-width="70">
             <el-input v-model="localFormData.ipv4" type="text" :disabled="ipv4Disabled" clearable />
           </el-form-item>
         </el-col>
         <el-col :md="8" :sm="8" :xs="8">
-          <el-form-item :label="t('easytier.ipv6Vir')" prop="ipv4">
+          <el-form-item :label="t('easytier.ipv6Vir')" prop="ipv4" label-width="70">
             <el-input v-model="localFormData.ipv6" type="text" :disabled="ipv4Disabled" clearable />
           </el-form-item>
         </el-col>
       </el-row>
       <el-row>
-        <el-col :md="24" :sm="12" :xs="12">
+        <el-col :md="24" :sm="24" :xs="24">
           <el-tooltip trigger="click" content="支持手动输入" placement="top">
             <el-form-item :label="t('easytier.peers')" prop="peer">
               <el-select
@@ -105,7 +126,7 @@
                   <span
                     style="float: right; font-size: 13px; color: var(--el-text-color-secondary)"
                   >
-                    v{{ item.version }}
+                    {{ item.version }}
                   </span>
                 </el-option>
               </el-select>
@@ -113,6 +134,24 @@
           </el-tooltip>
         </el-col>
       </el-row>
+      <!-- <el-row>
+        <el-col :md="24" :sm="24" :xs="24">
+          <el-tooltip
+            trigger="click"
+            content="使用公共共享节点来发现对等节点，例如：tcp://public.easytier.top:11010"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.external_node')" prop="external_node">
+              <el-input
+                v-model="localFormData.external_node"
+                type="text"
+                placeholder="tcp://public.easytier.top:11010"
+                clearable
+              />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row> -->
       <el-row>
         <el-col :md="24" :sm="12" :xs="12">
           <el-tooltip trigger="click" content="支持手动输入" placement="top">
@@ -202,39 +241,6 @@
       </el-row>
       <el-row>
         <el-col :md="12" :sm="12" :xs="12">
-          <el-tooltip trigger="click" content="支持手动输入" placement="top">
-            <el-form-item :label="t('easytier.exit_nodes')" prop="exit_nodes">
-              <el-select
-                v-model="localFormData.exit_nodes"
-                clearable
-                filterable
-                allow-create
-                default-first-option
-                multiple
-              >
-                <el-option
-                  v-for="(item, index) in exit_nodesOptions"
-                  :key="index"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-tooltip>
-        </el-col>
-        <el-col :md="12" :sm="12" :xs="12">
-          <el-tooltip trigger="click" content="自动设置出口路由，如果断网，请关闭" placement="top">
-            <el-form-item
-              :label="t('easytier.config_exit_nodes_route')"
-              prop="config_exit_nodes_route"
-            >
-              <el-switch v-model="localFormData.config_exit_nodes_route" />
-            </el-form-item>
-          </el-tooltip>
-        </el-col>
-      </el-row>
-      <el-row>
-        <el-col :md="12" :sm="12" :xs="12">
           <el-tooltip
             trigger="click"
             content="WireGuard客户端CIDR，例如：10.14.14.0/24"
@@ -268,6 +274,151 @@
         </el-col>
       </el-row>
       <el-row>
+        <el-col :span="24">
+          <el-tooltip
+            trigger="click"
+            content="IPv4 STUN 服务器列表，用于 NAT 穿透。支持手动输入，多个服务器。"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.stun_servers')" prop="stun_servers">
+              <div class="stun-select-wrapper">
+                <el-select
+                  v-model="localFormData.stun_servers"
+                  clearable
+                  filterable
+                  allow-create
+                  default-first-option
+                  multiple
+                  placeholder="例如：stun.nas.net:3478"
+                  class="stun-select"
+                >
+                  <el-option
+                    v-for="(item, index) in stunServersOptions"
+                    :key="index"
+                    :label="item"
+                    :value="item"
+                  />
+                </el-select>
+                <el-button
+                  :icon="Refresh"
+                  :loading="stunRefreshing"
+                  @click="handleRefreshStunServers"
+                  title="刷新 STUN 服务器列表"
+                  >刷新</el-button
+                >
+              </div>
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="24">
+          <el-tooltip
+            trigger="click"
+            content="IPv6 STUN 服务器列表，用于 IPv6 NAT 穿透。"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.stun_servers_v6')" prop="stun_servers_v6">
+              <el-select
+                v-model="localFormData.stun_servers_v6"
+                clearable
+                filterable
+                allow-create
+                default-first-option
+                multiple
+                placeholder="例如：stun.nextcloud.com:443"
+              >
+                <el-option
+                  v-for="(item, index) in stunServersV6Options"
+                  :key="index"
+                  :label="item"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="24">
+          <el-tooltip
+            trigger="click"
+            content="RPC 门户白名单，限制哪些 IP 可以访问 RPC 接口。支持 IP 和 CIDR。例如：127.0.0.1,127.0.0.0/8"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.rpc_portal_whitelist')" prop="rpc_portal_whitelist">
+              <el-select
+                v-model="localFormData.rpc_portal_whitelist"
+                clearable
+                filterable
+                allow-create
+                default-first-option
+                multiple
+                placeholder="127.0.0.1, 127.0.0.0/8"
+              >
+                <el-option
+                  v-for="(item, index) in rpcWhitelistOptions"
+                  :key="index"
+                  :label="item"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="24">
+          <el-tooltip
+            trigger="click"
+            content="SOCKS5 代理地址。例如：socks5://0.0.0.0:1080"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.socks5_proxy')" prop="socks5_proxy">
+              <el-input
+                v-model="localFormData.socks5_proxy"
+                type="text"
+                placeholder="socks5://0.0.0.0:1080"
+                clearable
+              />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :md="12" :sm="12" :xs="12">
+          <el-tooltip trigger="click" content="支持手动输入" placement="top">
+            <el-form-item :label="t('easytier.exit_nodes')" prop="exit_nodes">
+              <el-select
+                v-model="localFormData.exit_nodes"
+                clearable
+                filterable
+                allow-create
+                default-first-option
+                multiple
+              >
+                <el-option
+                  v-for="(item, index) in exit_nodesOptions"
+                  :key="index"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :md="12" :sm="12" :xs="12">
+          <el-tooltip trigger="click" content="自动设置出口路由，如果断网，请关闭" placement="top">
+            <el-form-item
+              :label="t('easytier.config_exit_nodes_route')"
+              prop="config_exit_nodes_route"
+            >
+              <el-switch v-model="localFormData.config_exit_nodes_route" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
         <el-col :span="12">
           <el-tooltip
             trigger="click"
@@ -278,18 +429,6 @@
               <el-input v-model="localFormData.rpc_portal" type="text" clearable />
             </el-form-item>
           </el-tooltip>
-        </el-col>
-        <el-col :span="12" v-if="consoleLoggerVisible">
-          <el-form-item :label="t('easytier.console_log_level')" prop="console_logger.level">
-            <el-select v-model="localFormData.console_logger.level" clearable filterable>
-              <el-option
-                v-for="(item, index) in file_logger_levelOptions"
-                :key="index"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-form-item>
         </el-col>
       </el-row>
       <el-divider direction="horizontal">
@@ -325,6 +464,38 @@
               clearable
             />
           </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="单个日志文件大小，单位 MB，默认值为 100MB"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.file_log_size')" prop="file_logger.size">
+              <el-input-number
+                v-model="localFormData.file_logger.size"
+                :min="1"
+                :max="1000"
+                placeholder="100"
+                controls-position="right"
+              />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :span="12">
+          <el-tooltip trigger="click" content="最大日志文件数量，默认值为 10" placement="top">
+            <el-form-item :label="t('easytier.file_log_count')" prop="file_logger.count">
+              <el-input-number
+                v-model="localFormData.file_logger.count"
+                :min="1"
+                :max="100"
+                placeholder="10"
+                controls-position="right"
+              />
+            </el-form-item>
+          </el-tooltip>
         </el-col>
       </el-row>
       <el-divider direction="horizontal">
@@ -400,9 +571,53 @@
           </el-form-item>
         </el-col>
         <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="选择加密算法：aes-gcm（默认）、aes-256-gcm、xor（最快）、chacha20"
+            placement="top"
+          >
+            <el-form-item
+              :label="t('easytier.encryption_algorithm')"
+              prop="flags.encryption_algorithm"
+            >
+              <el-select
+                v-model="localFormData.flags.encryption_algorithm"
+                :disabled="!localFormData.flags.enable_encryption"
+                clearable
+              >
+                <el-option
+                  v-for="(item, index) in encryptionAlgorithmOptions"
+                  :key="index"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
           <el-form-item :label="t('easytier.enable_ipv6')" prop="flags.enable_ipv6">
             <el-switch v-model="localFormData.flags.enable_ipv6" />
           </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="TUN 设备的 MTU 值。默认：非加密 1380，加密 1360"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.mtu')" prop="flags.mtu">
+              <el-input-number
+                v-model="localFormData.flags.mtu"
+                :min="1200"
+                :max="1500"
+                :step="10"
+                placeholder="默认1380/1360"
+              />
+            </el-form-item>
+          </el-tooltip>
         </el-col>
       </el-row>
       <el-row>
@@ -414,11 +629,40 @@
         <el-col :span="12">
           <el-tooltip
             trigger="click"
+            content="多线程模式下使用的线程数，默认为 2。需要先启用多线程模式。"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.multi_thread_count')" prop="flags.multi_thread_count">
+              <el-input-number
+                v-model="localFormData.flags.multi_thread_count"
+                :min="2"
+                :max="16"
+                :disabled="!localFormData.flags.multi_thread"
+                placeholder="默认2"
+              />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
             content="将连接器的套接字绑定到物理设备以避免路由问题。比如子网代理网段与某节点的网段冲突，绑定物理设备后可以与该节点正常通信"
             placement="top"
           >
             <el-form-item :label="t('easytier.bind_device')" prop="flags.bind_device">
               <el-switch v-model="localFormData.flags.bind_device" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :span="12">
+          <el-tooltip trigger="click" content="禁用 TCP 打洞功能" placement="top">
+            <el-form-item
+              :label="t('easytier.disable_tcp_hole_punching')"
+              prop="flags.disable_tcp_hole_punching"
+            >
+              <el-switch v-model="localFormData.flags.disable_tcp_hole_punching" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -443,6 +687,33 @@
           >
             <el-form-item :label="t('easytier.disable_kcp_input')" prop="flags.disable_kcp_input">
               <el-switch v-model="localFormData.flags.disable_kcp_input" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="启用 QUIC 协议代理，提供更好的性能和连接质量"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.enable_quic_proxy')" prop="flags.enable_quic_proxy">
+              <el-switch v-model="localFormData.flags.enable_quic_proxy" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="禁用基于生日攻击的对称 NAT (NAT4) UDP 打洞功能。该功能可能被运营商封锁。"
+            placement="top"
+          >
+            <el-form-item
+              :label="t('easytier.disable_sym_hole_punching')"
+              prop="flags.disable_sym_hole_punching"
+            >
+              <el-switch v-model="localFormData.flags.disable_sym_hole_punching" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -494,6 +765,26 @@
               prop="flags.disable_udp_hole_punching"
             >
               <el-switch v-model="localFormData.flags.disable_udp_hole_punching" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-tooltip
+            trigger="click"
+            content="仅使用 P2P 直连模式，不使用中继节点。可能导致部分节点无法连接。"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.p2p_only')" prop="flags.p2p_only">
+              <el-switch v-model="localFormData.flags.p2p_only" />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+        <el-col :span="12">
+          <el-tooltip trigger="click" content="完全禁用 IPv6 功能" placement="top">
+            <el-form-item :label="t('easytier.disable_ipv6')" prop="flags.disable_ipv6">
+              <el-switch v-model="localFormData.flags.disable_ipv6" />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -576,6 +867,28 @@
         <el-col :span="24">
           <el-tooltip
             trigger="click"
+            content="外部中继带宽限制（字节/秒）。限制通过本节点中继的外部网络流量带宽。"
+            placement="top"
+          >
+            <el-form-item
+              :label="t('easytier.foreign_relay_bps_limit')"
+              prop="flags.foreign_relay_bps_limit"
+            >
+              <el-input-number
+                v-model="localFormData.flags.foreign_relay_bps_limit"
+                :min="0"
+                :step="10240"
+                placeholder="字节/秒，0 表示不限制"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="24">
+          <el-tooltip
+            trigger="click"
             content="IPv6监听器，用于监听IPv6地址。例如：[::]:11010"
             placement="top"
           >
@@ -594,6 +907,24 @@
           >
             <el-form-item :label="t('easytier.socks5')" prop="flags.socks5">
               <el-input v-model="localFormData.flags.socks5" type="text" clearable />
+            </el-form-item>
+          </el-tooltip>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="24">
+          <el-tooltip
+            trigger="click"
+            content="自定义顶级域名 DNS 区域。例如：net.et"
+            placement="top"
+          >
+            <el-form-item :label="t('easytier.tld_dns_zone')" prop="flags.tld_dns_zone">
+              <el-input
+                v-model="localFormData.flags.tld_dns_zone"
+                type="text"
+                placeholder="net.et"
+                clearable
+              />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -703,7 +1034,15 @@ import { useI18n } from 'vue-i18n'
 import { getHostname } from '@/utils/sysUtil'
 import { ElMessageBox, FormInstance, FormRules } from 'element-plus'
 import { useEasyTierStore } from '@/store/modules/easytier'
-import { Connection, Delete, Document, Operation, Plus, Setting } from '@element-plus/icons-vue'
+import {
+  Connection,
+  Delete,
+  Document,
+  Operation,
+  Plus,
+  Refresh,
+  Setting
+} from '@element-plus/icons-vue'
 
 /**
  * 表单数据类型定义
@@ -767,12 +1106,7 @@ const peersOptions = ref([
   {
     name: '官方服务器',
     address: 'tcp://public.easytier.top:11010',
-    version: ''
-  },
-  {
-    name: '群友提供',
-    address: 'tcp://c.oee.icu:60006',
-    version: ''
+    version: 'latest'
   }
 ])
 const listenersOptions = reactive([
@@ -795,11 +1129,35 @@ const listenersOptions = reactive([
   {
     value: 'wss://0.0.0.0:11012',
     label: 'wss://0.0.0.0:11012'
+  },
+  {
+    value: 'faketcp://0.0.0.0:11013',
+    label: 'faketcp://0.0.0.0:11013'
+  },
+  {
+    value: 'tcp://[::]:11010',
+    label: 'tcp://[::]:11010'
+  },
+  {
+    value: 'udp://[::]:11010',
+    label: 'udp://[::]:11010'
+  },
+  {
+    value: 'wg://[::]:11011',
+    label: 'wg://[::]:11011'
+  },
+  {
+    value: 'ws://[::]:11011/',
+    label: 'ws://[::]:11011/'
+  },
+  {
+    value: 'wss://[::]:11012/',
+    label: 'wss://[::]:11012/'
   }
 ])
 const mappedListenersOptions = reactive([
   {
-    label: '例如：tcp://123.123.123.123:11223',
+    label: 'tcp://123.123.123.123:11223',
     value: 'tcp://123.123.123.123:11223'
   }
 ])
@@ -877,12 +1235,57 @@ const compressionAlgorithmOptions = reactive([
     value: 2
   }
 ])
-const getPublicPeers = async () => {
-  const data = await easyTierStore.getPublicPeerList()
+// STUN 服务器选项
+const stunServersOptions = ref([])
+const stunServersV6Options = reactive(['stun.nextcloud.com:443'])
+// RPC 白名单选项
+const rpcWhitelistOptions = reactive(['127.0.0.1', '127.0.0.0/8', '0.0.0.0/0'])
+// 加密算法选项
+const encryptionAlgorithmOptions = reactive([
+  {
+    label: 'AES-GCM (默认)',
+    value: 'aes-gcm'
+  },
+  {
+    label: 'AES-256-GCM',
+    value: 'aes-256-gcm'
+  },
+  {
+    label: 'XOR (最快)',
+    value: 'xor'
+  },
+  {
+    label: 'ChaCha20',
+    value: 'chacha20'
+  }
+])
+const getStunServers = async () => {
+  const data = await easyTierStore.getStunServers()
   if (data && data.length > 0) {
-    peersOptions.value = data
+    stunServersOptions.value = data
   }
 }
+
+// 刷新 STUN 服务器列表
+const stunRefreshing = ref(false)
+const handleRefreshStunServers = async () => {
+  stunRefreshing.value = true
+  try {
+    const data = await easyTierStore.refreshStunServers()
+    if (data && data.length > 0) {
+      stunServersOptions.value = data
+    }
+  } finally {
+    stunRefreshing.value = false
+  }
+}
+
+// 生成机器ID（UUID v4 格式）
+const generateMachineId = () => {
+  const uuid = crypto.randomUUID()
+  localFormData.value.machine_id = uuid
+}
+
 const ipv4Disabled = computed(() => {
   return localFormData.value.dhcp
 })
@@ -960,7 +1363,8 @@ onMounted(async () => {
   if (!localFormData.value.file_logger.file) {
     localFormData.value.file_logger.file = 'easytier'
   }
-  await getPublicPeers()
+  // await getPublicPeers()
+  await getStunServers()
 })
 
 const peerChange = (value: string[]) => {
@@ -1005,5 +1409,15 @@ defineExpose({
   height: calc(100vh - 250px);
   padding: 10px;
   overflow-y: auto;
+}
+
+.stun-select-wrapper {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+
+.stun-select-wrapper .stun-select {
+  flex: 1;
 }
 </style>

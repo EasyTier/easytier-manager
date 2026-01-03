@@ -10,7 +10,7 @@ export const NSSM_NAME = 'nssm'
  */
 export const CONFIG_FILE_NAME = 'data.json'
 export const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 export const COOKIE_VALUE = '83077fe7-9171-43f9-906a-f7b95096db66'
 // export const MONITOR_LIST = 'https://easytier.linch.eu.org/api/getMonitorList'
 export const MONITOR_LIST = 'https://uptime.easytier.cn/api/nodes?page=1&per_page=50'
@@ -23,7 +23,13 @@ export const VERSION_PREFIX = 'v'
 export const EASYTIER_NAME = '/easytier-<%= osType %>-<%= osArch %>-<%= version %>.zip'
 export const PREFIX_SVC = 'easytier-'
 export const PREFIX_SVC_WEB = 'easytierweb-'
+export const STUN_SERVER_URL =
+  'https://ghproxy.vip/https://gist.githubusercontent.com/mondain/b0ec1cf5f60ae726202e/raw/2d2b96b4508a38d342e0228d46eab84dad2398a3/public-stun-list.txt'
 export const GITHUB_MIRROR_URL = [
+  {
+    value: 'https://ghproxy.vip/',
+    label: 'https://ghproxy.vip/'
+  },
   {
     value: 'https://ghproxy.cfd/',
     label: 'https://ghproxy.cfd/'
@@ -83,4 +89,11 @@ export const DEFAULT_VER_OPTIONS = [
     name: 'v1.2.3',
     tag_name: 'v1.2.3'
   }
+]
+
+export const DEFAULT_STUN_SERVER = [
+  'stun.nas.net:3478',
+  'stun.qq.com:3478',
+  'stun.miwifi.com:3478',
+  'stun.stunprotocol.org:3478'
 ]
