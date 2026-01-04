@@ -95,7 +95,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     css: {
       preprocessorOptions: {
         less: {
-          additionalData: `@import "${pathResolve('src/styles/variables.module.less')}";`,
+          additionalData: `@import "${pathResolve('src/styles/variables.module.less').replace(/\\/g, '/')}";`,
           javascriptEnabled: true,
           math: 'always'
         }
@@ -138,6 +138,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       //   }
       // },
       rollupOptions: {
+        maxParallelFileOps: 3,
         plugins: env.VITE_USE_BUNDLE_ANALYZER === 'true' ? [visualizer()] : undefined,
         // 拆包
         output: {
@@ -156,6 +157,9 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       },
       cssCodeSplit: !(env.VITE_USE_CSS_SPLIT === 'false')
       // cssTarget: ['chrome31']
+    },
+    worker: {
+      format: 'es'
     },
     server: {
       port: 4000,
