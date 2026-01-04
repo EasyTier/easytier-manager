@@ -1,6 +1,6 @@
 import { resolve } from 'path'
+import type { ConfigEnv, UserConfig } from 'vite'
 import { loadEnv } from 'vite'
-import type { UserConfig, ConfigEnv } from 'vite'
 import Vue from '@vitejs/plugin-vue'
 import VueJsx from '@vitejs/plugin-vue-jsx'
 import progress from 'vite-plugin-progress'
@@ -114,10 +114,10 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         }
       ]
     },
-    // esbuild: {
-    //   pure: env.VITE_DROP_CONSOLE === 'true' ? ['console.log'] : undefined,
-    //   drop: env.VITE_DROP_DEBUGGER === 'true' ? ['debugger'] : undefined
-    // },
+    esbuild: {
+      pure: env.VITE_DROP_CONSOLE === 'true' ? ['console.log'] : undefined,
+      drop: env.VITE_DROP_DEBUGGER === 'true' ? ['debugger'] : undefined
+    },
     build: {
       target: 'ESNext',
       outDir: env.VITE_OUT_DIR || 'dist',
@@ -142,10 +142,32 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         plugins: env.VITE_USE_BUNDLE_ANALYZER === 'true' ? [visualizer()] : undefined,
         // 拆包
         output: {
-          manualChunks: {
-            'vue-chunks': ['vue', 'vue-router', 'pinia', 'vue-i18n'],
-            'element-plus': ['element-plus'],
-            echarts: ['echarts', 'echarts-wordcloud']
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('element-plus')) {
+                return 'element-plus'
+              }
+              if (
+                id.includes('vue') ||
+                id.includes('pinia') ||
+                id.includes('vue-router') ||
+                id.includes('vue-i18n')
+              ) {
+                return 'vue-chunks'
+              }
+              if (id.includes('monaco-editor')) {
+                if (id.includes('monaco-editor/esm/vs/language')) {
+                  return 'monaco-languages'
+                }
+                return 'monaco-editor'
+              }
+              // 将较大的第三方库单独拆分，避免 vendor 过大
+              const largeLibs = ['xgplayer', 'cropperjs', 'axios', 'qs', 'qrcode', '@zxcvbn-ts']
+              if (largeLibs.some((lib) => id.includes(lib))) {
+                return 'libs'
+              }
+              return 'vendor'
+            }
           }
         }
         // output: {

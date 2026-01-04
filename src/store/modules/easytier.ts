@@ -235,8 +235,13 @@ export const useEasyTierStore = defineStore(
         try {
           const parsed = JSON.parse(cachedList)
           if (Array.isArray(parsed) && parsed.length > 0) {
+            // 排除默认服务器，对剩余部分进行随机排序
+            const remoteServers = parsed.filter((s) => !DEFAULT_STUN_SERVER.includes(s))
+            const shuffledRemote = remoteServers.sort(() => Math.random() - 0.5)
+            // 确保默认服务器在最前面
+            const combinedList = [...new Set([...DEFAULT_STUN_SERVER, ...shuffledRemote])]
             // @ts-ignore
-            stunServerList.value = parsed
+            stunServerList.value = combinedList
             // 后台静默更新（不阻塞返回）
             fetchStunServersFromApi()
             return stunServerList.value
@@ -248,10 +253,7 @@ export const useEasyTierStore = defineStore(
 
       // 无缓存时，尝试从 API 获取
       await fetchStunServersFromApi()
-      if (stunServerList.value.length === 0) {
-        // @ts-ignore
-        stunServerList.value = DEFAULT_STUN_SERVER
-      }
+      // fetchStunServersFromApi 内部已经处理了随机化和合并
       return stunServerList.value
     }
 
@@ -275,26 +277,27 @@ export const useEasyTierStore = defineStore(
             .filter((line) => line.length > 0 && !line.startsWith('#'))
 
           if (newList.length > 0) {
+            // 排除默认服务器，对远程获取的列表进行随机排序
+            const remoteServers = newList.filter((s) => !DEFAULT_STUN_SERVER.includes(s))
+            const shuffledRemote = remoteServers.sort(() => Math.random() - 0.5)
+            // 确保默认服务器在最前面且不重复
+            const combinedList = [...new Set([...DEFAULT_STUN_SERVER, ...shuffledRemote])]
             // @ts-ignore
-            stunServerList.value = newList
-            localStorage.setItem('stunServerList', JSON.stringify(newList))
-            return newList
+            stunServerList.value = combinedList
+            localStorage.setItem('stunServerList', JSON.stringify(combinedList))
+            return combinedList
           }
         }
       } catch (error) {
         console.error('获取 STUN 服务器列表失败:', error)
       }
-      return []
+      return DEFAULT_STUN_SERVER
     }
 
     // 强制刷新 STUN 服务器列表（供按钮调用）
     const refreshStunServers = async () => {
-      const result = await fetchStunServersFromApi()
-      if (result.length === 0) {
-        // 如果获取失败，使用默认列表
-        // @ts-ignore
-        stunServerList.value = DEFAULT_STUN_SERVER
-      }
+      await fetchStunServersFromApi()
+      // fetchStunServersFromApi 内部已经处理了随机化和合并
       return stunServerList.value
     }
 

@@ -286,6 +286,7 @@
                   v-model="localFormData.stun_servers"
                   clearable
                   filterable
+                  :filter-method="filterStunServers"
                   allow-create
                   default-first-option
                   multiple
@@ -293,7 +294,7 @@
                   class="stun-select"
                 >
                   <el-option
-                    v-for="(item, index) in stunServersOptions"
+                    v-for="(item, index) in displayStunServers"
                     :key="index"
                     :label="item"
                     :value="item"
@@ -1236,8 +1237,28 @@ const compressionAlgorithmOptions = reactive([
   }
 ])
 // STUN 服务器选项
-const stunServersOptions = ref([])
+const stunServersOptions = ref<string[]>([])
 const stunServersV6Options = reactive(['stun.nextcloud.com:443'])
+// 用于显示的 STUN 服务器列表（限制20个）
+const displayStunServers = ref<string[]>([])
+
+// 过滤 STUN 服务器
+const filterStunServers = (query: string) => {
+  if (query) {
+    const filtered = stunServersOptions.value.filter((item) =>
+      item.toLowerCase().includes(query.toLowerCase())
+    )
+    displayStunServers.value = filtered.slice(0, 20)
+  } else {
+    displayStunServers.value = stunServersOptions.value.slice(0, 20)
+  }
+}
+
+// 监听原始列表变化，同步更新显示列表
+watch(stunServersOptions, (newList) => {
+  displayStunServers.value = newList.slice(0, 20)
+})
+
 // RPC 白名单选项
 const rpcWhitelistOptions = reactive(['127.0.0.1', '127.0.0.0/8', '0.0.0.0/0'])
 // 加密算法选项

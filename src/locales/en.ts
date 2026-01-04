@@ -358,25 +358,6 @@ export default {
       'Iconify component basically contains all icons. You can query any icon you want. And packaging will only package the icons used.',
     accessAddress: 'Access address'
   },
-  echartDemo: {
-    echart: 'Echart',
-    echartDes:
-      'Based on the secondary packaging components of eckarts, the width is adaptive. The corresponding chart can be displayed by passing in the options and height attributes.'
-  },
-  countToDemo: {
-    countTo: 'CountTo',
-    countToDes:
-      'The transformation is based on vue-count-to and supports all vue-count-to parameters.',
-    suffix: 'Suffix',
-    prefix: 'Prefix',
-    separator: 'Separator',
-    duration: 'Duration',
-    endVal: 'End val',
-    startVal: 'Start val',
-    start: 'Start',
-    pause: 'Pause',
-    resume: 'Resume'
-  },
   watermarkDemo: {
     watermark: 'Watermark',
     createdWatermark: 'Created watermark',

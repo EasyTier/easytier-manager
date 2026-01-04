@@ -62,7 +62,7 @@ export const isString = (val: unknown): val is string => {
   return is(val, 'String')
 }
 
-export const isFunction = (val: unknown): val is Function => {
+export const isFunction = (val: unknown): val is (...args: any[]) => any => {
   return typeof val === 'function'
 }
 

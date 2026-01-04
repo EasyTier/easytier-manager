@@ -1,4 +1,6 @@
 <script setup lang="tsx">
+// @ts-ignore
+// @ts-nocheck
 import { useMonacoEditor } from '@/hooks/web/useMonacoEditor'
 import { onMounted, computed, watch, ref } from 'vue'
 import { ElSelect, ElOption, ElFormItem, ElForm } from 'element-plus'
@@ -12,7 +14,7 @@ const props = withDefaults(
     language?: string
     themeSelector?: boolean
     theme?: string
-    editorOption?: Object
+    editorOption?: object
     modelValue: string
     readOnly?: boolean // 是否只读 取值 true | false
     wordWrap?: string // 开启自动换行 取值 off | on

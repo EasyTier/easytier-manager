@@ -12,9 +12,9 @@ pnpm-lock.yaml
 package-lock.json
 yarn.lock
 tmp
+.tmp
 target
 .vscode
-Cargo.lock
 
 
 .nvmdrc

@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-svg-icons/client" />
 
 declare module '*.vue' {
   import { DefineComponent } from 'vue'

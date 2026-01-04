@@ -3,7 +3,7 @@
     "target": "ESNext",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "strict": true,
     "jsx": "preserve",
     "sourceMap": true,
@@ -28,9 +28,7 @@
       "@intlify/unplugin-vue-i18n/types",
       "vite/client",
       "element-plus/global",
-      "@types/qrcode",
-      "vite-plugin-svg-icons/client",
-      "@tauri-apps/api"
+      "@types/qrcode"
     ]
   },
   "include": ["src", "types/**/*.d.ts", "auto-imports.d.ts", "components.d.ts", "vite.config.ts"]

@@ -550,18 +550,6 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
       // const args12 = ['set', serviceName, 'AppTimestampLog', '1']
       await executeCmd(NSSM_NAME, args1, { encoding: 'gbk' }).then(async (res) => {
         info(`安装服务结果:${JSON.stringify(res)}`)
-        info(`安装服务结果:${res.code}`)
-        info(`安装服务结果:${res}`)
-        info(`安装服务结果:${res && res.code! === 0}`)
-        info(
-          `安装服务结果:${
-            res &&
-            (res.code! === 0 ||
-              res.code! === 1 ||
-              res.includes('success') ||
-              res.includes('installed'))
-          }`
-        )
         if (
           res &&
           (res.code! === 0 ||
@@ -779,7 +767,7 @@ export const checkServiceWithOfficialCli = async (_serviceName: string) => {
     try {
       const res: any = await executeCmd('easytier-cli', ['service', 'status'], { encoding: 'gbk' })
 
-      info(`官方CLI检查服务状态: ${JSON.stringify(res)}`)
+      // info(`官方CLI检查服务状态: ${JSON.stringify(res)}`)
 
       if (typeof res === 'string') {
         const lowerRes = res.toLowerCase()
