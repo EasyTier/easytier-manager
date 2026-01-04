@@ -45,7 +45,17 @@ import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 onMounted(async () => {
-  easytierStore.autorun()
+  // 显示窗口（配置文件中设置为初始不可见，现在前端已加载完成）
+  getCurrentWindow()
+    .show()
+    .catch((e) => {
+      console.error('Failed to show window:', e)
+    })
+
+  easytierStore.autorun().catch((e) => {
+    console.error('Failed to autorun:', e)
+  })
+
   // 发送事件通知后端，前端已准备就绪
   emit('frontend-ready').catch((e) => {
     console.error('Failed to emit frontend-ready event:', e)
@@ -60,7 +70,9 @@ onMounted(async () => {
   const minimizeOnStart = localStorage.getItem('settings.minimizeOnStart') === 'true'
   if (minimizeOnStart) {
     const window = getCurrentWindow()
-    await window.hide()
+    await window.hide().catch((e) => {
+      console.error('Failed to hide window:', e)
+    })
   }
 })
 </script>

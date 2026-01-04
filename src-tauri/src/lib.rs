@@ -60,13 +60,21 @@ fn run_command(program: String, args: Vec<String>) -> String {
 fn get_exe_directory() -> String {
     match std::env::current_exe() {
         Ok(exe_path) => {
-            return exe_path.parent().unwrap().display().to_string();
+            if let Some(parent) = exe_path.parent() {
+                return parent.display().to_string();
+            }
+            "".to_string()
         }
         Err(e) => {
             println!("failed to get current exe path: {e}");
-            return "".to_string();
+            "".to_string()
         }
-    };
+    }
+}
+
+// 获取日志目录（程序安装目录下的 logs）
+fn get_log_directory() -> String {
+    format!("{}/logs", get_exe_directory())
 }
 
 fn show_window(app: &AppHandle) {
@@ -82,10 +90,16 @@ fn show_window(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 创建 logs 目录
-    let _ = std::fs::create_dir_all(format!("{}/logs", get_exe_directory()));
+    // 尝试创建日志目录（如果失败也继续运行）
+    let log_dir = get_log_directory();
+    let log_dir_created = std::fs::create_dir_all(&log_dir).is_ok();
 
-    tauri::Builder::default()
+    if !log_dir_created {
+        println!("Warning: Failed to create log directory at: {}", log_dir);
+        println!("Logs will only be output to console.");
+    }
+
+    let mut builder = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             run_command,
             run_cli,
@@ -93,8 +107,11 @@ pub fn run() {
         ])
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = show_window(app);
-        }))
-        .plugin(
+        }));
+
+    // 只有在日志目录创建成功时才启用文件日志
+    if log_dir_created {
+        builder = builder.plugin(
             tauri_plugin_log::Builder::new()
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .level(log::LevelFilter::Info)
@@ -112,16 +129,38 @@ pub fn run() {
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::LogDir {
-                        file_name: Some(format!(
-                            "{}/logs/{}",
-                            get_exe_directory(),
-                            env!("CARGO_PKG_NAME")
-                        )),
+                        file_name: Some(format!("{}/{}", log_dir, env!("CARGO_PKG_NAME"))),
                     }),
                     Target::new(TargetKind::Webview),
                 ])
                 .build(),
-        )
+        );
+    } else {
+        // 日志目录创建失败，仅使用控制台和 Webview 输出
+        builder = builder.plugin(
+            tauri_plugin_log::Builder::new()
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .level(log::LevelFilter::Info)
+                .format(|out, message, record| {
+                    let date = Local::now().format("%Y-%m-%d %H:%M:%S");
+                    let target = record.target().split("@").next().unwrap_or(record.target());
+                    out.finish(format_args!(
+                        "{} {:<5} [{}]: {}",
+                        date,
+                        record.level(),
+                        target,
+                        message
+                    ))
+                })
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::Webview),
+                ])
+                .build(),
+        );
+    }
+
+    builder
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())

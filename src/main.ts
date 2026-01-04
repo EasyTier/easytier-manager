@@ -44,8 +44,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 
 // 创建实例
 const setupAll = async () => {
-  await clearLogs()
-
   const app = createApp(App)
 
   await setupI18n(app)
@@ -64,21 +62,35 @@ const setupAll = async () => {
 
   app.mount('#app')
 
-  // 检查启动设置
-  const { getStorage } = useStorage('localStorage')
+  // 启动后台任务（不阻塞启动）
+  Promise.all([
+    // 清理日志（不阻塞主流程）
+    clearLogs().catch((err) => console.warn('清理日志失败:', err)),
 
-  // 1. 启动后最小化
-  if (getStorage('settings.minimizeOnStart') === 'true') {
-    // 延迟一下确保窗口已经创建
-    setTimeout(() => {
-      getCurrentWindow().hide()
-    }, 100)
-  }
+    // 检查启动设置
+    (async () => {
+      const { getStorage } = useStorage('localStorage')
 
-  // 2. 启动后自动运行网络
-  if (getStorage('settings.autoRunNetwork') === 'true') {
-    easyTierStore.autorun()
-  }
+      // 1. 启动后最小化
+      if (getStorage('settings.minimizeOnStart') === 'true') {
+        setTimeout(() => {
+          getCurrentWindow()
+            .hide()
+            .catch((err) => console.warn('隐藏窗口失败:', err))
+        }, 100)
+      }
+
+      // 2. 启动后自动运行网络
+      if (getStorage('settings.autoRunNetwork') === 'true') {
+        setTimeout(() => {
+          easyTierStore.autorun().catch((err) => console.warn('自动运行失败:', err))
+        }, 500)
+      }
+    })()
+  ]).catch((err) => console.error('后台任务执行失败:', err))
 }
 
-setupAll()
+setupAll().catch((err) => {
+  console.error('应用启动失败:', err)
+  alert('应用启动失败，请查看日志文件或联系开发者')
+})

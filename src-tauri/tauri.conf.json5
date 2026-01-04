@@ -35,8 +35,8 @@
         "fullscreen": false,
         // 是否居中显示
         "center": true,
-        // 是否可见
-        "visible": true,
+        // 是否可见（设置为 false 可避免白屏，等前端加载完再显示）
+        "visible": false,
         // 是否显示窗口装饰（如标题栏、边框等）
         "decorations": true,
         // 是否透明
@@ -49,7 +49,9 @@
     "security": {
       // 内容安全策略（CSP）
       "csp": null
-    }
+    },
+    // 启用更好的性能
+    "withGlobalTauri": true
   },
   // 打包配置
   "bundle": {
