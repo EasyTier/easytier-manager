@@ -6,6 +6,7 @@ import DefaultData from '@/constants/defaultData'
 import { CONFIG_FILE_NAME, CONFIG_PATH, PREFIX_SVC_WEB } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
+import type { FormWebData } from '@/types/formTypes'
 import { openPath, readFileContent, writeFileContent } from '@/utils/fileUtil'
 import {
   checkServiceOnWindows,

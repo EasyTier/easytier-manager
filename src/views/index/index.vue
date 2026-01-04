@@ -39,7 +39,7 @@ const wordWrap = ref('off')
 const nodeInfo = ref({})
 const peerInfo = ref<PeerInfo[]>([])
 const treeEl = ref<typeof ElTree>()
-const dialogTitle = ref('')
+// const dialogTitle = ref('') // 未使用的变量，已注释
 const currentNodeKey = ref<RunningItem>({
   configFileName: ''
 })

@@ -667,7 +667,7 @@ export const stopServiceOnWindows = (serviceName: string) => {
  * 使用官方 easytier-cli 安装服务
  */
 export const installServiceWithOfficialCli = async (
-  serviceName: string,
+  _serviceName: string, // 注释：官方CLI不需要serviceName参数，但保留以兼容调用方
   configPath: string,
   configFileName: string,
   options: {
@@ -745,7 +745,7 @@ export const installServiceWithOfficialCli = async (
 /**
  * 使用官方 easytier-cli 卸载服务
  */
-export const uninstallServiceWithOfficialCli = async (serviceName: string) => {
+export const uninstallServiceWithOfficialCli = async (_serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
       const res: any = await executeCmd('easytier-cli', ['service', 'uninstall'], {
@@ -774,7 +774,7 @@ export const uninstallServiceWithOfficialCli = async (serviceName: string) => {
 /**
  * 使用官方 easytier-cli 检查服务状态
  */
-export const checkServiceWithOfficialCli = async (serviceName: string) => {
+export const checkServiceWithOfficialCli = async (_serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
       const res: any = await executeCmd('easytier-cli', ['service', 'status'], { encoding: 'gbk' })

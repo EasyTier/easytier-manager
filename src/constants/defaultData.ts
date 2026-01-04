@@ -1,4 +1,6 @@
-const defaultFormData: FormData | any = {
+import type { EasyTierFormData, FormWebData } from '@/types/formTypes'
+
+const defaultFormData: EasyTierFormData | any = {
   hostname: '',
   instance_name: '',
   machine_id: undefined, // 机器 ID，默认从系统获取

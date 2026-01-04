@@ -1290,9 +1290,10 @@ const ipv4Disabled = computed(() => {
   return localFormData.value.dhcp
 })
 
-const consoleLoggerVisible = computed(() => {
-  return localFormData.value.console_logger
-})
+// 注释：consoleLoggerVisible 未使用，保留以备将来使用
+// const consoleLoggerVisible = computed(() => {
+//   return localFormData.value.console_logger
+// })
 
 const peers = ref<string[]>([])
 const proxyNetwork = ref<string[]>([])

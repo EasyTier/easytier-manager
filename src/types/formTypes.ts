@@ -56,7 +56,7 @@ interface Flags {
   tld_dns_zone?: string | undefined // TLD DNS 区域
 }
 
-interface FormData {
+export interface EasyTierFormData {
   hostname?: string | undefined | null
   instance_name?: string | undefined
   machine_id?: string | undefined // 机器 ID，用于 Web 配置服务器识别
@@ -86,7 +86,7 @@ interface FormData {
   flags: Partial<Flags>
 }
 
-interface FormWebData {
+export interface FormWebData {
   protocol: Partial<string> | undefined
   host: Partial<string> | undefined
   port: Partial<number> | undefined

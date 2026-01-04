@@ -6,6 +6,7 @@ import DefaultData from '@/constants/defaultData'
 import { CONFIG_PATH, PREFIX_SVC } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
+import type { EasyTierFormData } from '@/types/formTypes'
 import {
   deleteFileOrDir,
   getLogsDir,
@@ -55,7 +56,7 @@ const actionType = ref('')
 const editType = ref('')
 const saveLoading = ref(false)
 const formRef = ref()
-const formData = ref<FormData>(cloneDeep(DefaultData.defaultFormData))
+const formData = ref<EasyTierFormData>(cloneDeep(DefaultData.defaultFormData))
 const configFileName = ref<string | null>(null)
 const errorMessage = ref('')
 const logsDir = ref('')
@@ -80,11 +81,11 @@ const checkServiceStatus = async () => {
 
     if (installMethod === 'nssm') {
       const status = await checkServiceOnWindows(serviceName)
-      item.serviceStatus = serviceStatusDict(status)
+      item.serviceStatus = serviceStatusDict(status as string | boolean)
       item.installMethod = 'nssm'
     } else if (installMethod === 'official') {
       const status = await checkServiceWithOfficialCli(serviceName)
-      item.serviceStatus = serviceStatusDict(status)
+      item.serviceStatus = serviceStatusDict(status as string | boolean)
       item.installMethod = 'official'
     } else {
       item.serviceStatus = '未安装'
@@ -141,7 +142,7 @@ const editForm = async (row: any) => {
   editType.value = 'form'
   await readFileData(row.fileName)
   const parse = Object.assign({}, formData.value, toml.parse(dataConfig.value))
-  formData.value = parse as FormData
+  formData.value = parse as EasyTierFormData
   if (!formData.value.vpn_portal_config) {
     formData.value.vpn_portal_config = {}
     formData.value.vpn_portal_config.client_cidr = ''
@@ -473,20 +474,20 @@ const confirmInstallService = async () => {
       ).then(async () => {
         serviceInstallForm.value.installMethod = 'nssm'
         const args = await buildCoreArgsWithLogConfig(row.fileName, configPath)
-        result = await installServiceOnWindows(serviceName, args)
+        result = (await installServiceOnWindows(serviceName, args)) as boolean
         handleInstallResult(result)
       })
       return
     }
 
-    result = await installServiceWithOfficialCli(serviceName, configPath, row.fileName, {
+    result = (await installServiceWithOfficialCli(serviceName, configPath, row.fileName, {
       description: serviceInstallForm.value.description,
       displayName: serviceInstallForm.value.displayName,
       disableAutostart: !serviceInstallForm.value.enableAutostart
-    })
+    })) as boolean
   } else {
     const args = await buildCoreArgsWithLogConfig(row.fileName, configPath)
-    result = await installServiceOnWindows(serviceName, args)
+    result = (await installServiceOnWindows(serviceName, args)) as boolean
   }
 
   handleInstallResult(result)
@@ -522,9 +523,9 @@ const uninstallServiceHandle = async (row: any) => {
 
     let res = false
     if (installMethod === 'official') {
-      res = await uninstallServiceWithOfficialCli(serviceName)
+      res = (await uninstallServiceWithOfficialCli(serviceName)) as boolean
     } else {
-      res = await uninstallServiceOnWindows(serviceName)
+      res = (await uninstallServiceOnWindows(serviceName)) as boolean
     }
 
     info(`卸载服务:${JSON.stringify(res)}`)
@@ -545,9 +546,9 @@ const startServiceHandle = async (row: any) => {
 
   let res = false
   if (installMethod === 'official') {
-    res = await startServiceWithOfficialCli(serviceName)
+    res = (await startServiceWithOfficialCli(serviceName)) as boolean
   } else {
-    res = await startServiceOnWindows(serviceName)
+    res = (await startServiceOnWindows(serviceName)) as boolean
   }
 
   info(`启动服务:${JSON.stringify(res)}`)
@@ -574,9 +575,9 @@ const stopServiceHandle = async (row: any) => {
 
   let res = false
   if (installMethod === 'official') {
-    res = await stopServiceWithOfficialCli(serviceName)
+    res = (await stopServiceWithOfficialCli(serviceName)) as boolean
   } else {
-    res = await stopServiceOnWindows(serviceName)
+    res = (await stopServiceOnWindows(serviceName)) as boolean
   }
 
   info(`停止服务:${JSON.stringify(res)}`)
