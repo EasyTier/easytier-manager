@@ -43,7 +43,6 @@ export default tseslint.config({
     'no-useless-escape': 0,
     'no-undef': 0,
     'vue/no-setup-props-destructure': 0,
-    'vue/script-setup-uses-vars': 1,
     'vue/no-reserved-component-names': 0,
     '@typescript-eslint/ban-ts-ignore': 0,
     '@typescript-eslint/explicit-function-return-type': 0,

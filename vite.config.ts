@@ -42,12 +42,14 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       VueJsx(),
       ServerUrlCopy(),
       progress(),
-      VueDevTools({
-        // 启用 Vue DevTools
-        componentInspector: true
-        // 将默认编辑器从 VS Code 更改为 WebStorm
-        // launchEditor: 'webstorm'
-      }),
+      isBuild
+        ? undefined
+        : VueDevTools({
+            // 启用 Vue DevTools
+            componentInspector: true
+            // 将默认编辑器从 VS Code 更改为 WebStorm
+            // launchEditor: 'webstorm'
+          }),
       env.VITE_USE_ALL_ELEMENT_PLUS_STYLE === 'false'
         ? createStyleImportPlugin({
             resolves: [ElementPlusResolve()],
@@ -65,12 +67,14 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
             ]
           })
         : undefined,
-      EslintPlugin({
-        cache: false,
-        failOnWarning: false,
-        failOnError: false,
-        include: ['src/**/*.vue', 'src/**/*.ts', 'src/**/*.tsx'] // 检查的文件
-      }),
+      isBuild
+        ? undefined
+        : EslintPlugin({
+            cache: false,
+            failOnWarning: false,
+            failOnError: false,
+            include: ['src/**/*.vue', 'src/**/*.ts', 'src/**/*.tsx'] // 检查的文件
+          }),
       VueI18nPlugin({
         runtimeOnly: true,
         compositionOnly: true,
