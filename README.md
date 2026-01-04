@@ -87,7 +87,7 @@ EasyTier 管理器 整合Vue3 + Vite5 + Tauri 2 + Element-Plus， 是一个基�
 
 ## 预览
 
-![image-20241025143234326](./doc/assets/image-20241025143234326.png)
+![home-20260104-231739.png](doc/assets/home-20260104-231739.png)
 
 ![image-20241025112503453](./doc/assets/image-20241025112503453.png)
 
