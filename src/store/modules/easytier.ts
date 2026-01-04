@@ -24,6 +24,7 @@ export const useEasyTierStore = defineStore(
     const fileList = ref([])
     const runningList = ref<RunningItem[]>([])
     const lastRunConfig = ref<RunningItem>()
+    const lastSelectedConfig = ref<RunningItem>()
     const allConfigOptions = ref([])
     // 带有文件后缀
     const fileListNoSuffix = ref([])
@@ -39,6 +40,10 @@ export const useEasyTierStore = defineStore(
     const autoRunConfigName = ref('')
     // 刷新频率（秒）
     const refreshInterval = ref(5)
+    // Xshell 路径
+    const xshellPath = ref('')
+    // 是否是首次加载（用于自动运行逻辑）
+    const isFirstLoad = ref(true)
     // 锁定密码
     const lockPassword = ref('')
     // 启动直接报错提示
@@ -93,13 +98,21 @@ export const useEasyTierStore = defineStore(
       lastRunConfig.value = config
       localStorage.setItem('lastRunConfigName', JSON.stringify(config))
     }
+    const setLastSelectedConfig = (config: any) => {
+      lastSelectedConfig.value = config
+      localStorage.setItem('lastSelectedConfig', JSON.stringify(config))
+    }
     const getLastRunConfigName = () => {
       if (lastRunConfig.value) {
         return lastRunConfig.value.configFileName
       }
       const storageConfigName = JSON.parse(localStorage.getItem('lastRunConfigName') || '{}')
       if (Object.keys(storageConfigName).length !== 0) {
-        return storageConfigName
+        return storageConfigName.configFileName
+      }
+      const storageSelectedConfig = JSON.parse(localStorage.getItem('lastSelectedConfig') || '{}')
+      if (Object.keys(storageSelectedConfig).length !== 0) {
+        return storageSelectedConfig.configFileName
       }
       if (configList.value.length > 0) {
         return configList.value[0].configFileName
@@ -161,16 +174,21 @@ export const useEasyTierStore = defineStore(
             headers: { 'User-Agent': USER_AGENT },
             connectTimeout: 6000
           })
-          releaseInfo.value = await response.json()
-          // 如果成功获取到新数据，更新本地存储
-          localStorage.setItem('releaseInfo', JSON.stringify(releaseInfo.value))
-          localStorage.setItem(
-            'releaseInfoIsGet',
-            JSON.stringify({
-              status: 'true',
-              date
-            })
-          )
+          if (response.ok) {
+            const text = await response.text()
+            releaseInfo.value = text ? JSON.parse(text) : []
+            // 如果成功获取到新数据，更新本地存储
+            localStorage.setItem('releaseInfo', JSON.stringify(releaseInfo.value))
+            localStorage.setItem(
+              'releaseInfoIsGet',
+              JSON.stringify({
+                status: 'true',
+                date
+              })
+            )
+          } else {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
         } catch (error) {
           console.error('获取发布信息失败:', error)
           console.error('DEFAULT_VER_OPTIONS:', DEFAULT_VER_OPTIONS)
@@ -329,6 +347,7 @@ export const useEasyTierStore = defineStore(
       runningList,
       allConfigOptions,
       lastRunConfig,
+      lastSelectedConfig,
       stopLoop,
       stopSetRoute,
       p2pNotify,
@@ -336,6 +355,8 @@ export const useEasyTierStore = defineStore(
       autoRunNetworkSetting,
       autoRunConfigName,
       refreshInterval,
+      xshellPath,
+      isFirstLoad,
       lockPassword,
       defaultFormData,
       errRunNotify,
@@ -354,6 +375,7 @@ export const useEasyTierStore = defineStore(
       removeRunningList,
       setAllConfigOptions,
       setLastRunConfigName,
+      setLastSelectedConfig,
       getLastRunConfigName,
       setStopLoop,
       setP2pNotify,

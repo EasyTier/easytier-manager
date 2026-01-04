@@ -15,11 +15,13 @@ import {
   getRunningProcesses,
   killProcess,
   runEasyTierCli,
-  runEasyTierCore
+  runEasyTierCore,
+  safeJsonParse
 } from '@/utils/shellUtil'
 import { notify, sleep } from '@/utils/sysUtil'
-import { CopyDocument, Setting } from '@element-plus/icons-vue'
+import { ArrowDown, CopyDocument, Link, Monitor, Platform, Setting } from '@element-plus/icons-vue'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
+import { Command } from '@tauri-apps/plugin-shell'
 import { useClipboard } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox, ElNotification, ElOption, ElSelect, ElTree } from 'element-plus'
@@ -36,8 +38,10 @@ const runningTag2 = ref(false)
 const logData = ref('')
 const MonacoEditRef = ref()
 const wordWrap = ref('off')
-const nodeInfo = ref({})
+const nodeInfo = ref<any>({})
 const peerInfo = ref<PeerInfo[]>([])
+const isNodeInfoLooping = ref(false)
+const isPeerInfoLooping = ref(false)
 const treeEl = ref<typeof ElTree>()
 // const dialogTitle = ref('') // 未使用的变量，已注释
 const currentNodeKey = ref<RunningItem>({
@@ -142,6 +146,64 @@ const setExitRoute = async (val) => {
   //   await delRouteOnWindows(parseValue.exit_nodes[0])
   // }
 }
+// 从easyTierStore.runningList 同步 runningTag
+const runningTag = computed(() => {
+  return easyTierStore.runningList.some(
+    (i) => i.configFileName === currentNodeKey.value.configFileName
+  )
+})
+const handlePing = async (ip: string) => {
+  if (!ip || ip === '服务器') return
+  // Windows: cmd /k ping <ip>
+  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ping ${ip}`]).spawn()
+}
+
+const handleRDP = async (ip: string) => {
+  if (!ip) return
+  // mstsc /v:<ip>
+  await Command.create('mstsc', [`/v:${ip}`]).spawn()
+}
+
+const handleTelnet = async (ip: string) => {
+  if (!ip || ip === '服务器') return
+  // Windows: cmd /k telnet <ip>
+  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `telnet ${ip}`]).spawn()
+}
+
+const handleSSH = async (ip: string) => {
+  if (!ip || ip === '服务器') return
+  // Windows: cmd /k ssh root@<ip>
+  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ssh root@${ip}`]).spawn()
+}
+
+const handleXshell = async (ip: string) => {
+  if (!ip || ip === '服务器') return
+  try {
+    // 优先使用用户配置的路径
+    const xshellPath = easyTierStore.xshellPath || 'xshell'
+    // 使用 cmd /c start "" "路径" "参数" 的方式启动，可以规避 Tauri 的 Scoped command 限制
+    // start 命令的第一个双引号参数会被视为窗口标题，所以路径中有空格时，前面必须加一个空的双引号
+    await Command.create('cmd', ['/c', 'start', '', xshellPath, ip]).spawn()
+  } catch (e) {
+    ElMessage.error('无法启动 Xshell，请确保 Xshell 路径配置正确或已添加到系统 PATH 中。')
+  }
+}
+
+watch(
+  [() => runningTag.value, () => nodeInfo.value],
+  ([running, info]) => {
+    if (running && info && info.ipv4_addr) {
+      trayStore.setTrayTooltip(
+        `状态: 运行中\n配置: ${currentNodeKey.value.configFileName}\nIP: ${info.ipv4_addr}`
+      )
+    } else if (running) {
+      trayStore.setTrayTooltip(`状态: 运行中\n配置: ${currentNodeKey.value.configFileName}`)
+    } else {
+      trayStore.setTrayTooltip('状态: 未运行')
+    }
+  },
+  { immediate: true, deep: true }
+)
 
 const getConfigList = async () => {
   try {
@@ -156,12 +218,7 @@ const getConfigList = async () => {
     error(`获取配置异常${e}`)
   }
 }
-// 从easyTierStore.runningList 同步 runningTag
-const runningTag = computed(() => {
-  return easyTierStore.runningList.some(
-    (i) => i.configFileName === currentNodeKey.value.configFileName
-  )
-})
+
 const routeCost = (cost: string) => {
   switch (cost) {
     case 'p2p':
@@ -221,121 +278,143 @@ const getNatType = (natType: any) => {
   }
 }
 const getNodeInfo = async () => {
-  const maxRetry = 10
-  let retryTime = 1
-  let isFirstRun = true
-  while (!easyTierStore.stopLoop) {
-    if (retryTime >= maxRetry) {
-      break
-    }
-    if (!isFirstRun) {
-      await sleep(10000)
-    }
-    if (easyTierStore.stopLoop) break
-    isFirstRun = false
+  if (isNodeInfoLooping.value) return
+  isNodeInfoLooping.value = true
+  try {
+    const maxRetry = 10
+    let retryTime = 1
+    let isFirstRun = true
+    while (!easyTierStore.stopLoop || isFirstRun) {
+      if (retryTime >= maxRetry) {
+        break
+      }
+      if (!isFirstRun && !easyTierStore.stopLoop) {
+        await sleep(10000)
+      }
+      if (easyTierStore.stopLoop && !isFirstRun) break
+      isFirstRun = false
 
-    const res = await runEasyTierCli(['--output', 'json', 'node'])
-    if (res.code === 403) {
-      easyTierStore.setStopLoop(true)
-      runningTag2.value = false
-      break
+      const res = await runEasyTierCli(['--output', 'json', 'node'])
+      if (res.code === 403) {
+        easyTierStore.setStopLoop(true)
+        runningTag2.value = false
+        break
+      }
+      if (!res) {
+        retryTime++
+        continue
+      }
+      nodeInfo.value = safeJsonParse(res)
+      if (
+        nodeInfo.value['ipv4_addr'] &&
+        nodeInfo.value['stun_info'] &&
+        nodeInfo.value['stun_info']['udp_nat_type'] &&
+        nodeInfo.value['stun_info']['public_ip'] &&
+        nodeInfo.value['stun_info']['public_ip'].length > 0
+      ) {
+        retryTime = maxRetry
+      }
+      if (nodeInfo.value['ipv4_addr']) {
+        nodeInfo.value['stun_info']['udp_nat_type'] = getNatType(
+          nodeInfo.value['stun_info']['udp_nat_type']
+        )
+      }
+      runningTag2.value = true
+      // 获取节点信息成功后，尝试刷新节点列表
+      getPeerInfo()
+      if (easyTierStore.stopLoop) break
     }
-    if (!res) {
-      retryTime++
-      continue
-    }
-    nodeInfo.value = JSON.parse(res)
-    if (
-      nodeInfo.value['ipv4_addr'] &&
-      nodeInfo.value['stun_info']['udp_nat_type'] &&
-      nodeInfo.value['stun_info']['public_ip'].length > 0
-    ) {
-      retryTime = maxRetry
-    }
-    if (nodeInfo.value['ipv4_addr']) {
-      nodeInfo.value['stun_info']['udp_nat_type'] = getNatType(
-        nodeInfo.value['stun_info']['udp_nat_type']
-      )
-    }
-    runningTag2.value = true
+  } finally {
+    isNodeInfoLooping.value = false
   }
 }
 const getPeerInfo = async () => {
-  let isFirstRun = true
-  let retryTime = 1
-  while (!easyTierStore.stopLoop) {
-    if (retryTime > 5) {
-      break
-    }
-    // 如果不是第一次运行，则等待。第一次运行如果是启动后恢复状态，不需要等待太久
-    if (!isFirstRun) {
-      await sleep(easyTierStore.refreshInterval * 1000)
-    } else {
-      // 第一次运行稍微等一下核心程序响应
-      await sleep(1000)
+  if (isPeerInfoLooping.value) return
+  isPeerInfoLooping.value = true
+  try {
+    let isFirstRun = true
+    let retryTime = 1
+    while (!easyTierStore.stopLoop || isFirstRun) {
+      if (retryTime > 5) {
+        break
+      }
+      // 如果不是第一次运行，则等待。第一次运行如果是启动后恢复状态，不需要等待太久
+      if (!isFirstRun && !easyTierStore.stopLoop) {
+        await sleep(easyTierStore.refreshInterval * 1000)
+      } else if (!isFirstRun && easyTierStore.stopLoop) {
+        // 如果已停止且不是第一次运行，直接退出
+        break
+      } else {
+        // 第一次运行稍微等一下核心程序响应
+        await sleep(1000)
+      }
+      if (easyTierStore.stopLoop && !isFirstRun) break
       isFirstRun = false
-    }
-    if (easyTierStore.stopLoop) break
 
-    const temp = (await readFileContent(
-      CONFIG_PATH + '/' + currentNodeKey.value.configFileName + '.toml'
-    )) as string
-    const data = toml.parse(temp)
-    const res = await runEasyTierCli([
-      '-p',
-      (data.rpc_portal as string).replace('0.0.0.0', '127.0.0.1'),
-      '--output',
-      'json',
-      'peer'
-    ])
-    if (res.code === 403) {
-      easyTierStore.setStopLoop(true)
-      easyTierStore.removeRunningList(currentNodeKey.value.configFileName)
-      runningTag2.value = false
-      break
-    }
-    if (!res) {
-      retryTime++
-      continue
-    } else {
-      retryTime = 0
-    }
-    // peerInfo.value = parsePeerInfo(res)
-    peerInfo.value = JSON.parse(res)
-    const filter = peerInfo.value.filter((value) => value.ipv4 && value.cost !== 'Local')
-    const filter1 = peerInfo.value.filter(
-      (value) => value.ipv4 && value.cost !== 'Local' && value.cost === 'p2p'
-    )
-    peerInfo.value.forEach((value) => {
-      if (value.ipv4 && value.ipv4.includes('/')) {
-        value.ipv4 = value.ipv4.split('/')[0]
+      if (!currentNodeKey.value.configFileName) {
+        break
       }
-      if (value.hostname && value.hostname.includes('PublicServer_')) {
-        value.hostname = value.hostname.replace('PublicServer_', '')
-        value.ipv4 = '服务器'
+
+      const temp = (await readFileContent(
+        CONFIG_PATH + '/' + currentNodeKey.value.configFileName + '.toml'
+      )) as string
+      if (!temp) {
+        break
       }
-      // 暂时无法判断是否服务器
-      // if (value.cost.trim() !== 'Local') {
-      //     const suffixName = value.hostname ? value.hostname.split('_')[1] : ''
-      //     value.ipv4 = '服务器' + suffixName
-      //   }
-      value.cost = routeCost(value.cost)
-      value.nat_type = getNatType(value.nat_type)
-      value.delayColor = getDelayColor(value.lat_ms)
-    })
-    runningTag2.value = true
-    if (
-      easyTierStore.p2pNotifySetting &&
-      easyTierStore.p2pNotify &&
-      filter.length > 0 &&
-      filter1.length > 0 &&
-      filter.length === filter1.length
-    ) {
-      notify('EasyTier 管理器', '恭喜你，全部节点建立 P2P 连接！🎉🎉')
-      // 只通知一次
-      easyTierStore.setP2pNotify(false)
+      const data = toml.parse(temp)
+      const res = await runEasyTierCli([
+        '-p',
+        (data.rpc_portal as string).replace('0.0.0.0', '127.0.0.1'),
+        '--output',
+        'json',
+        'peer'
+      ])
+      if (res.code === 403) {
+        easyTierStore.setStopLoop(true)
+        easyTierStore.removeRunningList(currentNodeKey.value.configFileName)
+        runningTag2.value = false
+        break
+      }
+      if (!res) {
+        retryTime++
+        continue
+      } else {
+        retryTime = 0
+      }
+      // peerInfo.value = parsePeerInfo(res)
+      peerInfo.value = safeJsonParse(res, [])
+      const filter = peerInfo.value.filter((value) => value.ipv4 && value.cost !== 'Local')
+      const filter1 = peerInfo.value.filter(
+        (value) => value.ipv4 && value.cost !== 'Local' && value.cost === 'p2p'
+      )
+      peerInfo.value.forEach((value) => {
+        if (value.ipv4 && value.ipv4.includes('/')) {
+          value.ipv4 = value.ipv4.split('/')[0]
+        }
+        if (value.hostname && value.hostname.includes('PublicServer_')) {
+          value.hostname = value.hostname.replace('PublicServer_', '')
+          value.ipv4 = '服务器'
+        }
+        value.cost = routeCost(value.cost)
+        value.nat_type = getNatType(value.nat_type)
+        value.delayColor = getDelayColor(value.lat_ms)
+      })
+      runningTag2.value = true
+      if (
+        easyTierStore.p2pNotifySetting &&
+        easyTierStore.p2pNotify &&
+        filter.length > 0 &&
+        filter1.length > 0 &&
+        filter.length === filter1.length
+      ) {
+        notify('EasyTier 管理器', '恭喜你，全部节点建立 P2P 连接！🎉🎉')
+        // 只通知一次
+        easyTierStore.setP2pNotify(false)
+      }
+      if (easyTierStore.stopLoop) break
     }
-    // await getList()
+  } finally {
+    isPeerInfoLooping.value = false
   }
 }
 const updateRunningList = async (res?: any) => {
@@ -437,6 +516,7 @@ const viewLogAction = async () => {
 const currentNodeKeyChange = async () => {
   try {
     easyTierStore.setErrRunNotify(true)
+    easyTierStore.setLastSelectedConfig(currentNodeKey.value)
     // const res = await getRunningProcesses(currentNodeKey.value.fileName!)
     const res = await updateRunningList()
     if (res.length > 0) {
@@ -451,6 +531,8 @@ const currentNodeKeyChange = async () => {
     descriptionCollapse.value = false
     runningTag2.value = false
     easyTierStore.setStopLoop(true)
+    // 即使未运行，也尝试查询一次
+    getNodeInfo()
     await getConfigList()
   } catch (e: any) {
     error(`异常:${JSON.stringify(e)}`)
@@ -520,8 +602,6 @@ const selectedColumnsChange = (val) => {
   easyTierStore.setSelectedColumns(val)
 }
 onMounted(async () => {
-  // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
-  await attachConsole()
   // 并行执行初始化任务
   await Promise.all([checkCore(), getConfigList()])
   easyTierStore.loadRunningList()
@@ -742,6 +822,56 @@ onMounted(async () => {
           header-align="center"
           show-overflow-tooltip
         />
+        <el-table-column :label="t('common.action')" width="100" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-dropdown
+              v-if="row.ipv4 && row.ipv4 !== '服务器' && row.cost !== '本机'"
+              trigger="click"
+              @command="(cmd) => cmd(row.ipv4)"
+            >
+              <el-button type="primary" size="small">
+                {{ t('common.action') }}
+                <el-icon class="el-icon--right">
+                  <arrow-down />
+                </el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item :command="handlePing">
+                    <el-icon>
+                      <Platform />
+                    </el-icon>
+                    Ping 节点
+                  </el-dropdown-item>
+                  <el-dropdown-item :command="handleTelnet">
+                    <el-icon>
+                      <Platform />
+                    </el-icon>
+                    Telnet 端口
+                  </el-dropdown-item>
+                  <el-dropdown-item :command="handleSSH">
+                    <el-icon>
+                      <Link />
+                    </el-icon>
+                    Windows SSH
+                  </el-dropdown-item>
+                  <el-dropdown-item :command="handleRDP">
+                    <el-icon>
+                      <Monitor />
+                    </el-icon>
+                    远程桌面 (RDP)
+                  </el-dropdown-item>
+                  <el-dropdown-item :command="handleXshell">
+                    <el-icon>
+                      <Link />
+                    </el-icon>
+                    Xshell 连接
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+        </el-table-column>
         <!-- <el-table-column prop="rx_bytes" :label="t('easytier.rx_bytes')" show-overflow-tooltip>
         </el-table-column>
         <el-table-column prop="tx_bytes" :label="t('easytier.tx_bytes')" show-overflow-tooltip>

@@ -984,3 +984,11 @@ export const delRouteOnWindows = async (ip: string) => {
     }
   })
 }
+
+export const safeJsonParse = (str: string, fallback: any = {}) => {
+  try {
+    return str && str.trim() ? JSON.parse(str) : fallback
+  } catch (e) {
+    return fallback
+  }
+}

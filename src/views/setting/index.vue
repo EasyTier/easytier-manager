@@ -48,6 +48,7 @@ const autoRunNetwork = ref(false)
 const autoRunConfigName = ref('')
 const p2pNotify = ref(true)
 const refreshInterval = ref(5)
+const xshellPath = ref('')
 const lockPassword = ref('')
 const defaultServiceInstallMethod = ref<'nssm' | 'official'>('nssm')
 const defaultEnableAutostart = ref(true)
@@ -70,6 +71,10 @@ const handleP2pNotifyChange = (value: boolean) => {
 
 const handleRefreshIntervalChange = (value: number) => {
   easyTierStore.refreshInterval = value
+}
+
+const handleXshellPathChange = (value: string) => {
+  easyTierStore.xshellPath = value
 }
 
 const saveLockPassword = () => {
@@ -384,6 +389,7 @@ onMounted(async () => {
   autoRunConfigName.value = easyTierStore.autoRunConfigName
   p2pNotify.value = easyTierStore.p2pNotifySetting
   refreshInterval.value = easyTierStore.refreshInterval
+  xshellPath.value = easyTierStore.xshellPath
   lockPassword.value = easyTierStore.lockPassword
   defaultServiceInstallMethod.value = easyTierStore.defaultServiceInstallMethod
   defaultEnableAutostart.value = easyTierStore.defaultEnableAutostart
@@ -591,6 +597,17 @@ onMounted(async () => {
             />
             <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
               >工作台节点列表刷新间隔（秒），最低2秒</span
+            >
+          </el-form-item>
+          <el-form-item label="Xshell 路径">
+            <el-input
+              v-model="xshellPath"
+              placeholder="例如: C:\Program Files (x86)\NetSarang\Xshell 7\Xshell.exe"
+              clearable
+              @change="handleXshellPathChange"
+            />
+            <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
+              >配置 Xshell 的完整执行路径，用于快速连接</span
             >
           </el-form-item>
           <el-form-item label="访问锁定密码">
