@@ -41,7 +41,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       }),
       VueJsx(),
       ServerUrlCopy(),
-      progress(),
+      isBuild ? undefined : progress(),
       isBuild
         ? undefined
         : VueDevTools({
@@ -95,8 +95,9 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     css: {
       preprocessorOptions: {
         less: {
-          additionalData: '@import "./src/styles/variables.module.less";',
-          javascriptEnabled: true
+          additionalData: `@import "${pathResolve('src/styles/variables.module.less')}";`,
+          javascriptEnabled: true,
+          math: 'always'
         }
       }
     },
