@@ -155,10 +155,8 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
               ) {
                 return 'vue-chunks'
               }
+              // Monaco Editor 不分割语言模块，避免循环依赖
               if (id.includes('monaco-editor')) {
-                if (id.includes('monaco-editor/esm/vs/language')) {
-                  return 'monaco-languages'
-                }
                 return 'monaco-editor'
               }
               // 将较大的第三方库单独拆分，避免 vendor 过大

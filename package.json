@@ -39,7 +39,8 @@
     "build:win32": "pnpm tauri build --target i686-pc-windows-msvc",
     "build:winarm64": "pnpm tauri build --target aarch64-pc-windows-msvc",
     "build:mac": "pnpm tauri build --target aarch64-apple-darwin",
-    "build:linux": "pnpm tauri build --target x86_64-unknown-linux-gnu"
+    "build:linux": "pnpm tauri build --target x86_64-unknown-linux-gnu",
+    "cargo:fix": "cargo fix --lib -p easytier-manager-pro"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.1",

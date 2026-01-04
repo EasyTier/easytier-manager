@@ -160,13 +160,27 @@ pub fn run() {
         );
     }
 
-    builder
+    // 配置插件
+    #[cfg_attr(debug_assertions, allow(unused_mut))]
+    let mut app_builder = builder
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_fs::init());
+
+    // 仅在生产环境下启用 prevent-default 插件，禁用右键菜单和快捷键
+    #[cfg(not(debug_assertions))]
+    {
+        use tauri_plugin_prevent_default::{Builder, Flags};
+        let prevent_default_plugin = Builder::new()
+            .with_flags(Flags::CONTEXT_MENU | Flags::RELOAD | Flags::DEV_TOOLS)
+            .build();
+        app_builder = app_builder.plugin(prevent_default_plugin);
+    }
+
+    app_builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

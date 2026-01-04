@@ -21,13 +21,20 @@ tauri-build = { version = "2.5.3", features = ["config-json5"] }
 log = "0.4.29"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tauri = { version = "2.9.5", features = ["tray-icon", "image-ico", "image-png", "config-json5"] }
+tauri = { version = "2.9.5", features = [
+    "tray-icon", 
+    "image-ico", 
+    "image-png", 
+    "config-json5", 
+    # "devtools"
+    ] }
 tauri-plugin-fs = "2.4.4"
 tauri-plugin-http = "2.5.4"
 tauri-plugin-log = "2.7.1"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-shell = "2.3.3"
+tauri-plugin-prevent-default = "4"
 chrono = "0.4.42"
 
 # [profile.dev]
