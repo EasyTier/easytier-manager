@@ -515,9 +515,16 @@ nssm processes <servicename> # 显示服务关联的进程
  * Windows 安装指定程序为系统服务
  * @param serviceName 服务名
  * @param args 程序参数
+ * @param options 可选参数
+ * @param options.username 运行服务的用户名（可选，不提供则使用 LocalSystem）
+ * @param options.password 运行服务的用户密码（当提供 username 时必需）
  * @returns Promise<boolean> 是否成功
  */
-export const installServiceOnWindows = async (serviceName: string, args: string) => {
+export const installServiceOnWindows = async (
+  serviceName: string,
+  args: string,
+  options?: { username?: string; password?: string }
+) => {
   return new Promise(async (resolve) => {
     const appDirectory = await getResourceDir()
     // Windows 需要 .exe 扩展名
@@ -541,7 +548,17 @@ export const installServiceOnWindows = async (serviceName: string, args: string)
       const args4 = ['set', serviceName, 'AppExit', 'Default', 'Restart']
       const args5 = ['set', serviceName, 'Description', `EasyTier 组网,服务配置:${serviceName}`]
       const args6 = ['set', serviceName, 'DisplayName', `EasyTier 组网 ${serviceName}`]
-      const args7 = ['set', serviceName, 'ObjectName', 'LocalSystem']
+
+      // 如果提供了用户名和密码，使用指定用户运行服务；否则使用 LocalSystem
+      let args7: string[]
+      if (options?.username && options?.password) {
+        args7 = ['set', serviceName, 'ObjectName', `.\\${options.username}`, options.password]
+        info(`使用用户 ${options.username} 运行服务`)
+      } else {
+        args7 = ['set', serviceName, 'ObjectName', 'LocalSystem']
+        info('使用 LocalSystem 运行服务')
+      }
+
       const args8 = ['set', serviceName, 'Start', 'SERVICE_AUTO_START']
       const args9 = ['set', serviceName, 'Type', 'SERVICE_WIN32_OWN_PROCESS']
       // 重定向日志到文件

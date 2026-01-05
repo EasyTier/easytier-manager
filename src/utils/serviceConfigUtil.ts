@@ -14,6 +14,8 @@ export const getServiceInstallConfig = (configFileName: string): ServiceInstallC
 
   // 返回默认值
   return {
+    password: '',
+    username: '',
     installMethod: 'nssm', // 默认 NSSM 保证向后兼容
     enableAutostart: true
   }

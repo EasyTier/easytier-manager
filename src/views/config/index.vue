@@ -15,6 +15,7 @@ import {
   writeFileContent
 } from '@/utils/fileUtil'
 import {
+  buildCoreArgsWithLogConfig,
   checkServiceOnWindows,
   checkServiceWithOfficialCli,
   detectServiceInstallMethod,
@@ -26,15 +27,14 @@ import {
   stopServiceOnWindows,
   stopServiceWithOfficialCli,
   uninstallServiceOnWindows,
-  uninstallServiceWithOfficialCli,
-  buildCoreArgsWithLogConfig
+  uninstallServiceWithOfficialCli
 } from '@/utils/shellUtil'
 import {
   checkOfficialCliSupport,
   getServiceInstallConfig,
   saveServiceInstallConfig
 } from '@/utils/serviceConfigUtil'
-import { getHostname, getOsType, sleep } from '@/utils/sysUtil'
+import { getCurrentUsername, getHostname, getOsType, sleep } from '@/utils/sysUtil'
 import { join, resourceDir } from '@tauri-apps/api/path'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
 import { ElMessageBox, ElNotification } from 'element-plus'
@@ -68,7 +68,9 @@ const serviceInstallForm = ref({
   installMethod: 'nssm' as 'nssm' | 'official',
   description: '',
   displayName: '',
-  enableAutostart: true
+  enableAutostart: true,
+  username: '',
+  password: ''
 })
 
 const checkServiceStatus = async () => {
@@ -434,11 +436,17 @@ const installServiceHandle = async (row: any) => {
 
   // 加载配置或使用默认值
   const savedConfig = getServiceInstallConfig(row.configFileName)
+
+  // 获取当前用户名
+  const username = await getCurrentUsername()
+
   serviceInstallForm.value = {
     installMethod: savedConfig.installMethod || easyTierStore.defaultServiceInstallMethod,
     description: savedConfig.description || `EasyTier 组网,服务配置:${row.configFileName}`,
     displayName: savedConfig.displayName || `EasyTier 组网 ${row.configFileName}`,
-    enableAutostart: savedConfig.enableAutostart ?? easyTierStore.defaultEnableAutostart
+    enableAutostart: savedConfig.enableAutostart ?? easyTierStore.defaultEnableAutostart,
+    username: savedConfig.username || username,
+    password: savedConfig.password || ''
   }
 
   currentInstallRow.value = row
@@ -474,7 +482,14 @@ const confirmInstallService = async () => {
       ).then(async () => {
         serviceInstallForm.value.installMethod = 'nssm'
         const args = await buildCoreArgsWithLogConfig(row.fileName, configPath)
-        result = (await installServiceOnWindows(serviceName, args)) as boolean
+        const installOptions =
+          serviceInstallForm.value.username && serviceInstallForm.value.password
+            ? {
+                username: serviceInstallForm.value.username,
+                password: serviceInstallForm.value.password
+              }
+            : undefined
+        result = (await installServiceOnWindows(serviceName, args, installOptions)) as boolean
         handleInstallResult(result)
       })
       return
@@ -487,7 +502,14 @@ const confirmInstallService = async () => {
     })) as boolean
   } else {
     const args = await buildCoreArgsWithLogConfig(row.fileName, configPath)
-    result = (await installServiceOnWindows(serviceName, args)) as boolean
+    const installOptions =
+      serviceInstallForm.value.username && serviceInstallForm.value.password
+        ? {
+            username: serviceInstallForm.value.username,
+            password: serviceInstallForm.value.password
+          }
+        : undefined
+    result = (await installServiceOnWindows(serviceName, args, installOptions)) as boolean
   }
 
   handleInstallResult(result)
@@ -889,6 +911,30 @@ onMounted(async () => {
             <ElRadio label="official">{{ t('easytier.installMethodOfficial') }}</ElRadio>
           </ElRadioGroup>
         </ElFormItem>
+
+        <template v-if="serviceInstallForm.installMethod === 'nssm'">
+          <ElFormItem label="运行用户">
+            <ElInput
+              v-model="serviceInstallForm.username"
+              placeholder="留空使用 LocalSystem（管理员权限）"
+            />
+            <template #extra>
+              <el-text size="small">当前用户名，留空使用 LocalSystem（管理员权限）</el-text>
+            </template>
+          </ElFormItem>
+
+          <ElFormItem label="用户密码" v-if="serviceInstallForm.username">
+            <ElInput
+              v-model="serviceInstallForm.password"
+              type="password"
+              placeholder="请输入用户密码"
+              show-password
+            />
+            <template #extra>
+              <el-text size="small">使用当前用户运行服务需要提供密码</el-text>
+            </template>
+          </ElFormItem>
+        </template>
 
         <template v-if="serviceInstallForm.installMethod === 'official'">
           <ElFormItem :label="t('easytier.serviceDisplayName')">

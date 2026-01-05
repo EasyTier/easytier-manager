@@ -104,4 +104,6 @@ export interface ServiceInstallConfig {
   description?: string // 服务描述
   displayName?: string // 显示名称
   enableAutostart: boolean // 是否开机自启
+  username: string // 用户名
+  password: string // 密码
 }

@@ -6,6 +6,7 @@ import {
   sendNotification
 } from '@tauri-apps/plugin-notification'
 import { getVersion } from '@tauri-apps/api/app'
+import { Command } from '@tauri-apps/plugin-shell'
 
 /**
  * 操作系统平台
@@ -82,4 +83,32 @@ export const notify = async (
  */
 export const getAppVersion = async () => {
   return await getVersion()
+}
+
+/**
+ * 获取当前用户名
+ * @returns 返回当前用户名，如果获取失败返回空字符串
+ */
+export const getCurrentUsername = async (): Promise<string> => {
+  try {
+    const osType = getOsType()
+    if (osType === 'windows') {
+      // Windows 上使用 whoami 命令
+      const command = Command.create('cmd', ['/c', 'echo', '%USERNAME%'])
+      const output = await command.execute()
+      if (output.code === 0 && output.stdout) {
+        return output.stdout.trim()
+      }
+    } else {
+      // Unix-like 系统使用 whoami
+      const command = Command.create('whoami')
+      const output = await command.execute()
+      if (output.code === 0 && output.stdout) {
+        return output.stdout.trim()
+      }
+    }
+  } catch (error) {
+    console.error('获取用户名失败:', error)
+  }
+  return ''
 }
