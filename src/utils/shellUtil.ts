@@ -214,9 +214,9 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
         '--file-log-level',
         logLevel,
         '--file-log-size',
-        10,
+        '10',
         '--file-log-count',
-        10,
+        '10',
         '--config-file',
         `${configPath}`
       ]

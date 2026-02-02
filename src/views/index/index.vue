@@ -10,8 +10,8 @@ import { useEasyTierStore } from '@/store/modules/easytier'
 import { useTrayStore } from '@/store/modules/trayStore'
 import { listTomlFiles, readFileContent } from '@/utils/fileUtil'
 import {
-  addRouteOnWindows,
   checkRouteOnWindows,
+  executeCmd,
   getRunningProcesses,
   killProcess,
   runEasyTierCli,
@@ -128,23 +128,92 @@ const setExitRoute = async (val) => {
   // @ts-ignore
   // @ts-nocheck
   const parseValue: EasyTierConfig = toml.parse(dataConfig)
+
+  const retryGet = async (fn: () => Promise<string | undefined | null>) => {
+    const maxRetry = 5
+    for (let i = 0; i < maxRetry; i++) {
+      const res = await fn()
+      if (res) return res
+      await sleep(2000)
+    }
+    return null
+  }
+
+  const getDefaultGateway = async () => {
+    try {
+      const res = await executeCmd('powershell', [
+        '-NoProfile',
+        '-Command',
+        '(Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Sort-Object -Property RouteMetric | Select-Object -First 1 -ExpandProperty NextHop)'
+      ])
+      const match = typeof res === 'string' ? res.match(/\d+\.\d+\.\d+\.\d+/) : null
+      return match ? match[0] : null
+    } catch (e) {
+      error(`获取网关失败:${String(e)}`)
+      return null
+    }
+  }
+
+  const getPublicServerIp = () => {
+    const peers = parseValue.peer || []
+    for (const p of peers) {
+      const uri = p.uri || ''
+      const ipMatch = uri.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/)
+      if (ipMatch) return ipMatch[0]
+    }
+    return null
+  }
+
+  const getPublicIp = async () => {
+    try {
+      const res = await runEasyTierCli(['--output', 'json', 'node'])
+      const info = safeJsonParse(res)
+      const list = info?.stun_info?.public_ip
+      if (Array.isArray(list) && list.length > 0) {
+        const ipMatch = (list[0] as string)?.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/)
+        return ipMatch ? ipMatch[0] : null
+      }
+    } catch (e) {
+      error(`获取公网IP失败:${String(e)}`)
+    }
+    return null
+  }
+
+  const addRouteSeq = async (target: string, mask: string, gateway: string, metric: number) => {
+    const args = ['add', target, 'mask', mask, gateway, 'metric', String(metric)]
+    await executeCmd('route', args, { encoding: 'gbk' })
+  }
+
+  const getGatewayNetwork = (gw: string) => {
+    const parts = gw.split('.')
+    if (parts.length === 4) {
+      parts[3] = '0'
+      return parts.join('.')
+    }
+    return null
+  }
+
   if (val && parseValue.config_exit_nodes_route && parseValue.exit_nodes.length > 0) {
-    // 找出 peerInfo 中 cost 为 local的节点
     const localNode = peerInfo.value.find((value) => value.cost === '本机')
     if (localNode) {
-      if (await checkRouteOnWindows(localNode.ipv4)) {
-        // 设置出口节点的路由
-        setTimeout(() => {
-          addRouteOnWindows(parseValue.exit_nodes[0])
-        }, 3000)
+      const exitNodeIp = parseValue.exit_nodes[0]?.split('/')?.[0]
+      const gateway = await retryGet(getDefaultGateway)
+      const publicServerIp = await retryGet(async () => getPublicServerIp())
+      const publicIp = await retryGet(getPublicIp)
+      const gatewayNetwork = gateway ? getGatewayNetwork(gateway) : null
+
+      const canSet = exitNodeIp && gateway && publicServerIp && publicIp && gatewayNetwork
+
+      if (canSet && (await checkRouteOnWindows(localNode.ipv4))) {
+        // 按顺序依次添加路由，之间不跳过
+        await addRouteSeq(publicServerIp!, '255.255.255.255', gateway!, 1)
+        await addRouteSeq(gatewayNetwork!, '255.255.255.0', gateway!, 1)
+        await addRouteSeq(publicIp!, '255.255.255.255', gateway!, 1)
+        await addRouteSeq('0.0.0.0', '0.0.0.0', exitNodeIp!, 5)
       }
     }
   }
   easyTierStore.stopSetRoute = true
-  // else {
-  //   // 取消出口节点的路由
-  //   await delRouteOnWindows(parseValue.exit_nodes[0])
-  // }
 }
 // 从easyTierStore.runningList 同步 runningTag
 const runningTag = computed(() => {
