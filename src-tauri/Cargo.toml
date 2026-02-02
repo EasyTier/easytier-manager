@@ -30,7 +30,7 @@ tauri = { version = "2.9.5", features = [
 ] }
 tauri-plugin-fs = "2.4.4"
 tauri-plugin-http = "2.5.4"
-tauri-plugin-log = "2.7.1"
+tauri-plugin-log = "2.8.0"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-shell = "2.3.3"
