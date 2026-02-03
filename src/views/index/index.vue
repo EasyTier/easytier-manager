@@ -144,7 +144,8 @@ const setExitRoute = async (val) => {
       const res = await executeCmd('powershell', [
         '-NoProfile',
         '-Command',
-        '(Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Sort-Object -Property RouteMetric | Select-Object -First 1 -ExpandProperty NextHop)'
+        // '(Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -ne "Disconnected"} | Select-Object -First 1 -ExpandProperty IPv4DefaultGateway).NextHop'
+        'Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq "Up"} | Sort-Object -Property InterfaceMetric | Select-Object -First 1 -ExpandProperty IPv4DefaultGateway | Select-Object -ExpandProperty NextHop'
       ])
       const match = typeof res === 'string' ? res.match(/\d+\.\d+\.\d+\.\d+/) : null
       return match ? match[0] : null
