@@ -8,7 +8,8 @@ import { CONFIG_PATH, LOG_PATH } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
 import { useTrayStore } from '@/store/modules/trayStore'
-import { listTomlFiles, readFileContent } from '@/utils/fileUtil'
+import { extractPublicIPTarget, readTextReverse } from '@/utils/easyTierUtil'
+import { clearETLogs, listTomlFiles, readFileContent } from '@/utils/fileUtil'
 import {
   checkRouteOnWindows,
   executeCmd,
@@ -145,7 +146,7 @@ const setExitRoute = async (val) => {
         '-NoProfile',
         '-Command',
         // '(Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -ne "Disconnected"} | Select-Object -First 1 -ExpandProperty IPv4DefaultGateway).NextHop'
-        'Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq "Up"} | Sort-Object -Property InterfaceMetric | Select-Object -First 1 -ExpandProperty IPv4DefaultGateway | Select-Object -ExpandProperty NextHop'
+        'Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq "Up" -and $_.NetAdapter.Name -notlike "et*" -and $_.NetAdapter.Name -notlike "easytier*"} | Sort-Object -Property InterfaceMetric | Select-Object -First 1 -ExpandProperty IPv4DefaultGateway | Select-Object -ExpandProperty NextHop'
       ])
       const match = typeof res === 'string' ? res.match(/\d+\.\d+\.\d+\.\d+/) : null
       return match ? match[0] : null
@@ -155,27 +156,16 @@ const setExitRoute = async (val) => {
     }
   }
 
-  const getPublicServerIp = () => {
-    const peers = parseValue.peer || []
-    for (const p of peers) {
-      const uri = p.uri || ''
-      const ipMatch = uri.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/)
-      if (ipMatch) return ipMatch[0]
-    }
-    return null
-  }
-
-  const getPublicIp = async () => {
-    try {
-      const res = await runEasyTierCli(['--output', 'json', 'node'])
-      const info = safeJsonParse(res)
-      const list = info?.stun_info?.public_ip
-      if (Array.isArray(list) && list.length > 0) {
-        const ipMatch = (list[0] as string)?.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/)
-        return ipMatch ? ipMatch[0] : null
+  const getExitPublicIp = async () => {
+    const maxRetry = 5
+    for (let i = 1; i <= maxRetry; i++) {
+      await getLog()
+      const res = await extractPublicIPTarget(readTextReverse(logData.value, i * 200))
+      if (res) {
+        logData.value = ''
+        return res
       }
-    } catch (e) {
-      error(`获取公网IP失败:${String(e)}`)
+      await sleep(2000)
     }
     return null
   }
@@ -185,31 +175,20 @@ const setExitRoute = async (val) => {
     await executeCmd('route', args, { encoding: 'gbk' })
   }
 
-  const getGatewayNetwork = (gw: string) => {
-    const parts = gw.split('.')
-    if (parts.length === 4) {
-      parts[3] = '0'
-      return parts.join('.')
-    }
-    return null
-  }
-
   if (val && parseValue.config_exit_nodes_route && parseValue.exit_nodes.length > 0) {
     const localNode = peerInfo.value.find((value) => value.cost === '本机')
     if (localNode) {
       const exitNodeIp = parseValue.exit_nodes[0]?.split('/')?.[0]
       const gateway = await retryGet(getDefaultGateway)
-      const publicServerIp = await retryGet(async () => getPublicServerIp())
-      const publicIp = await retryGet(getPublicIp)
-      const gatewayNetwork = gateway ? getGatewayNetwork(gateway) : null
+      const exitPublicIp = await getExitPublicIp()
 
-      const canSet = exitNodeIp && gateway && publicServerIp && publicIp && gatewayNetwork
+      const canSet = exitNodeIp && gateway && exitPublicIp
 
       if (canSet && (await checkRouteOnWindows(localNode.ipv4))) {
         // 按顺序依次添加路由，之间不跳过
-        await addRouteSeq(publicServerIp!, '255.255.255.255', gateway!, 1)
-        await addRouteSeq(gatewayNetwork!, '255.255.255.0', gateway!, 1)
-        await addRouteSeq(publicIp!, '255.255.255.255', gateway!, 1)
+        await addRouteSeq(exitPublicIp!, '255.255.255.255', gateway!, 1)
+        // await addRouteSeq(gatewayNetwork!, '255.255.255.0', gateway!, 1)
+        // await addRouteSeq(publicIp!, '255.255.255.255', gateway!, 1)
         await addRouteSeq('0.0.0.0', '0.0.0.0', exitNodeIp!, 5)
       }
     }
@@ -491,6 +470,8 @@ const updateRunningList = async (res?: any) => {
   if (!res) {
     res = await getRunningProcesses(currentNodeKey.value.fileName!)
   }
+  console.log('updateRunningList', res)
+
   // 先删除，再添加
   easyTierStore.setRunningList([])
   if (res.length > 0) {
@@ -564,11 +545,12 @@ const reset = async () => {
   peerInfo.value.length = 0
   descriptionCollapse.value = false
   easyTierStore.removeRunningList(currentNodeKey.value.configFileName)
+  console.log('reset')
   await updateRunningList()
   runningTag2.value = false
   // await getList()
 }
-const viewLogAction = async () => {
+async function getLog() {
   const date = dayjs(new Date()).format('YYYY-MM-DD')
   logData.value = (await readFileContent(
     LOG_PATH + '/' + currentNodeKey.value.configFileName + '.' + date
@@ -581,7 +563,17 @@ const viewLogAction = async () => {
   if (!logData.value || logData.value === '') {
     logData.value = (await readFileContent(LOG_PATH + '/' + 'easytier.log')) as string
   }
+}
+const viewLogAction = async () => {
+  await getLog()
   logDialogVisible.value = true
+}
+const wordWrapChange = (val: any) => {
+  MonacoEditRef.value.updateOptions({ wordWrap: val })
+}
+const clearLog = async () => {
+  await clearETLogs(currentNodeKey.value.configFileName)
+  await getLog()
 }
 const currentNodeKeyChange = async () => {
   try {
@@ -609,9 +601,6 @@ const currentNodeKeyChange = async () => {
   }
 }
 
-const wordWrapChange = (val: any) => {
-  MonacoEditRef.value.updateOptions({ wordWrap: val })
-}
 const checkCore = async () => {
   const res = await runEasyTierCli(['-V'])
   if (res.code === 403) {
@@ -975,6 +964,7 @@ onMounted(async () => {
             <el-option label="不换行" value="off" />
             <el-option label="换行" value="on" />
           </el-select>
+          <el-button type="info" @click="clearLog"> 清空</el-button>
         </el-form-item>
         <CodeEditor
           ref="MonacoEditRef"

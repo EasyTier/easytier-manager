@@ -11,7 +11,9 @@
       @submit.prevent
     >
       <el-divider direction="horizontal">
-        <el-icon class="mr-4px"><Setting /></el-icon>
+        <el-icon class="mr-4px">
+          <Setting />
+        </el-icon>
         主要参数
       </el-divider>
       <el-row>
@@ -433,7 +435,9 @@
         </el-col>
       </el-row>
       <el-divider direction="horizontal">
-        <el-icon class="mr-4px"><Document /></el-icon>
+        <el-icon class="mr-4px">
+          <Document />
+        </el-icon>
         日志设置
       </el-divider>
       <el-row>
@@ -500,7 +504,9 @@
         </el-col>
       </el-row>
       <el-divider direction="horizontal">
-        <el-icon class="mr-4px"><Operation /></el-icon>
+        <el-icon class="mr-4px">
+          <Operation />
+        </el-icon>
         其他标志设置
       </el-divider>
       <el-row>
@@ -955,7 +961,9 @@
         </el-col>
       </el-row>
       <el-divider direction="horizontal">
-        <el-icon class="mr-4px"><Connection /></el-icon>
+        <el-icon class="mr-4px">
+          <Connection />
+        </el-icon>
         端口转发
       </el-divider>
       <el-row>
@@ -1001,7 +1009,9 @@
                 <el-table-column :label="t('common.action')" width="100" align="center">
                   <template #default="scope">
                     <el-button type="danger" link @click="removePortForward(scope.$index)">
-                      <el-icon class="mr-2px"><Delete /></el-icon>
+                      <el-icon class="mr-2px">
+                        <Delete />
+                      </el-icon>
                       {{ t('common.delete') }}
                     </el-button>
                   </template>
@@ -1017,7 +1027,9 @@
                 class="p-12px bg-[var(--el-fill-color-extra-light)] border-t border-[var(--el-border-color-lighter)] flex justify-center"
               >
                 <el-button type="primary" plain @click="addPortForward">
-                  <el-icon class="mr-4px"><Plus /></el-icon>
+                  <el-icon class="mr-4px">
+                    <Plus />
+                  </el-icon>
                   {{ t('easytier.add_port_forward') }}
                 </el-button>
               </div>
@@ -1357,10 +1369,14 @@ watch(
   () => localFormData.value.config_exit_nodes_route,
   (value) => {
     if (value) {
-      ElMessageBox.alert('该功能暂不稳定，可能会导致断网，谨慎使用', '警告', {
-        confirmButtonText: '确定',
-        type: 'warning'
-      })
+      ElMessageBox.alert(
+        '该功能不稳定，可能会导致断网，谨慎使用！如果要使用该功能，必须要修改日志级别为 信息（info），否则会断网，如果断网请立马关闭该功能！如果还是断网则关闭WIFI或拔网线重连。',
+        '警告',
+        {
+          confirmButtonText: '确定',
+          type: 'warning'
+        }
+      )
     }
   }
 )

@@ -19,6 +19,7 @@ import { open } from '@tauri-apps/plugin-shell'
 import { ElNotification } from 'element-plus'
 import { unzipSync } from 'fflate'
 import pkg from '../../package.json'
+import dayjs from 'dayjs'
 
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
 attachConsole()
@@ -429,6 +430,25 @@ export const clearLogs = async () => {
   try {
     const logsFile = await join('logs', pkg.name + '.log')
     // 清空 logsFile 的内容（如果失败不影响程序启动）
+    await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
+  } catch (e: any) {
+    // 如果清理失败，只记录警告，不阻塞启动
+    console.warn(`清理日志文件失败（不影响使用）: ${e.message || e}`)
+  }
+}
+
+// 清空logs目录下 easytier 的日志文件
+export const clearETLogs = async (fileName: string) => {
+  try {
+    const date = dayjs(new Date()).format('YYYY-MM-DD')
+
+    let logsFile = await join('logs', fileName + '.' + date)
+    await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
+
+    logsFile = await join('logs', fileName + '.' + date + '.log')
+    await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
+
+    logsFile = await join('logs', 'easytier.log')
     await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
   } catch (e: any) {
     // 如果清理失败，只记录警告，不阻塞启动

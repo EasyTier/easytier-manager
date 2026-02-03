@@ -3,7 +3,7 @@ import { CodeEditor } from '@/components/CodeEditor'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Dialog } from '@/components/Dialog'
 import DefaultData from '@/constants/defaultData'
-import { CONFIG_PATH, PREFIX_SVC } from '@/constants/easytier'
+import { CONFIG_PATH, LOG_PATH, PREFIX_SVC } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
 import type { EasyTierFormData } from '@/types/formTypes'
@@ -294,6 +294,7 @@ const addConfigAction = async () => {
   await getConfigList()
 }
 const saveConfigAction = async () => {
+  const resourceDirPath = await resourceDir()
   if (editType.value === 'form') {
     // 验证必填 formRef
     if (!(await formRef.value.validateForm())) {
@@ -302,9 +303,10 @@ const saveConfigAction = async () => {
     if (formData.value) {
       saveLoading.value = true
       try {
-        formData.value.file_logger.dir = formData.value.file_logger.dir
-          ? formData.value.file_logger.dir
-          : logsDir.value
+        // formData.value.file_logger.dir = formData.value.file_logger.dir
+        //   ? formData.value.file_logger.dir
+        //   : logsDir.value
+        formData.value.file_logger.dir = resourceDirPath + '\\' + LOG_PATH
         formData.value.file_logger.file = configFileName.value
         if (
           !formData.value.proxy_network ||
@@ -362,11 +364,14 @@ const saveConfigAction = async () => {
         ...parseValue,
         file_logger: {
           level: parseValue.file_logger?.level ? parseValue.file_logger?.level : 'error',
-          dir: parseValue.file_logger?.dir ? parseValue.file_logger?.dir : logsDir.value,
+          dir: resourceDirPath + '\\' + LOG_PATH, // parseValue.file_logger?.dir ? parseValue.file_logger?.dir : logsDir.value,
           file: configFileName.value
         }
       }
-      await writeFileContent(CONFIG_PATH + '/' + configFileName.value + '.toml', dataConfig.value)
+      await writeFileContent(
+        CONFIG_PATH + '/' + configFileName.value + '.toml',
+        toml.stringify(parseValue)
+      )
       configFileName.value = ''
       dialogVisible.value = false
       ElNotification({
