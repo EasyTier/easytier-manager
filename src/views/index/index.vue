@@ -8,7 +8,7 @@ import { CONFIG_PATH, LOG_PATH } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
 import { useTrayStore } from '@/store/modules/trayStore'
-import { extractPublicIPTarget, readTextReverse } from '@/utils/easyTierUtil'
+import { extractAllPublicIPs, readTextReverse } from '@/utils/easyTierUtil'
 import { clearETLogs, listTomlFiles, readFileContent } from '@/utils/fileUtil'
 import {
   checkRouteOnWindows,
@@ -130,8 +130,8 @@ const setExitRoute = async (val) => {
   // @ts-nocheck
   const parseValue: EasyTierConfig = toml.parse(dataConfig)
 
-  const retryGet = async (fn: () => Promise<string | undefined | null>) => {
-    const maxRetry = 5
+  const retryGet = async (fn: () => Promise<string | boolean | undefined | null>) => {
+    const maxRetry = 10
     for (let i = 0; i < maxRetry; i++) {
       const res = await fn()
       if (res) return res
@@ -156,12 +156,12 @@ const setExitRoute = async (val) => {
     }
   }
 
-  const getExitPublicIp = async () => {
+  const getPublicIps = async () => {
     const maxRetry = 5
     for (let i = 1; i <= maxRetry; i++) {
       await getLog()
-      const res = await extractPublicIPTarget(readTextReverse(logData.value, i * 200))
-      if (res) {
+      const res = await extractAllPublicIPs(readTextReverse(logData.value, i * 200))
+      if (res && res.length > 0) {
         logData.value = ''
         return res
       }
@@ -179,17 +179,40 @@ const setExitRoute = async (val) => {
     const localNode = peerInfo.value.find((value) => value.cost === '本机')
     if (localNode) {
       const exitNodeIp = parseValue.exit_nodes[0]?.split('/')?.[0]
-      const gateway = await retryGet(getDefaultGateway)
-      const exitPublicIp = await getExitPublicIp()
+      const gatewayResult = await retryGet(getDefaultGateway)
+      const gateway = typeof gatewayResult === 'string' ? gatewayResult : null
 
-      const canSet = exitNodeIp && gateway && exitPublicIp
+      const waitHolePunching = async () => {
+        const hp = parseValue.flags.disable_udp_hole_punching
+        const exitNode = peerInfo.value.find((value) => value.ipv4 === exitNodeIp)
+        if (!hp && exitNode?.cost == '直连') {
+          // p2p
+          return true
+        }
+        if (hp && exitNode?.cost == '中转') {
+          // relay
+          return true
+        }
+        return false
+      }
 
-      if (canSet && (await checkRouteOnWindows(localNode.ipv4))) {
+      const waitHole = await retryGet(waitHolePunching)
+      const publicIps = await getPublicIps()
+
+      const canSet = Boolean(exitNodeIp && gateway && publicIps?.length && waitHole === true)
+
+      if (
+        canSet &&
+        exitNodeIp &&
+        gateway &&
+        publicIps &&
+        (await checkRouteOnWindows(localNode.ipv4))
+      ) {
         // 按顺序依次添加路由，之间不跳过
-        await addRouteSeq(exitPublicIp!, '255.255.255.255', gateway!, 1)
-        // await addRouteSeq(gatewayNetwork!, '255.255.255.0', gateway!, 1)
-        // await addRouteSeq(publicIp!, '255.255.255.255', gateway!, 1)
-        await addRouteSeq('0.0.0.0', '0.0.0.0', exitNodeIp!, 5)
+        for (const publicIp of publicIps) {
+          await addRouteSeq(publicIp, '255.255.255.255', gateway, 1)
+        }
+        await addRouteSeq('0.0.0.0', '0.0.0.0', exitNodeIp, 5)
       }
     }
   }
@@ -470,8 +493,6 @@ const updateRunningList = async (res?: any) => {
   if (!res) {
     res = await getRunningProcesses(currentNodeKey.value.fileName!)
   }
-  console.log('updateRunningList', res)
-
   // 先删除，再添加
   easyTierStore.setRunningList([])
   if (res.length > 0) {
@@ -545,7 +566,6 @@ const reset = async () => {
   peerInfo.value.length = 0
   descriptionCollapse.value = false
   easyTierStore.removeRunningList(currentNodeKey.value.configFileName)
-  console.log('reset')
   await updateRunningList()
   runningTag2.value = false
   // await getList()

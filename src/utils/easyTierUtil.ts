@@ -44,52 +44,150 @@ export const parsePeerInfo = (content) => {
   return result
 }
 
-export async function extractPublicIPTarget(logText) {
-  // 策略1: 匹配 public_ipv4: Some(IP)
-  const publicIPv4Match = logText.match(/public_ipv4:\s*Some\(([\d.]+)\)/)
-  const publicIPv4 = publicIPv4Match ? publicIPv4Match[1] : null
+export async function extractAllPublicIPs(logText) {
+  // 私网IP判断函数
+  function isPrivateIP(ip) {
+    const parts = ip.split('.')
+    if (parts.length !== 4) return false
+    return (
+      parts[0] === '10' ||
+      (parts[0] === '172' && parts[1] >= 16 && parts[1] <= 31) ||
+      (parts[0] === '192' && parts[1] === '168') ||
+      parts[0] === '127' || // 本地回环
+      (parts[0] === '0' && parts[1] === '0' && parts[2] === '0') || // 全0地址
+      ip === '0.0.0.0' ||
+      ip.startsWith('169.254.')
+    ) // 链路本地地址
+  }
 
-  // 获取 mapped_addr 中的IP
+  // 按行分割日志
+  const lines = logText.split('\n').filter((line) => line.trim())
+
+  // 获取 mapped_addr 中的IP（排除用）
   const mappedAddrMatch = logText.match(
     /mapped_addr=Some\(SocketAddr\s*\{[^}]*ip:\s*Some\(Ipv4\(([\d.]+)\)\)/
   )
   const mappedIP = mappedAddrMatch ? mappedAddrMatch[1] : null
 
-  // 策略2: 匹配 dest_addr 中的 IPv4(目标IP)
-  const destAddrMatch = logText.match(
-    /dest_addr=Some\(SocketAddr\s*\{[^}]*ip:\s*Some\(Ipv4\(([\d.]+)\)\)/
-  )
-  const destIP = destAddrMatch ? destAddrMatch[1] : null
+  // 收集所有候选IP，记录来源和出现次数
+  const ipCandidates = new Map()
 
-  // 策略1和策略2的IP相同，且与mapped_addr不同，则匹配成功
-  if (publicIPv4 && destIP && publicIPv4 === destIP && publicIPv4 !== mappedIP) {
-    return publicIPv4
-  }
+  lines.forEach((line, lineIndex) => {
+    // 策略1: 提取 public_ipv4
+    const publicMatch = line.match(/public_ipv4:\s*Some\(([\d.]+)\)/)
+    if (publicMatch) {
+      const ip = publicMatch[1]
+      if (!isPrivateIP(ip)) {
+        if (!ipCandidates.has(ip)) {
+          ipCandidates.set(ip, {
+            ip: ip,
+            count: 0,
+            sources: new Set(),
+            lineNumbers: new Set(),
+            lines: []
+          })
+        }
+        const candidate = ipCandidates.get(ip)
+        candidate.count++
+        candidate.sources.add('public_ipv4')
+        candidate.lineNumbers.add(lineIndex)
+        candidate.lines.push(line.trim())
+      }
+    }
 
-  // 策略3: 如果日志中包含 "got ip list"，提取第一个非私网IP
-  if (logText.includes('got ip list')) {
-    const allIPs =
-      logText.match(
-        /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g
-      ) || []
-    // 过滤掉私网IP (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
-    const publicIPs = allIPs.filter((ip) => {
-      const parts = ip.split('.')
-      return !(
-        parts[0] === '10' ||
-        (parts[0] === '172' && parts[1] >= 16 && parts[1] <= 31) ||
-        (parts[0] === '192' && parts[1] === '168')
-      )
+    // 策略2: 提取 dest_addr 中的IP（排除 mapped_addr）
+    const destMatch = line.match(
+      /dest_addr=Some\(SocketAddr\s*\{[^}]*ip:\s*Some\(Ipv4\(([\d.]+)\)\)/
+    )
+    if (destMatch) {
+      const ip = destMatch[1]
+      if (!isPrivateIP(ip) && ip !== mappedIP) {
+        if (!ipCandidates.has(ip)) {
+          ipCandidates.set(ip, {
+            ip: ip,
+            count: 0,
+            sources: new Set(),
+            lineNumbers: new Set(),
+            lines: []
+          })
+        }
+        const candidate = ipCandidates.get(ip)
+        candidate.count++
+        candidate.sources.add('dest_addr')
+        candidate.lineNumbers.add(lineIndex)
+        candidate.lines.push(line.trim())
+      }
+    }
+  })
+
+  // 策略3: 从 "got ip list" 中提取非私网IP
+  const gotIpListLines = lines.filter((line) => line.includes('got ip list'))
+  if (gotIpListLines.length > 0) {
+    gotIpListLines.forEach((line, lineIndex) => {
+      const allIPs =
+        line.match(
+          /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g
+        ) || []
+      allIPs.forEach((ip) => {
+        if (!isPrivateIP(ip)) {
+          if (!ipCandidates.has(ip)) {
+            ipCandidates.set(ip, {
+              ip: ip,
+              count: 0,
+              sources: new Set(),
+              lineNumbers: new Set(),
+              lines: []
+            })
+          }
+          const candidate = ipCandidates.get(ip)
+          candidate.count++
+          candidate.sources.add('got_ip_list')
+          candidate.lineNumbers.add(lineIndex)
+          candidate.lines.push(line.trim())
+        }
+      })
     })
-    if (publicIPs.length > 0) return publicIPs[0]
   }
 
-  // 最后兜底：如果策略1和策略2相同，也返回匹配的IP
-  if (publicIPv4 && destIP && publicIPv4 === destIP) {
-    return publicIPv4
-  }
+  // 转换为数组并排序
+  const result = Array.from(ipCandidates.values()).map((candidate) => ({
+    ...candidate,
+    sources: Array.from(candidate.sources),
+    lineNumbers: Array.from(candidate.lineNumbers)
+  }))
 
-  return null
+  // 排序规则：
+  // 1. 优先级高的来源在前（public_ipv4 > dest_addr > got_ip_list）
+  // 2. 出现次数多的在前
+  // 3. 出现的行数少的在前（更早出现）
+  const sourcePriority = { public_ipv4: 3, dest_addr: 2, got_ip_list: 1 }
+
+  result.sort((a, b) => {
+    // 计算优先级分数
+    const getPriorityScore = (sources) => {
+      return Math.max(...sources.map((s) => sourcePriority[s] || 0))
+    }
+
+    const priorityCompare = getPriorityScore(b.sources) - getPriorityScore(a.sources)
+    if (priorityCompare !== 0) return priorityCompare
+
+    // 出现次数比较
+    const countCompare = b.count - a.count
+    if (countCompare !== 0) return countCompare
+
+    // 出现行数比较（更早出现的在前）
+    return Math.min(...a.lineNumbers) - Math.min(...b.lineNumbers)
+  })
+
+  // // 完整信息
+  // const detailedResults = extractAllPublicIPs(logText);
+
+  // // 仅IP数组
+  // const ipArray = detailedResults.map(r => r.ip);
+
+  // // 按来源分组
+  // const publicIPv4s = detailedResults.filter(r => r.sources.includes('public_ipv4'));
+  return result.map((r) => r.ip)
 }
 
 /**
