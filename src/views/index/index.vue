@@ -1,5 +1,4 @@
 <script setup lang="tsx">
-import { BaseButton } from '@/components/Button'
 import { CodeEditor } from '@/components/CodeEditor'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Descriptions, DescriptionsSchema } from '@/components/Descriptions'
@@ -226,8 +225,14 @@ const setExitRoute = async (val) => {
     return null
   }
 
-  const addRouteSeq = async (target: string, mask: string, gateway: string, metric: number) => {
-    const args = ['add', target, 'mask', mask, gateway, 'metric', String(metric)]
+  const addRouteSeq = async (
+    method: string,
+    target: string,
+    mask: string,
+    gateway: string,
+    metric: number
+  ) => {
+    const args = [method, target, 'mask', mask, gateway, 'metric', String(metric)]
     await executeCmd('route', args, { encoding: 'gbk' })
   }
 
@@ -264,11 +269,12 @@ const setExitRoute = async (val) => {
         publicIps &&
         (await checkRouteOnWindows(localNode.ipv4))
       ) {
+        await addRouteSeq('change', '0.0.0.0', '0.0.0.0', gateway, 30)
         // 按顺序依次添加路由，之间不跳过
         for (const publicIp of publicIps) {
-          await addRouteSeq(publicIp, '255.255.255.255', gateway, 1)
+          await addRouteSeq('add', publicIp, '255.255.255.255', gateway, 1)
         }
-        await addRouteSeq('0.0.0.0', '0.0.0.0', exitNodeIp, 5)
+        await addRouteSeq('add', '0.0.0.0', '0.0.0.0', exitNodeIp, 5)
       }
     }
   }
@@ -567,7 +573,7 @@ const startAction = async () => {
     title: '开始运行',
     message: '请稍等，正在启动配置...',
     type: 'info',
-    duration: 3000
+    duration: 5000
   })
   try {
     const adapterName = await getActiveNetworkAdapter()
@@ -1093,7 +1099,7 @@ onMounted(async () => {
         />
       </div>
       <template #footer>
-        <BaseButton @click="logDialogVisible = false">{{ t('dialogDemo.close') }}</BaseButton>
+        <el-button @click="logDialogVisible = false">{{ t('dialogDemo.close') }}</el-button>
       </template>
     </Dialog>
   </div>
