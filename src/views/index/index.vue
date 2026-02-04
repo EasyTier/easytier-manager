@@ -37,6 +37,7 @@ const logDialogVisible = ref(false)
 const descriptionCollapse = ref(false)
 const runningTag2 = ref(false)
 const logData = ref('')
+const disabledAutoMetricAdapter = ref<string | null>(null)
 const MonacoEditRef = ref()
 const wordWrap = ref('off')
 const nodeInfo = ref<any>({})
@@ -122,6 +123,61 @@ watch(
     }
   }
 )
+const getActiveNetworkAdapter = async () => {
+  try {
+    const res = await executeCmd(
+      'powershell',
+      [
+        '-NoProfile',
+        '-Command',
+        'Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq "Up" -and $_.NetAdapter.Name -notlike "et*" -and $_.NetAdapter.Name -notlike "easytier*"} | Sort-Object -Property InterfaceMetric | Select-Object -First 1 -ExpandProperty NetAdapter | Select-Object -ExpandProperty Name'
+      ],
+      { encoding: 'gbk' }
+    )
+    const adapterName = typeof res === 'string' ? res.trim() : ''
+    return adapterName || null
+  } catch (e) {
+    error(`获取上网网卡失败:${String(e)}`)
+    return null
+  }
+}
+
+const disableAutoMetric = async (adapterName: string) => {
+  try {
+    await executeCmd(
+      'powershell',
+      [
+        '-NoProfile',
+        '-Command',
+        `Set-NetIPInterface -InterfaceAlias "${adapterName}" -AutomaticMetric Disabled -InterfaceMetric 1`
+      ],
+      { encoding: 'gbk' }
+    )
+    return true
+  } catch (e) {
+    error(`关闭网卡自动跃点失败:${String(e)}`)
+    return false
+  }
+}
+
+const enableAutoMetric = async (adapterName: string) => {
+  try {
+    await executeCmd(
+      'powershell',
+      [
+        '-NoProfile',
+        '-Command',
+        `Set-NetIPInterface -InterfaceAlias "${adapterName}" -AutomaticMetric Enabled`
+      ],
+      { encoding: 'gbk' }
+    )
+    return true
+  } catch (e) {
+    error(`开启网卡自动跃点失败:${String(e)}`)
+    return false
+  }
+}
+
 const setExitRoute = async (val) => {
   const dataConfig = (await readFileContent(
     CONFIG_PATH + '/' + currentNodeKey.value.fileName
@@ -218,6 +274,7 @@ const setExitRoute = async (val) => {
   }
   easyTierStore.stopSetRoute = true
 }
+
 // 从easyTierStore.runningList 同步 runningTag
 const runningTag = computed(() => {
   return easyTierStore.runningList.some(
@@ -505,6 +562,25 @@ const updateRunningList = async (res?: any) => {
 }
 const startAction = async () => {
   info(`开始运行配置:${currentNodeKey.value.fileName!}`)
+  runningTag2.value = true
+  ElNotification({
+    title: '开始运行',
+    message: '请稍等，正在启动配置...',
+    type: 'info',
+    duration: 3000
+  })
+  try {
+    const adapterName = await getActiveNetworkAdapter()
+    if (adapterName) {
+      const disabled = await disableAutoMetric(adapterName)
+      if (disabled) {
+        disabledAutoMetricAdapter.value = adapterName
+      }
+    }
+  } catch (e) {
+    error(`启动前关闭自动跃点失败:${String(e)}`)
+  }
+
   await runEasyTierCore(currentNodeKey.value.fileName!)
     .then((_res) => {
       // info(`运行配置结果:${JSON.stringify(res)}`)
@@ -520,7 +596,7 @@ const startAction = async () => {
       trayStore.setTrayTooltip('当前运行配置：' + currentNodeKey.value.configFileName)
       runningTag2.value = true
     })
-    .catch(() => {
+    .catch(async () => {
       runningTag2.value = false
       ElMessageBox({
         title: '哦豁，出错啦',
@@ -529,6 +605,14 @@ const startAction = async () => {
         draggable: true,
         confirmButtonText: t('common.ok')
       })
+      if (disabledAutoMetricAdapter.value) {
+        try {
+          await enableAutoMetric(disabledAutoMetricAdapter.value)
+          disabledAutoMetricAdapter.value = null
+        } catch (e) {
+          error(`启动失败后恢复自动跃点失败:${String(e)}`)
+        }
+      }
     })
     .finally(() => currentNodeKeyChange())
 }
@@ -538,6 +622,7 @@ const stopAction = async () => {
   if (item && item.pid) {
     const res = await killProcess(item.pid)
     if (res) {
+      easyTierStore.setStopLoop(true)
       await reset()
       ElNotification({
         title: t('common.reminder'),
@@ -556,6 +641,16 @@ const stopAction = async () => {
       duration: 2000
     })
   }
+
+  if (disabledAutoMetricAdapter.value) {
+    try {
+      await enableAutoMetric(disabledAutoMetricAdapter.value)
+      disabledAutoMetricAdapter.value = null
+    } catch (e) {
+      error(`停止后恢复自动跃点失败:${String(e)}`)
+    }
+  }
+
   trayStore.setTrayTooltip(undefined)
   easyTierStore.setStopLoop(true)
   runningTag2.value = false
