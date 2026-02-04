@@ -39,7 +39,7 @@ export const useEasyTierStore = defineStore(
     // 启动后自动运行的网络配置名称
     const autoRunConfigName = ref('')
     // 刷新频率（秒）
-    const refreshInterval = ref(5)
+    const refreshInterval = ref(3)
     // Xshell 路径
     const xshellPath = ref('')
     // 是否是首次加载（用于自动运行逻辑）

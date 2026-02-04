@@ -48,6 +48,7 @@ const treeEl = ref<typeof ElTree>()
 const currentNodeKey = ref<RunningItem>({
   configFileName: ''
 })
+const currentConfigCache = ref<EasyTierConfig | null>(null)
 const currentDepartment = ref('')
 const tableRowClassName = ({ rowIndex }: { row: any; rowIndex: number }) => {
   if (rowIndex === 1) {
@@ -177,13 +178,29 @@ const enableAutoMetric = async (adapterName: string) => {
   }
 }
 
+const getCurrentConfig = async () => {
+  if (currentConfigCache.value) return currentConfigCache.value
+  try {
+    if (!currentNodeKey.value.fileName) return null
+    const dataConfig = (await readFileContent(
+      `${CONFIG_PATH}/${currentNodeKey.value.fileName}`
+    )) as string
+    if (!dataConfig) return null
+    const parsed = toml.parse(dataConfig) as unknown as EasyTierConfig
+    currentConfigCache.value = parsed
+    return parsed
+  } catch (e) {
+    error(`读取配置失败:${String(e)}`)
+    return null
+  }
+}
+
 const setExitRoute = async (val) => {
-  const dataConfig = (await readFileContent(
-    CONFIG_PATH + '/' + currentNodeKey.value.fileName
-  )) as string
-  // @ts-ignore
-  // @ts-nocheck
-  const parseValue: EasyTierConfig = toml.parse(dataConfig)
+  const parseValue = await getCurrentConfig()
+  if (!parseValue) {
+    easyTierStore.stopSetRoute = true
+    return
+  }
 
   const retryGet = async (fn: () => Promise<string | boolean | undefined | null>) => {
     const maxRetry = 10
@@ -490,13 +507,10 @@ const getPeerInfo = async () => {
         break
       }
 
-      const temp = (await readFileContent(
-        CONFIG_PATH + '/' + currentNodeKey.value.configFileName + '.toml'
-      )) as string
-      if (!temp) {
+      const data = await getCurrentConfig()
+      if (!data) {
         break
       }
-      const data = toml.parse(temp)
       const res = await runEasyTierCli([
         '-p',
         (data.rpc_portal as string).replace('0.0.0.0', '127.0.0.1'),
@@ -569,19 +583,29 @@ const updateRunningList = async (res?: any) => {
 const startAction = async () => {
   info(`开始运行配置:${currentNodeKey.value.fileName!}`)
   runningTag2.value = true
-  ElNotification({
-    title: '开始运行',
-    message: '请稍等，正在启动配置...',
-    type: 'info',
-    duration: 5000
-  })
   try {
-    const adapterName = await getActiveNetworkAdapter()
-    if (adapterName) {
-      const disabled = await disableAutoMetric(adapterName)
-      if (disabled) {
-        disabledAutoMetricAdapter.value = adapterName
+    const currentConfig = await getCurrentConfig()
+    if (currentConfig?.config_exit_nodes_route) {
+      ElNotification({
+        title: '开始运行',
+        message: '请稍等，正在启动并配置各项参数...',
+        type: 'info',
+        duration: 10000
+      })
+      const adapterName = await getActiveNetworkAdapter()
+      if (adapterName) {
+        const disabled = await disableAutoMetric(adapterName)
+        if (disabled) {
+          disabledAutoMetricAdapter.value = adapterName
+        }
       }
+    } else {
+      ElNotification({
+        title: '开始运行',
+        message: '请稍等，正在启动配置...',
+        type: 'info',
+        duration: 4000
+      })
     }
   } catch (e) {
     error(`启动前关闭自动跃点失败:${String(e)}`)
@@ -698,6 +722,7 @@ const clearLog = async () => {
 }
 const currentNodeKeyChange = async () => {
   try {
+    currentConfigCache.value = null
     easyTierStore.setErrRunNotify(true)
     easyTierStore.setLastSelectedConfig(currentNodeKey.value)
     // const res = await getRunningProcesses(currentNodeKey.value.fileName!)
