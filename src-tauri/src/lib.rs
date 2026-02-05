@@ -1,8 +1,38 @@
 use chrono::Local;
+use serde_json::json;
 use std::os::windows::process::CommandExt;
 use std::process::Command;
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_log::{Target, TargetKind};
+use tauri_plugin_store::StoreExt;
+
+#[tauri::command]
+async fn check_cold_start(app: tauri::AppHandle) -> bool {
+    let current_pid = std::process::id() as u64;
+
+    let store: Arc<tauri_plugin_store::Store<tauri::Wry>> = match app.store("cold_start.store") {
+        Ok(store) => store,
+        Err(err) => {
+            log::warn!("init cold_start store failed: {}", err);
+            return true;
+        }
+    };
+
+    let existing_pid: u64 = match store.get("cold_start_token") {
+        Some(val) => val.as_u64().unwrap_or(0),
+        None => 0,
+    };
+
+    let is_cold = existing_pid == 0 || existing_pid != current_pid;
+
+    store.set("cold_start_token", json!(current_pid));
+    if let Err(err) = store.save() {
+        log::warn!("save cold_start_token failed: {}", err);
+    }
+
+    is_cold
+}
 
 #[tauri::command(rename_all = "snake_case")]
 fn run_cli(program: String, args: Vec<String>) -> String {
@@ -103,7 +133,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             run_command,
             run_cli,
-            get_exe_directory
+            get_exe_directory,
+            check_cold_start
         ])
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = show_window(app);
@@ -168,7 +199,8 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_fs::init());
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_store::Builder::default().build());
 
     // 仅在生产环境下启用 prevent-default 插件，禁用右键菜单和快捷键
     #[cfg(not(debug_assertions))]
@@ -181,6 +213,20 @@ pub fn run() {
     }
 
     app_builder
+        .setup(|app| {
+            tauri::async_runtime::block_on(async {
+                match app.store("cold_start.store") {
+                    Ok(store) => {
+                        let store: Arc<tauri_plugin_store::Store<tauri::Wry>> = store;
+                        if let Err(err) = store.save() {
+                            log::warn!("init cold_start store save failed: {}", err);
+                        }
+                    }
+                    Err(err) => log::warn!("init cold_start store failed: {}", err),
+                };
+            });
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

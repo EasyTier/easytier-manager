@@ -20,6 +20,7 @@ import {
 } from '@/utils/shellUtil'
 import { notify, sleep } from '@/utils/sysUtil'
 import { ArrowDown, CopyDocument, Link, Monitor, Platform, Setting } from '@element-plus/icons-vue'
+import { invoke } from '@tauri-apps/api/core'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
 import { Command } from '@tauri-apps/plugin-shell'
 import { useClipboard } from '@vueuse/core'
@@ -807,13 +808,14 @@ const selectedColumnsChange = (val) => {
   easyTierStore.setSelectedColumns(val)
 }
 onMounted(async () => {
-  // 并行执行初始化任务
+  // 1. 先检查是否为冷启动
+  const isColdStart = await invoke<boolean>('check_cold_start')
+
+  // 2. 并行执行初始化任务（无论是否冷启动都需要执行）
   await Promise.all([checkCore(), getConfigList()])
   easyTierStore.loadRunningList()
-  // getNodeInfo()
-  // getPeerInfo()
 
-  // 确定要加载的配置名称
+  // 3. 计算要加载的配置名称（冷启动与否都需要设置 UI 选中）
   let configName = ''
   if (easyTierStore.autoRunNetworkSetting && easyTierStore.autoRunConfigName) {
     configName = easyTierStore.autoRunConfigName
@@ -821,22 +823,22 @@ onMounted(async () => {
     configName = easyTierStore.getLastRunConfigName()
   }
 
-  if (configName) {
-    currentNodeKey.value.configFileName = configName
-    currentNodeKey.value.fileName = configName + '.toml'
+  if (!configName) return
 
-    // 检查是否正在运行
-    const res = await updateRunningList()
-    const isRunning = res.some((item) => item.fileName === currentNodeKey.value.fileName)
+  currentNodeKey.value.configFileName = configName
+  currentNodeKey.value.fileName = `${configName}.toml`
 
-    if (isRunning) {
-      easyTierStore.setStopLoop(false)
-      getNodeInfo()
-      getPeerInfo()
-    } else if (easyTierStore.autoRunNetworkSetting) {
-      // 如果未运行且开启了自动启动，则执行启动
-      startAction()
-    }
+  // 检查是否正在运行，保持 UI 运行态同步
+  const res = await updateRunningList()
+  const isRunning = res.some((item) => item.fileName === currentNodeKey.value.fileName)
+
+  if (isRunning) {
+    easyTierStore.setStopLoop(false)
+    getNodeInfo()
+    getPeerInfo()
+  } else if (isColdStart && easyTierStore.autoRunNetworkSetting) {
+    // 4. 仅在冷启动且开启自动运行时执行自动运行
+    startAction()
   }
 })
 </script>
