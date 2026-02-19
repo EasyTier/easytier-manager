@@ -1349,6 +1349,30 @@ watch(
   }
 )
 watch(
+  () => localFormData.value.socks5_proxy,
+  (value) => {
+    if (value === '') {
+      localFormData.value.socks5_proxy = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.stun_servers,
+  (value) => {
+    if (value.length == 0 || value === '') {
+      localFormData.value.stun_servers = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.stun_servers_v6,
+  (value) => {
+    if (value.length == 0 || value === '') {
+      localFormData.value.stun_servers_v6 = undefined
+    }
+  }
+)
+watch(
   () => vpnPortalConfig.value.client_cidr,
   (value) => {
     if (value) {

@@ -546,7 +546,8 @@ export const installServiceOnWindows = async (
       // await fileExist(await join(LOG_PATH, 'service.log'))
       // 注意：Tauri Command.create 会将每个数组元素作为独立参数传递，不需要手动添加引号
       // 引号只在通过 shell 解析字符串时需要
-      const args1 = ['install', serviceName, corePath]
+      const args1 = ['install', serviceName, `${corePath}`]
+
       const args2 = ['set', serviceName, 'AppParameters', `${args}`]
       const args3 = ['set', serviceName, 'AppDirectory', appDirectory]
       const args4 = ['set', serviceName, 'AppExit', 'Default', 'Restart']
@@ -710,7 +711,7 @@ export const installServiceWithOfficialCli = async (
       }
 
       // 注意：Tauri Command.create 会将每个数组元素作为独立参数传递，不需要手动添加引号
-      args.push('--core-path', corePath)
+      args.push('--core-path', `${corePath}`)
       args.push('--service-work-dir', appDirectory)
 
       // 读取配置文件获取日志配置
@@ -725,7 +726,7 @@ export const installServiceWithOfficialCli = async (
         '--file-log-level',
         logLevel,
         '--config-file',
-        configPath
+        `${configPath}`
       )
 
       // 执行安装
