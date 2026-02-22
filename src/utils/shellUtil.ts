@@ -47,7 +47,7 @@ export async function buildCoreArgsWithLogConfig(
   configPath: string
 ): Promise<string> {
   const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
-  return `--file-log-dir ${logDir} --file-log-level ${logLevel} --config-file "${configPath}"`
+  return `--file-log-dir "${logDir}" --file-log-level ${logLevel} --config-file "${configPath}"`
 }
 
 /**
@@ -210,7 +210,7 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
       program,
       args: [
         '--file-log-dir',
-        logDir,
+        `${logDir}`,
         '--file-log-level',
         logLevel,
         '--file-log-size',
@@ -722,7 +722,7 @@ export const installServiceWithOfficialCli = async (
       args.push(
         '--',
         '--file-log-dir',
-        logDir,
+        `${logDir}`,
         '--file-log-level',
         logLevel,
         '--config-file',
