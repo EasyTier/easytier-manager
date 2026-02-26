@@ -143,8 +143,9 @@ const editForm = async (row: any) => {
   actionType.value = 'edit'
   editType.value = 'form'
   await readFileData(row.fileName)
-  const parse = Object.assign({}, formData.value, toml.parse(dataConfig.value))
-  formData.value = parse as EasyTierFormData
+  const defaults = cloneDeep(DefaultData.defaultFormData)
+  const parsed = toml.parse(dataConfig.value)
+  formData.value = Object.assign({}, defaults, parsed) as EasyTierFormData
   if (!formData.value.vpn_portal_config) {
     formData.value.vpn_portal_config = {}
     formData.value.vpn_portal_config.client_cidr = ''
@@ -228,10 +229,44 @@ const addConfigAction = async () => {
         formData.value.console_logger = undefined
       }
       if (
+        !formData.value.network_identity?.network_name &&
+        !formData.value.network_identity?.network_secret
+      ) {
+        formData.value.network_identity = undefined
+      }
+      if (
         formData.value.vpn_portal_config?.client_cidr === '' ||
         formData.value.vpn_portal_config?.wireguard_listen === ''
       ) {
         formData.value.vpn_portal_config = undefined
+      }
+      // 清理空值字段
+      if (formData.value.tcp_whitelist === '') {
+        formData.value.tcp_whitelist = undefined
+      }
+      if (formData.value.udp_whitelist === '') {
+        formData.value.udp_whitelist = undefined
+      }
+      if (formData.value.ipv6 === '') {
+        formData.value.ipv6 = undefined
+      }
+      if (
+        Array.isArray(formData.value.rpc_portal_whitelist) &&
+        formData.value.rpc_portal_whitelist.length === 0
+      ) {
+        formData.value.rpc_portal_whitelist = undefined
+      }
+      if (formData.value.flags?.socks5 === '') {
+        formData.value.flags.socks5 = undefined
+      }
+      if (formData.value.flags?.tld_dns_zone === '') {
+        formData.value.flags.tld_dns_zone = undefined
+      }
+      if (formData.value.flags?.ipv6_listener === '') {
+        formData.value.flags.ipv6_listener = undefined
+      }
+      if (!formData.value.routes || formData.value.routes.length === 0) {
+        formData.value.routes = undefined
       }
       await writeFileContent(
         CONFIG_PATH + '/' + configFileName.value + '.toml',
@@ -326,10 +361,44 @@ const saveConfigAction = async () => {
           formData.value.console_logger = undefined
         }
         if (
-          formData.value.vpn_portal_config.client_cidr === '' ||
-          formData.value.vpn_portal_config.wireguard_listen === ''
+          !formData.value.network_identity?.network_name &&
+          !formData.value.network_identity?.network_secret
+        ) {
+          formData.value.network_identity = undefined
+        }
+        if (
+          formData.value.vpn_portal_config?.client_cidr === '' ||
+          formData.value.vpn_portal_config?.wireguard_listen === ''
         ) {
           formData.value.vpn_portal_config = undefined
+        }
+        // 清理空值字段
+        if (formData.value.tcp_whitelist === '') {
+          formData.value.tcp_whitelist = undefined
+        }
+        if (formData.value.udp_whitelist === '') {
+          formData.value.udp_whitelist = undefined
+        }
+        if (formData.value.ipv6 === '') {
+          formData.value.ipv6 = undefined
+        }
+        if (
+          Array.isArray(formData.value.rpc_portal_whitelist) &&
+          formData.value.rpc_portal_whitelist.length === 0
+        ) {
+          formData.value.rpc_portal_whitelist = undefined
+        }
+        if (formData.value.flags?.socks5 === '') {
+          formData.value.flags.socks5 = undefined
+        }
+        if (formData.value.flags?.tld_dns_zone === '') {
+          formData.value.flags.tld_dns_zone = undefined
+        }
+        if (formData.value.flags?.ipv6_listener === '') {
+          formData.value.flags.ipv6_listener = undefined
+        }
+        if (!formData.value.routes || formData.value.routes.length === 0) {
+          formData.value.routes = undefined
         }
         await writeFileContent(
           CONFIG_PATH + '/' + configFileName.value + '.toml',
@@ -624,6 +693,9 @@ const createServerConfig = async () => {
     configFileName.value = hostname + '_server' + Math.floor(Math.random() * 100)
   }
   editType.value = 'form'
+  if (!formData.value.network_identity) {
+    formData.value.network_identity = {}
+  }
   formData.value.network_identity.network_name = 'default'
   formData.value.hostname = hostname + '_server'
   formData.value.instance_name = hostname + '_server'

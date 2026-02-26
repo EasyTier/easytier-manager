@@ -60,13 +60,13 @@ export interface EasyTierFormData {
   hostname?: string | undefined | null
   instance_name?: string | undefined
   machine_id?: string | undefined // 机器 ID，用于 Web 配置服务器识别
-  network_identity: Partial<NetworkIdentity>
+  network_identity: Partial<NetworkIdentity> | undefined
   dhcp?: boolean | undefined
   ipv4?: string | undefined
   ipv6?: string | undefined // IPv6 地址
   peer: Partial<Peer>[] | undefined | null
   listeners: any[]
-  routes: any[]
+  routes: any[] | undefined
   mapped_listeners: any[]
   proxy_network: Partial<ProxyNetwork>[] | undefined | null
   exit_nodes: any[] | undefined

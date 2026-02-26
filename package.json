@@ -1,6 +1,6 @@
 {
   "name": "easytier-manager-pro",
-  "version": "3.2.6",
+  "version": "3.2.7",
   "description": "EasyTier 管理器 Pro，EasyTier 管理器 Pro 是一款专为 EasyTier 内核设计的可视化桌面应用，支持通过界面一键启动/停止组网、修改内核参数（支持表单和文本编辑器两种模式）、实时查看运行日志，并可一键下载任意版本内核，简化配置管理，提升操作效率。",
   "displayName": "EasyTier 管理器 Pro",
   "author": {

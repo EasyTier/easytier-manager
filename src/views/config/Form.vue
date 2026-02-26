@@ -43,13 +43,7 @@
       <el-row>
         <el-col :md="24" :sm="24" :xs="24">
           <el-form-item :label="t('easytier.network_name')" prop="network_identity.network_name">
-            <el-input
-              v-model="localFormData.network_identity.network_name"
-              type="text"
-              maxlength="36"
-              show-word-limit
-              clearable
-            />
+            <el-input v-model="networkName" type="text" maxlength="36" show-word-limit clearable />
           </el-form-item>
         </el-col>
         <el-col :md="24" :sm="24" :xs="24">
@@ -58,7 +52,7 @@
             prop="network_identity.network_secret"
           >
             <el-input
-              v-model="localFormData.network_identity.network_secret"
+              v-model="networkSecret"
               type="password"
               :show-password="true"
               maxlength="64"
@@ -235,8 +229,8 @@
             content="路由，将流量路由到指定的网络。例如：10.0.0.0/8,192.168.0.0/16"
             placement="top"
           >
-            <el-form-item :label="t('easytier.routes')" prop="flags.routes">
-              <el-input v-model="localFormData.flags.routes" type="text" clearable />
+            <el-form-item :label="t('easytier.routes')" prop="routes">
+              <el-input v-model="localFormData.routes" type="text" clearable />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -266,11 +260,7 @@
               :label="t('easytier.vpn_wireguard_listen')"
               prop="vpn_portal_config.wireguard_listen"
             >
-              <el-input
-                v-model="localFormData.vpn_portal_config.wireguard_listen"
-                type="text"
-                clearable
-              />
+              <el-input v-model="vpnWireguardListen" type="text" clearable />
             </el-form-item>
           </el-tooltip>
         </el-col>
@@ -1080,6 +1070,35 @@ const localFormData = computed({
   }
 })
 
+// 嵌套对象的安全访问器，父对象可能被 watcher 置为 undefined
+const networkName = computed({
+  get: () => localFormData.value.network_identity?.network_name ?? '',
+  set: (val) => {
+    if (!localFormData.value.network_identity) {
+      localFormData.value.network_identity = {}
+    }
+    localFormData.value.network_identity.network_name = val
+  }
+})
+const networkSecret = computed({
+  get: () => localFormData.value.network_identity?.network_secret ?? '',
+  set: (val) => {
+    if (!localFormData.value.network_identity) {
+      localFormData.value.network_identity = {}
+    }
+    localFormData.value.network_identity.network_secret = val
+  }
+})
+const vpnWireguardListen = computed({
+  get: () => localFormData.value.vpn_portal_config?.wireguard_listen ?? '',
+  set: (val) => {
+    if (!localFormData.value.vpn_portal_config) {
+      localFormData.value.vpn_portal_config = { client_cidr: '', wireguard_listen: '' }
+    }
+    localFormData.value.vpn_portal_config.wireguard_listen = val
+  }
+})
+
 const formRef = ref<FormInstance>()
 const vpnPortalConfig = ref<any>({ client_cidr: '', wireguard_listen: '' })
 const rules = ref<FormRules>({
@@ -1359,7 +1378,7 @@ watch(
 watch(
   () => localFormData.value.stun_servers,
   (value) => {
-    if (value.length == 0 || value === '') {
+    if (!value || value.length === 0 || value === '') {
       localFormData.value.stun_servers = undefined
     }
   }
@@ -1367,8 +1386,117 @@ watch(
 watch(
   () => localFormData.value.stun_servers_v6,
   (value) => {
-    if (value.length == 0 || value === '') {
+    if (!value || value.length === 0 || value === '') {
       localFormData.value.stun_servers_v6 = undefined
+    }
+  }
+)
+watch(
+  () => {
+    const ni = localFormData.value.network_identity ?? {}
+    return [ni?.network_name, ni?.network_secret] as const
+  },
+  ([name, secret]) => {
+    const ni = localFormData.value.network_identity
+    if (!ni) return
+
+    // 两个都为空就整体置空
+    if (!ni.network_name && !ni.network_secret) {
+      localFormData.value.network_identity = undefined
+      return
+    }
+
+    // 统一把空字符串转成 undefined
+    if (name === '') localFormData.value.network_identity.network_name = undefined
+    if (secret === '') localFormData.value.network_identity.network_secret = undefined
+  }
+)
+
+watch(
+  () => localFormData.value.machine_id,
+  (value) => {
+    if (!value || value === '') {
+      localFormData.value.machine_id = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.tcp_whitelist,
+  (value) => {
+    if (!value || value === '') {
+      localFormData.value.tcp_whitelist = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.udp_whitelist,
+  (value) => {
+    if (!value || value === '') {
+      localFormData.value.udp_whitelist = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.ipv6,
+  (value) => {
+    if (value === '') {
+      localFormData.value.ipv6 = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.rpc_portal_whitelist,
+  (value) => {
+    if (Array.isArray(value) && value.length === 0) {
+      localFormData.value.rpc_portal_whitelist = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.flags.dev_name,
+  (value) => {
+    if (value === '') {
+      localFormData.value.flags.dev_name = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.flags.relay_network_whitelist,
+  (value) => {
+    if (value === '') {
+      localFormData.value.flags.relay_network_whitelist = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.flags.socks5,
+  (value) => {
+    if (value === '') {
+      localFormData.value.flags.socks5 = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.flags.tld_dns_zone,
+  (value) => {
+    if (value === '') {
+      localFormData.value.flags.tld_dns_zone = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.flags.ipv6_listener,
+  (value) => {
+    if (value === '') {
+      localFormData.value.flags.ipv6_listener = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.routes,
+  (value) => {
+    if (!value || value === '') {
+      localFormData.value.routes = undefined
     }
   }
 )
@@ -1376,6 +1504,9 @@ watch(
   () => vpnPortalConfig.value.client_cidr,
   (value) => {
     if (value) {
+      if (!localFormData.value.vpn_portal_config) {
+        localFormData.value.vpn_portal_config = { client_cidr: '', wireguard_listen: '' }
+      }
       localFormData.value.vpn_portal_config.client_cidr = vpnPortalConfig.value.client_cidr
     }
   }
@@ -1384,6 +1515,9 @@ watch(
   () => vpnPortalConfig.value.wireguard_listen,
   (value) => {
     if (value) {
+      if (!localFormData.value.vpn_portal_config) {
+        localFormData.value.vpn_portal_config = { client_cidr: '', wireguard_listen: '' }
+      }
       localFormData.value.vpn_portal_config.wireguard_listen =
         vpnPortalConfig.value.wireguard_listen
     }
@@ -1418,6 +1552,11 @@ onMounted(async () => {
     localFormData.value.proxy_network[0].cidr
   ) {
     proxyNetwork.value = localFormData.value.proxy_network.map((p) => p.cidr)
+  }
+  if (localFormData.value.vpn_portal_config) {
+    vpnPortalConfig.value.client_cidr = localFormData.value.vpn_portal_config.client_cidr || ''
+    vpnPortalConfig.value.wireguard_listen =
+      localFormData.value.vpn_portal_config.wireguard_listen || ''
   }
   if (!localFormData.value.hostname) {
     localFormData.value.hostname = await getHostname()
