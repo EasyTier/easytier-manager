@@ -1,5 +1,6 @@
 use chrono::Local;
 use serde_json::json;
+#[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::process::Command;
 use std::sync::Arc;
@@ -36,54 +37,69 @@ async fn check_cold_start(app: tauri::AppHandle) -> bool {
 
 #[tauri::command(rename_all = "snake_case")]
 fn run_cli(program: String, args: Vec<String>) -> String {
-    // CREATE_NO_WINDOW: 不创建控制台窗口
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    // DETACHED_PROCESS: 使进程在后台运行
-    // const DETACHED_PROCESS: u32 = 0x00000008;
     // 尝试执行命令并捕获输出
-    match Command::new(&program)
+    #[cfg(target_os = "windows")]
+    let result = {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        Command::new(&program)
+            .args(args)
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let result = Command::new(&program)
         .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
-        .output() // 使用 output() 来获取输出
-    {
+        .output();
+
+    match result {
         Ok(output) => {
             // 将输出转换为字符串并返回
             match String::from_utf8(output.stdout) {
                 Ok(result) => result,
-                Err(e) => format!("Error decoding output: {}", e), // 返回解码错误信息
+                Err(e) => format!("Error decoding output: {}", e),
             }
         }
         Err(e) => {
             println!("Failed to execute process: {}", e);
-            return format!("Error: {}", e); // 返回错误信息
+            return format!("Error: {}", e);
         }
     }
 }
 
 #[tauri::command(rename_all = "snake_case")]
 fn run_command(program: String, args: Vec<String>) -> String {
-    // CREATE_NO_WINDOW: 不创建控制台窗口
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    // DETACHED_PROCESS: 使进程在后台运行
-    // const DETACHED_PROCESS: u32 = 0x00000008;
-
     // 尝试执行命令并捕获错误
-    match Command::new(&program)
+    #[cfg(target_os = "windows")]
+    let result = {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        Command::new(&program)
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let result = Command::new(&program)
         .args(args)
-        .stdout(std::process::Stdio::null()) // 将标准输出重定向到null
-        .stderr(std::process::Stdio::null()) // 将标准错误重定向到null
-        .creation_flags(CREATE_NO_WINDOW)
-        .spawn()
-    {
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+
+    match result {
         Ok(child) => {
-            let pid = child.id(); // 获取进程ID
-            return pid.to_string(); // 返回进程ID
+            let pid = child.id();
+            return pid.to_string();
         }
         Err(e) => {
             println!("Failed to execute process: {}", e);
-            return format!("Error: {}", e); // 返回错误信息
+            return format!("Error: {}", e);
         }
-    };
+    }
 }
 
 #[tauri::command]
