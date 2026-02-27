@@ -96,8 +96,8 @@ export async function executeCmd(
           msg: stderr.trim() || stdout.trim() || output
         }
       }
-      warn(`执行参数:${JSON.stringify(args)}`)
-      warn(`执行程序失败:${stdout || stderr || '未知错误'}`)
+      warn(`执行命令失败: ${program} ${args.join(' ')}`)
+      warn(`输出: ${stdout || stderr || '未知错误'}`)
       return {
         code: code || 403,
         msg: stderr.trim() || stdout.trim() || output
@@ -105,7 +105,7 @@ export async function executeCmd(
     }
     return stdout.trim() || output
   } catch (e: any) {
-    error(`执行程序失败:${JSON.stringify(e)}`)
+    error(`执行命令失败: ${program} ${args.join(' ')}: ${JSON.stringify(e)}`)
     throw e
   }
 }
@@ -259,7 +259,7 @@ export async function runEasyTierCli(args: string[]): Promise<any> {
     //   args
     // })
   } catch (e) {
-    error(`获取结果失败:${JSON.stringify(e)}`)
+    error(`执行 easytier-cli ${args.join(' ')} 失败: ${JSON.stringify(e)}`)
     return 403
   }
 }
@@ -272,7 +272,7 @@ export async function runCmd(args: string[]): Promise<any> {
       args
     })
   } catch (e) {
-    error(`获取结果失败:${JSON.stringify(e)}`)
+    error(`执行 run_cli [${args.join(' ')}] 失败: ${JSON.stringify(e)}`)
     return 403
   }
 }

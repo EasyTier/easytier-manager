@@ -42,6 +42,8 @@
     "fs:allow-resource-write-recursive",
     "fs:allow-app-read-recursive",
     "fs:allow-app-write-recursive",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
     "log:default",
     "log:allow-log",
     "os:default",
