@@ -9,6 +9,7 @@ import { useEasyTierStore } from '@/store/modules/easytier'
 import type { EasyTierFormData } from '@/types/formTypes'
 import {
   deleteFileOrDir,
+  getDataDir,
   getLogsDir,
   listTomlFiles,
   readFileContent,
@@ -34,7 +35,7 @@ import {
   saveServiceInstallConfig
 } from '@/utils/serviceConfigUtil'
 import { getCurrentUsername, getHostname, getOsType, sleep } from '@/utils/sysUtil'
-import { join, resourceDir } from '@tauri-apps/api/path'
+import { join } from '@tauri-apps/api/path'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import { cloneDeep } from 'lodash-es'
@@ -328,7 +329,7 @@ const addConfigAction = async () => {
   await getConfigList()
 }
 const saveConfigAction = async () => {
-  const resourceDirPath = await resourceDir()
+  const dataDirPath = getDataDir()
   if (editType.value === 'form') {
     // 验证必填 formRef
     if (!(await formRef.value.validateForm())) {
@@ -340,7 +341,7 @@ const saveConfigAction = async () => {
         // formData.value.file_logger.dir = formData.value.file_logger.dir
         //   ? formData.value.file_logger.dir
         //   : logsDir.value
-        formData.value.file_logger.dir = await join(resourceDirPath, LOG_PATH)
+        formData.value.file_logger.dir = await join(dataDirPath, LOG_PATH)
         formData.value.file_logger.file = configFileName.value
         if (
           !formData.value.proxy_network ||
@@ -432,7 +433,7 @@ const saveConfigAction = async () => {
         ...parseValue,
         file_logger: {
           level: parseValue.file_logger?.level ? parseValue.file_logger?.level : 'error',
-          dir: await join(resourceDirPath, LOG_PATH),
+          dir: await join(dataDirPath, LOG_PATH),
           file: configFileName.value
         }
       }
@@ -535,7 +536,7 @@ const confirmInstallService = async () => {
   // 保存配置
   saveServiceInstallConfig(row.configFileName, serviceInstallForm.value)
 
-  const configPath = await join(await resourceDir(), CONFIG_PATH, row.fileName)
+  const configPath = await join(getDataDir(), CONFIG_PATH, row.fileName)
   const serviceName = PREFIX_SVC + row.configFileName
 
   let result = false

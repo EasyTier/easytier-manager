@@ -1,9 +1,9 @@
 import { CONFIG_PATH, NSSM_NAME } from '@/constants/easytier'
 import { invoke } from '@tauri-apps/api/core'
-import { join, resourceDir } from '@tauri-apps/api/path'
+import { join } from '@tauri-apps/api/path'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
-import { getCliDir, getCoreDir, getResourceDir, readFileContent } from './fileUtil'
+import { getCliDir, getCoreDir, getDataDir, getResourceDir, readFileContent } from './fileUtil'
 import { getPlatform, sleep } from './sysUtil'
 import * as toml from 'smol-toml'
 
@@ -203,7 +203,7 @@ export async function executeBack(
 // 运行 easytier-core 配置
 export async function runEasyTierCore(configFileName: string): Promise<any> {
   try {
-    const configPath = await join(await resourceDir(), CONFIG_PATH, configFileName)
+    const configPath = await join(getDataDir(), CONFIG_PATH, configFileName)
     const program = await getCoreDir()
 
     // 读取配置文件获取日志配置

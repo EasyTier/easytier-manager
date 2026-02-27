@@ -18,6 +18,7 @@ import { useEasyTierStore } from '@/store/modules/easytier'
 import {
   downloadFile,
   extractFile,
+  getDataDir,
   getLogsDir,
   getResourceDir,
   listTomlFiles,
@@ -25,7 +26,7 @@ import {
 } from '@/utils/fileUtil'
 import { runEasyTierCli, stopAllNodes } from '@/utils/shellUtil'
 import { getAppVersion, getArch, getOsType } from '@/utils/sysUtil'
-import { appDataDir, appLogDir, join, resourceDir } from '@tauri-apps/api/path'
+import { appDataDir, appLogDir, join } from '@tauri-apps/api/path'
 import { fetch } from '@tauri-apps/plugin-http'
 import { useClipboard } from '@vueuse/core'
 import {
@@ -259,11 +260,11 @@ const checkCorePath = async () => {
   }
 }
 const openConfigPath = async () => {
-  const configPath = await join(await resourceDir(), 'config')
+  const configPath = await join(getDataDir(), 'config')
   await openPath(configPath)
 }
 const openCorePath = async () => {
-  const resourcePath = await join(await resourceDir(), RESOURCE_PATH)
+  const resourcePath = await join(getDataDir(), RESOURCE_PATH)
   await openPath(resourcePath)
 }
 // @ts-ignore
@@ -271,7 +272,7 @@ const openCorePath = async () => {
 const copyLogPath = async () => {
   // 拷贝
   const { copy, copied, isSupported } = useClipboard({
-    source: await join(await resourceDir(), LOG_PATH),
+    source: await join(getDataDir(), LOG_PATH),
     legacy: true
   })
   if (!isSupported) {
@@ -284,7 +285,7 @@ const copyLogPath = async () => {
   }
 }
 const openLogPath = async () => {
-  const resourcePath = await join(await resourceDir(), LOG_PATH)
+  const resourcePath = await join(getDataDir(), LOG_PATH)
   await openPath(resourcePath)
 }
 // const openLogPath2 = async () => {

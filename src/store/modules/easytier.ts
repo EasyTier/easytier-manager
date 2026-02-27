@@ -8,8 +8,8 @@ import {
   USER_AGENT
 } from '@/constants/easytier'
 import { listTomlFiles } from '@/utils/fileUtil'
+import { getDataDir } from '@/utils/fileUtil'
 import { startServiceNative } from '@/utils/shellUtil'
-import { resourceDir } from '@tauri-apps/api/path'
 import { fetch } from '@tauri-apps/plugin-http'
 import dayjs from 'dayjs'
 import { defineStore } from 'pinia'
@@ -158,7 +158,7 @@ export const useEasyTierStore = defineStore(
       //   return
       // }
       // 如果 configJsonObj 中存在 path 键，则设置 configPath 为 path 键的值，如果不存在则判断 path 是否为空，为空则设置为 resource 目录，否则设置为 path 键的值
-      configPath.value = await resourceDir()
+      configPath.value = getDataDir()
       // configJsonObj.configPath = RESOURCE_PATH
       // await writeConfigJsonObj(configJsonObj)
     }

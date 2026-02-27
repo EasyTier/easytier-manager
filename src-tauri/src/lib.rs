@@ -118,9 +118,19 @@ fn get_exe_directory() -> String {
     }
 }
 
-// 获取日志目录（程序安装目录下的 logs）
+// 获取日志目录（优先程序安装目录下的 logs，只读环境回退到用户数据目录）
 fn get_log_directory() -> String {
-    format!("{}/logs", get_exe_directory())
+    let exe_log_dir = format!("{}/logs", get_exe_directory());
+    if std::fs::create_dir_all(&exe_log_dir).is_ok() {
+        return exe_log_dir;
+    }
+    if let Some(data_dir) = dirs::data_dir() {
+        let app_log_dir = data_dir.join("easytier-manager-pro").join("logs");
+        if std::fs::create_dir_all(&app_log_dir).is_ok() {
+            return app_log_dir.display().to_string();
+        }
+    }
+    exe_log_dir
 }
 
 fn show_window(app: &AppHandle) {
