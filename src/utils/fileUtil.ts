@@ -166,7 +166,11 @@ export async function readFileContent(
       return content
     }
   } catch (e: any) {
-    if (!JSON.stringify(e).includes('系统找不到指定的文件')) {
+    if (
+      !JSON.stringify(e).includes('系统找不到指定的文件') &&
+      !JSON.stringify(e).includes('No such file or directory') &&
+      !JSON.stringify(e).includes('not found')
+    ) {
       error(`Error reading file ${filePath}:${JSON.stringify(e)}`)
     }
     return ''

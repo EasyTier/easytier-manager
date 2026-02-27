@@ -50,7 +50,7 @@ const p2pNotify = ref(true)
 const refreshInterval = ref(3)
 const xshellPath = ref('')
 const lockPassword = ref('')
-const defaultServiceInstallMethod = ref<'nssm' | 'official'>('nssm')
+const defaultServiceInstallMethod = ref<'native' | 'official'>('native')
 const defaultEnableAutostart = ref(true)
 
 const handleMinimizeChange = (value: boolean) => {
@@ -82,7 +82,7 @@ const saveLockPassword = () => {
   ElMessage.success('锁定密码已保存')
 }
 
-const handleServiceInstallMethodChange = (value: 'nssm' | 'official') => {
+const handleServiceInstallMethodChange = (value: 'native' | 'official') => {
   easyTierStore.setDefaultServiceInstallMethod(value)
 }
 
@@ -599,7 +599,7 @@ onMounted(async () => {
               >工作台节点列表刷新间隔（秒），最低2秒</span
             >
           </el-form-item>
-          <el-form-item label="Xshell 路径">
+          <el-form-item v-if="easyTierStore.os === 'windows'" label="Xshell 路径">
             <el-input
               v-model="xshellPath"
               placeholder="例如: C:\Program Files (x86)\NetSarang\Xshell 7\Xshell.exe"
@@ -640,7 +640,16 @@ onMounted(async () => {
                   style="width: 280px"
                   @change="handleServiceInstallMethodChange"
                 >
-                  <el-option label="NSSM (推荐，兼容性好)" value="nssm" />
+                  <el-option
+                    :label="
+                      easyTierStore.os === 'windows'
+                        ? 'NSSM (推荐，兼容性好)'
+                        : easyTierStore.os === 'linux'
+                          ? 'systemd (推荐)'
+                          : 'launchd (推荐)'
+                    "
+                    value="native"
+                  />
                   <el-option label="官方 easytier-cli (v1.2.0+)" value="official" />
                 </el-select>
                 <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"

@@ -164,6 +164,56 @@
           "args": true,
           "cmd": "mstsc",
           "name": "mstsc"
+        },
+        {
+          "args": true,
+          "cmd": "sh",
+          "name": "sh"
+        },
+        {
+          "args": true,
+          "cmd": "systemctl",
+          "name": "systemctl"
+        },
+        {
+          "args": true,
+          "cmd": "launchctl",
+          "name": "launchctl"
+        },
+        {
+          "args": true,
+          "cmd": "ip",
+          "name": "ip"
+        },
+        {
+          "args": true,
+          "cmd": "ifconfig",
+          "name": "ifconfig"
+        },
+        {
+          "args": true,
+          "cmd": "whoami",
+          "name": "whoami"
+        },
+        {
+          "args": true,
+          "cmd": "xdg-open",
+          "name": "xdg-open"
+        },
+        {
+          "args": true,
+          "cmd": "open",
+          "name": "open"
+        },
+        {
+          "args": true,
+          "cmd": "xterm",
+          "name": "xterm"
+        },
+        {
+          "args": true,
+          "cmd": "xfreerdp",
+          "name": "xfreerdp"
         }
       ]
     },
@@ -209,6 +259,21 @@
           "args": true,
           "cmd": "mstsc",
           "name": "mstsc"
+        },
+        {
+          "args": true,
+          "cmd": "sh",
+          "name": "sh"
+        },
+        {
+          "args": true,
+          "cmd": "xterm",
+          "name": "xterm"
+        },
+        {
+          "args": true,
+          "cmd": "open",
+          "name": "open"
         }
       ]
     },

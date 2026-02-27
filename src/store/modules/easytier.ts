@@ -8,7 +8,7 @@ import {
   USER_AGENT
 } from '@/constants/easytier'
 import { listTomlFiles } from '@/utils/fileUtil'
-import { startServiceOnWindows } from '@/utils/shellUtil'
+import { startServiceNative } from '@/utils/shellUtil'
 import { resourceDir } from '@tauri-apps/api/path'
 import { fetch } from '@tauri-apps/plugin-http'
 import dayjs from 'dayjs'
@@ -60,7 +60,7 @@ export const useEasyTierStore = defineStore(
     // 当前选择的列（存储prop值）
     const selectedColumns = ref(['rx_bytes', 'tx_bytes', 'nat_type'])
     // 默认服务安装方式
-    const defaultServiceInstallMethod = ref<'nssm' | 'official'>('nssm')
+    const defaultServiceInstallMethod = ref<'native' | 'official'>('native')
     // 默认开机自启动
     const defaultEnableAutostart = ref(true)
     const setConfigList = (list) => {
@@ -322,7 +322,7 @@ export const useEasyTierStore = defineStore(
     const setSelectedColumns = (list) => {
       selectedColumns.value = list
     }
-    const setDefaultServiceInstallMethod = (method: 'nssm' | 'official') => {
+    const setDefaultServiceInstallMethod = (method: 'native' | 'official') => {
       defaultServiceInstallMethod.value = method
     }
     const setDefaultEnableAutostart = (enable: boolean) => {
@@ -334,7 +334,7 @@ export const useEasyTierStore = defineStore(
         const fileList = await listTomlFiles()
         for (const f of fileList) {
           const configName = f.replace('.toml', '')
-          await startServiceOnWindows(PREFIX_SVC + configName)
+          await startServiceNative(PREFIX_SVC + configName)
         }
       }
     }

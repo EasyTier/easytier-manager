@@ -680,7 +680,7 @@ export default {
     // 服务管理设置
     serviceManagementSettings: '服务管理设置',
     serviceInstallMethod: '服务安装方式',
-    installMethodNssm: 'NSSM (推荐，兼容性好)',
+    installMethodNative: '原生方式 (NSSM/systemd/launchd)',
     installMethodOfficial: '官方 easytier-cli (v2.0+)',
     serviceDisplayName: '服务显示名称',
     serviceDescription: '服务描述',

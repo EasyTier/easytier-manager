@@ -16,7 +16,7 @@ export const getServiceInstallConfig = (configFileName: string): ServiceInstallC
   return {
     password: '',
     username: '',
-    installMethod: 'nssm', // 默认 NSSM 保证向后兼容
+    installMethod: 'native', // 默认原生方式: NSSM(Win)/systemd(Linux)/launchd(macOS)
     enableAutostart: true
   }
 }
