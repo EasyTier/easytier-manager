@@ -89,6 +89,24 @@ export function getBaseDirectory(): BaseDirectory {
 }
 
 /**
+ * 获取 easytier-cli 的 Tauri shell scope 名称（按优先级）
+ */
+export function getCliScopeNames(): string[] {
+  return useAppData
+    ? ['easytier-cli-appdata', 'easytier-cli-resource', 'easytier-cli']
+    : ['easytier-cli-resource', 'easytier-cli']
+}
+
+/**
+ * 获取 easytier-core 的 Tauri shell scope 名称（按优先级）
+ */
+export function getCoreScopeNames(): string[] {
+  return useAppData
+    ? ['easytier-core-appdata', 'easytier-core-resource', 'easytier-core']
+    : ['easytier-core-resource', 'easytier-core']
+}
+
+/**
  * 一次性迁移：将 resourceDir 下的 config/、resource/、logs/ 复制到 appDataDir
  * 仅在 useAppData=true 时执行，使用 migrated-flag 标记避免重复
  */

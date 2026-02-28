@@ -96,11 +96,31 @@
         {
           "args": true,
           "cmd": "$RESOURCE/resource/easytier-core",
-          "name": "easytier-core"
+          "name": "easytier-core-resource"
         },
         {
           "args": true,
           "cmd": "$RESOURCE/resource/easytier-cli",
+          "name": "easytier-cli-resource"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/easytier-core",
+          "name": "easytier-core-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/easytier-cli",
+          "name": "easytier-cli-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "easytier-core",
+          "name": "easytier-core"
+        },
+        {
+          "args": true,
+          "cmd": "easytier-cli",
           "name": "easytier-cli"
         },
         {
@@ -226,11 +246,31 @@
         {
           "args": true,
           "cmd": "$RESOURCE/resource/easytier-core",
-          "name": "easytier-core"
+          "name": "easytier-core-resource"
         },
         {
           "args": true,
           "cmd": "$RESOURCE/resource/easytier-cli",
+          "name": "easytier-cli-resource"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/easytier-core",
+          "name": "easytier-core-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/easytier-cli",
+          "name": "easytier-cli-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "easytier-core",
+          "name": "easytier-core"
+        },
+        {
+          "args": true,
+          "cmd": "easytier-cli",
           "name": "easytier-cli"
         },
         {

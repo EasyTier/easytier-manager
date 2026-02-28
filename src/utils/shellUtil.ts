@@ -3,7 +3,14 @@ import { invoke } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
-import { getCliDir, getCoreDir, getDataDir, getResourceDir, readFileContent } from './fileUtil'
+import {
+  getCliDir,
+  getCliScopeNames,
+  getCoreDir,
+  getDataDir,
+  getResourceDir,
+  readFileContent
+} from './fileUtil'
 import { getPlatform, sleep } from './sysUtil'
 import * as toml from 'smol-toml'
 
@@ -107,6 +114,24 @@ export async function executeCmd(
   } catch (e: any) {
     error(`执行命令失败: ${program} ${args.join(' ')}: ${JSON.stringify(e)}`)
     throw e
+  }
+}
+
+/**
+ * 依次尝试多个 scope 名称执行命令，第一个成功的返回结果
+ */
+async function executeCmdWithFallback(
+  scopeNames: string[],
+  args: string[] = [],
+  options: SpawnOptions = {}
+): Promise<any> {
+  for (let i = 0; i < scopeNames.length; i++) {
+    try {
+      return await executeCmd(scopeNames[i], args, options)
+    } catch (e) {
+      if (i === scopeNames.length - 1) throw e
+      warn(`${scopeNames[i]} 不可用，尝试下一个: ${scopeNames[i + 1]}`)
+    }
   }
 }
 
@@ -251,7 +276,7 @@ export async function runEasyTierCoreWeb(url: string): Promise<any> {
 // 运行 easytier-cli 配置
 export async function runEasyTierCli(args: string[]): Promise<any> {
   try {
-    return await executeCmd('easytier-cli', args)
+    return await executeCmdWithFallback(getCliScopeNames(), args)
     // 使用rust api 会出现卡顿
     // const program = await getCliDir()
     // return await invoke('run_cli', {
@@ -708,7 +733,7 @@ export const installServiceWithOfficialCli = async (
       )
 
       // 执行安装
-      const res: any = await executeCmd('easytier-cli', args, { encoding: 'gbk' })
+      const res: any = await executeCmdWithFallback(getCliScopeNames(), args, { encoding: 'gbk' })
 
       info(`官方CLI安装服务结果: ${JSON.stringify(res)}`)
 
@@ -736,7 +761,7 @@ export const installServiceWithOfficialCli = async (
 export const uninstallServiceWithOfficialCli = async (_serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
-      const res: any = await executeCmd('easytier-cli', ['service', 'uninstall'], {
+      const res: any = await executeCmdWithFallback(getCliScopeNames(), ['service', 'uninstall'], {
         encoding: 'gbk'
       })
       info(`官方CLI卸载服务结果: ${JSON.stringify(res)}`)
@@ -765,7 +790,9 @@ export const uninstallServiceWithOfficialCli = async (_serviceName: string) => {
 export const checkServiceWithOfficialCli = async (_serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
-      const res: any = await executeCmd('easytier-cli', ['service', 'status'], { encoding: 'gbk' })
+      const res: any = await executeCmdWithFallback(getCliScopeNames(), ['service', 'status'], {
+        encoding: 'gbk'
+      })
 
       // info(`官方CLI检查服务状态: ${JSON.stringify(res)}`)
 
@@ -834,7 +861,7 @@ export const checkServiceWithOfficialCli = async (_serviceName: string) => {
 export const startServiceWithOfficialCli = async (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
-      await executeCmd('easytier-cli', ['service', 'start'], { encoding: 'gbk' })
+      await executeCmdWithFallback(getCliScopeNames(), ['service', 'start'], { encoding: 'gbk' })
       await sleep(2000)
 
       const status = await checkServiceWithOfficialCli(serviceName)
@@ -852,7 +879,7 @@ export const startServiceWithOfficialCli = async (serviceName: string) => {
 export const stopServiceWithOfficialCli = async (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
-      await executeCmd('easytier-cli', ['service', 'stop'], { encoding: 'gbk' })
+      await executeCmdWithFallback(getCliScopeNames(), ['service', 'stop'], { encoding: 'gbk' })
       await sleep(2000)
 
       const status = await checkServiceWithOfficialCli(serviceName)
