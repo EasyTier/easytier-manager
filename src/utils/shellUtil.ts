@@ -1,14 +1,25 @@
-import { CONFIG_PATH, NSSM_NAME } from '@/constants/easytier'
+import { CONFIG_PATH } from '@/constants/easytier'
 import { invoke } from '@tauri-apps/api/core'
-import { join, resourceDir } from '@tauri-apps/api/path'
+import { join } from '@tauri-apps/api/path'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
-import { getCliDir, getCoreDir, getResourceDir, readFileContent } from './fileUtil'
+import {
+  getCliDir,
+  getCliScopeNames,
+  getCoreDir,
+  getDataDir,
+  getNssmScopeNames,
+  getResourceDir,
+  readFileContent
+} from './fileUtil'
 import { getPlatform, sleep } from './sysUtil'
 import * as toml from 'smol-toml'
 
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
 attachConsole()
+
+/** 根据平台返回合适的编码 */
+const platformEncoding = async () => ((await getPlatform()) === 'windows' ? 'gbk' : 'utf-8')
 
 /**
  * 从配置文件中读取日志配置
@@ -93,8 +104,8 @@ export async function executeCmd(
           msg: stderr.trim() || stdout.trim() || output
         }
       }
-      warn(`执行参数:${JSON.stringify(args)}`)
-      warn(`执行程序失败:${stdout || stderr || '未知错误'}`)
+      warn(`执行命令失败: ${program} ${args.join(' ')}`)
+      warn(`输出: ${stdout || stderr || '未知错误'}`)
       return {
         code: code || 403,
         msg: stderr.trim() || stdout.trim() || output
@@ -102,8 +113,26 @@ export async function executeCmd(
     }
     return stdout.trim() || output
   } catch (e: any) {
-    error(`执行程序失败:${JSON.stringify(e)}`)
+    error(`执行命令失败: ${program} ${args.join(' ')}: ${JSON.stringify(e)}`)
     throw e
+  }
+}
+
+/**
+ * 依次尝试多个 scope 名称执行命令，第一个成功的返回结果
+ */
+async function executeCmdWithFallback(
+  scopeNames: string[],
+  args: string[] = [],
+  options: SpawnOptions = {}
+): Promise<any> {
+  for (let i = 0; i < scopeNames.length; i++) {
+    try {
+      return await executeCmd(scopeNames[i], args, options)
+    } catch (e) {
+      if (i === scopeNames.length - 1) throw e
+      warn(`${scopeNames[i]} 不可用，尝试下一个: ${scopeNames[i + 1]}`)
+    }
   }
 }
 
@@ -200,7 +229,7 @@ export async function executeBack(
 // 运行 easytier-core 配置
 export async function runEasyTierCore(configFileName: string): Promise<any> {
   try {
-    const configPath = await join(await resourceDir(), CONFIG_PATH, configFileName)
+    const configPath = await join(getDataDir(), CONFIG_PATH, configFileName)
     const program = await getCoreDir()
 
     // 读取配置文件获取日志配置
@@ -248,7 +277,7 @@ export async function runEasyTierCoreWeb(url: string): Promise<any> {
 // 运行 easytier-cli 配置
 export async function runEasyTierCli(args: string[]): Promise<any> {
   try {
-    return await executeCmd('easytier-cli', args)
+    return await executeCmdWithFallback(getCliScopeNames(), args)
     // 使用rust api 会出现卡顿
     // const program = await getCliDir()
     // return await invoke('run_cli', {
@@ -256,7 +285,7 @@ export async function runEasyTierCli(args: string[]): Promise<any> {
     //   args
     // })
   } catch (e) {
-    error(`获取结果失败:${JSON.stringify(e)}`)
+    error(`执行 easytier-cli ${args.join(' ')} 失败: ${JSON.stringify(e)}`)
     return 403
   }
 }
@@ -269,7 +298,7 @@ export async function runCmd(args: string[]): Promise<any> {
       args
     })
   } catch (e) {
-    error(`获取结果失败:${JSON.stringify(e)}`)
+    error(`执行 run_cli [${args.join(' ')}] 失败: ${JSON.stringify(e)}`)
     return 403
   }
 }
@@ -336,13 +365,12 @@ export async function killProcessWithSudo(pid: number, force: boolean = false): 
   }
 }
 
-// Windows 结束所有 easytier-core 进程
-export async function killAllEasyTierCoreProcessWin() {
-  return await executeCmd('taskkill', ['/IM', 'easytier-core.exe', '/F'])
-}
-
-// Linux/macOS 结束所有 easytier-core 进程
-export async function killAllEasyTierCoreProcessUnix() {
+// 跨平台结束所有 easytier-core 进程
+export async function killAllEasyTierCoreProcess() {
+  const platform = await getPlatform()
+  if (platform === 'windows') {
+    return await executeCmd('taskkill', ['/IM', 'easytier-core.exe', '/F'], { encoding: 'gbk' })
+  }
   return await executeCmd('killall', ['easytier-core'])
 }
 
@@ -399,75 +427,51 @@ export const getRunningProcesses = async (
     }
     executeCmd(program, args, { encoding })
       .then((res) => {
-        res = JSON.parse(res || '[]')
-        res = Array.isArray(res) ? res : []
-        const result = res.filter((r) => !r.name.includes('powershell.exe'))
-        if (result.length === 0) {
-          resolve(processInfo)
-          return
-        }
         if (platform === 'windows') {
-          // 解析JSON 输出
-          result.forEach((p) => {
+          // Windows: 解析 PowerShell JSON 输出
+          let parsed = JSON.parse(res || '[]')
+          parsed = Array.isArray(parsed) ? parsed : [parsed]
+          const result = parsed.filter((r: any) => !r.name?.includes('powershell.exe'))
+          result.forEach((p: any) => {
             if (p.commandLine && p.commandLine.includes(programName)) {
-              const process = {
+              processInfo.push({
                 name: p.name,
                 commandLine: p.commandLine,
                 path: p.path,
                 pid: parseInt(p.pid, 10) || 0,
                 memory: parseInt(p.memory, 10) || 0,
                 fileName: programName
-              }
-              processInfo.push(process)
+              })
             }
           })
-          // 解析 PowerShell 的 CSV 输出
-          // const lines = result.trim().split('\n').slice(1) // 去掉标题行
-          // lines.forEach((line: string) => {
-          //   // "Caption","CommandLine","ExecutablePath","ProcessId","WorkingSetSize"
-          //   const values = line
-          //     .slice(1, -1)
-          //     .split('","')
-          //     .map((v) => v.trim())
-          //
-          //   if (values.length >= 5) {
-          //     const [caption, commandLine, executablePath, processId, workingSetSize] = values
-          //     if (commandLine && commandLine.includes(programName)) {
-          //       const process = {
-          //         name: caption,
-          //         commandLine: commandLine,
-          //         path: executablePath,
-          //         pid: parseInt(processId, 10),
-          //         memory: parseInt(workingSetSize, 10),
-          //         fileName: programName
-          //       }
-          //       processInfo.push(process)
-          //     }
-          //   }
-          // })
         } else if (platform === 'macos' || platform === 'linux') {
-          // 解析 macOS 和 Linux 的 ps 输出
-          const lines = result.trim().split('\n')
+          // Unix: 解析 ps 文本输出
+          const output = typeof res === 'string' ? res : res?.msg || ''
+          if (!output.trim()) {
+            resolve(processInfo)
+            return
+          }
+          const lines = output.trim().split('\n')
           lines.forEach((line: string) => {
+            // 跳过 grep 自身的进程
+            if (line.includes('grep')) return
             const parts = line.trim().split(/\s+/)
             if (parts.length >= 4) {
               const [comm, ...argsParts] = parts
-              const pidIndex = argsParts.findIndex((p) => !isNaN(parseInt(p, 10)))
+              const pidIndex = argsParts.findIndex((p: string) => !isNaN(parseInt(p, 10)))
               if (pidIndex > -1) {
                 const commandLine = argsParts.slice(0, pidIndex).join(' ')
                 const pid = argsParts[pidIndex]
                 const rss = argsParts[pidIndex + 1]
-
                 if (commandLine.includes(programName)) {
-                  const process = {
+                  processInfo.push({
                     name: comm,
                     commandLine: commandLine,
-                    path: comm, // ps 命令不直接提供可执行文件路径
+                    path: comm,
                     pid: parseInt(pid, 10),
-                    memory: parseInt(rss, 10) * 1024, // rss 单位是 KB
+                    memory: parseInt(rss, 10) * 1024,
                     fileName: programName
-                  }
-                  processInfo.push(process)
+                  })
                 }
               }
             }
@@ -489,7 +493,7 @@ export const checkServiceOnWindows = (serviceName: string): Promise<any> => {
   return new Promise(async (resolve) => {
     try {
       const args = ['status', serviceName]
-      const res: any = await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
+      const res: any = await executeCmdWithFallback(getNssmScopeNames(), args, { encoding: 'gbk' })
       // debug('检测服务:' + JSON.stringify(res))
       // Can't open service!\r\r\nOpenService(): The specified service does not exist as an installed service.
       if (res && (res.code! === 3 || res.includes('does not exist'))) {
@@ -570,31 +574,33 @@ export const installServiceOnWindows = async (
       // const args10 = ['set', serviceName, 'AppStdout', `${logsPath}\\service.log`]
       // const args11 = ['set', serviceName, 'AppStderr', `${logsPath}\\service.log`]
       // const args12 = ['set', serviceName, 'AppTimestampLog', '1']
-      await executeCmd(NSSM_NAME, args1, { encoding: 'gbk' }).then(async (res) => {
-        info(`安装服务结果:${JSON.stringify(res)}`)
-        if (
-          res &&
-          (res.code! === 0 ||
-            res.code! === 1 ||
-            res.includes('success') ||
-            res.includes('installed'))
-        ) {
-          await executeCmd(NSSM_NAME, args2, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args3, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args4, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args5, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args6, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args7, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args8, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args9, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args10, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args11, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args12, { encoding: 'gbk' })
-          resolve(true)
-          return
+      await executeCmdWithFallback(getNssmScopeNames(), args1, { encoding: 'gbk' }).then(
+        async (res) => {
+          info(`安装服务结果:${JSON.stringify(res)}`)
+          if (
+            res &&
+            (res.code! === 0 ||
+              res.code! === 1 ||
+              res.includes('success') ||
+              res.includes('installed'))
+          ) {
+            await executeCmdWithFallback(getNssmScopeNames(), args2, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args3, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args4, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args5, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args6, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args7, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args8, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args9, { encoding: 'gbk' })
+            // await executeCmdWithFallback(getNssmScopeNames(), args10, { encoding: 'gbk' })
+            // await executeCmdWithFallback(getNssmScopeNames(), args11, { encoding: 'gbk' })
+            // await executeCmdWithFallback(getNssmScopeNames(), args12, { encoding: 'gbk' })
+            resolve(true)
+            return
+          }
+          resolve(false)
         }
-        resolve(false)
-      })
+      )
     } catch (e: any) {
       error(`安装服务失败:${e}`)
       resolve(false)
@@ -610,7 +616,7 @@ export const uninstallServiceOnWindows = (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
       const args = ['remove', serviceName, 'confirm']
-      const res: any = await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
+      const res: any = await executeCmdWithFallback(getNssmScopeNames(), args, { encoding: 'gbk' })
       info(`删除服务:${JSON.stringify(res)}`)
       if (res && (res.code! === 0 || res.includes('success'))) {
         resolve(true)
@@ -632,7 +638,7 @@ export const startServiceOnWindows = (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
       const args = ['start', serviceName]
-      await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
+      await executeCmdWithFallback(getNssmScopeNames(), args, { encoding: 'gbk' })
       await sleep(2000)
       const res = await checkServiceOnWindows(serviceName)
       info('启动服务:' + JSON.stringify(res))
@@ -657,7 +663,7 @@ export const stopServiceOnWindows = (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
       const args = ['stop', serviceName]
-      await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
+      await executeCmdWithFallback(getNssmScopeNames(), args, { encoding: 'gbk' })
       await sleep(2000)
       const res = await checkServiceOnWindows(serviceName)
       info('停止服务:' + JSON.stringify(res))
@@ -730,7 +736,7 @@ export const installServiceWithOfficialCli = async (
       )
 
       // 执行安装
-      const res: any = await executeCmd('easytier-cli', args, { encoding: 'gbk' })
+      const res: any = await executeCmdWithFallback(getCliScopeNames(), args, { encoding: 'gbk' })
 
       info(`官方CLI安装服务结果: ${JSON.stringify(res)}`)
 
@@ -758,7 +764,7 @@ export const installServiceWithOfficialCli = async (
 export const uninstallServiceWithOfficialCli = async (_serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
-      const res: any = await executeCmd('easytier-cli', ['service', 'uninstall'], {
+      const res: any = await executeCmdWithFallback(getCliScopeNames(), ['service', 'uninstall'], {
         encoding: 'gbk'
       })
       info(`官方CLI卸载服务结果: ${JSON.stringify(res)}`)
@@ -787,7 +793,9 @@ export const uninstallServiceWithOfficialCli = async (_serviceName: string) => {
 export const checkServiceWithOfficialCli = async (_serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
-      const res: any = await executeCmd('easytier-cli', ['service', 'status'], { encoding: 'gbk' })
+      const res: any = await executeCmdWithFallback(getCliScopeNames(), ['service', 'status'], {
+        encoding: 'gbk'
+      })
 
       // info(`官方CLI检查服务状态: ${JSON.stringify(res)}`)
 
@@ -856,7 +864,7 @@ export const checkServiceWithOfficialCli = async (_serviceName: string) => {
 export const startServiceWithOfficialCli = async (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
-      await executeCmd('easytier-cli', ['service', 'start'], { encoding: 'gbk' })
+      await executeCmdWithFallback(getCliScopeNames(), ['service', 'start'], { encoding: 'gbk' })
       await sleep(2000)
 
       const status = await checkServiceWithOfficialCli(serviceName)
@@ -874,7 +882,7 @@ export const startServiceWithOfficialCli = async (serviceName: string) => {
 export const stopServiceWithOfficialCli = async (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
-      await executeCmd('easytier-cli', ['service', 'stop'], { encoding: 'gbk' })
+      await executeCmdWithFallback(getCliScopeNames(), ['service', 'stop'], { encoding: 'gbk' })
       await sleep(2000)
 
       const status = await checkServiceWithOfficialCli(serviceName)
@@ -887,56 +895,46 @@ export const stopServiceWithOfficialCli = async (serviceName: string) => {
 }
 
 /**
- * 自动检测服务安装方式
+ * 自动检测服务安装方式（跨平台）
  */
 export const detectServiceInstallMethod = async (
   serviceName: string
-): Promise<'nssm' | 'official' | 'none'> => {
-  // 从 serviceName 中提取 configFileName (移除 'easytier-' 前缀)
+): Promise<'native' | 'official' | 'none'> => {
   const configFileName = serviceName.replace(/^easytier-/, '')
-
-  // 优先从 localStorage 读取保存的安装方式
   const SERVICE_CONFIG_PREFIX = 'service-config:'
   const savedConfigStr = localStorage.getItem(SERVICE_CONFIG_PREFIX + configFileName)
+  const platform = await getPlatform()
 
   if (savedConfigStr) {
     try {
       const savedConfig = JSON.parse(savedConfigStr)
       const savedMethod = savedConfig.installMethod
 
-      // 如果有保存的安装方式，直接检查该方式的状态
-      if (savedMethod === 'nssm') {
-        const status = await checkServiceOnWindows(serviceName)
-        if (status && status !== false) {
-          return 'nssm'
-        }
-        // 如果服务已卸载，返回 none
-        return 'none'
+      if (savedMethod === 'native' || savedMethod === 'nssm') {
+        const status = await checkServiceNative(serviceName)
+        return status && status !== false ? 'native' : 'none'
       } else if (savedMethod === 'official') {
         const status = await checkServiceWithOfficialCli(serviceName)
-        if (status && status !== false) {
-          return 'official'
-        }
-        // 如果服务已卸载，返回 none
-        return 'none'
+        return status && status !== false ? 'official' : 'none'
       }
     } catch (e) {
-      // 解析失败，继续使用自动检测
       error(`解析服务配置失败: ${e}`)
     }
   }
 
-  // 没有保存的配置，使用自动检测（向后兼容旧版本安装的服务）
-  // 先检查 NSSM
-  const nssmStatus = await checkServiceOnWindows(serviceName)
-  if (nssmStatus && nssmStatus !== false) {
-    return 'nssm'
+  // 没有保存的配置，使用自动检测
+  // 先检查原生方式 (NSSM/systemd/launchd)
+  const nativeStatus = await checkServiceNative(serviceName)
+  if (nativeStatus && nativeStatus !== false) {
+    return 'native'
   }
 
-  // 再检查官方 CLI
-  const officialStatus = await checkServiceWithOfficialCli(serviceName)
-  if (officialStatus && officialStatus !== false) {
-    return 'official'
+  // 再检查官方 CLI（仅 Windows 和 Linux 有意义）
+  if (platform === 'windows' || platform === 'linux') {
+    const officialStatus = await checkServiceWithOfficialCli(serviceName)
+    if (officialStatus && officialStatus !== false) {
+      return 'official'
+    }
   }
 
   return 'none'
@@ -1005,6 +1003,352 @@ export const delRouteOnWindows = async (ip: string) => {
       resolve(false)
     }
   })
+}
+
+// ==================== systemd 服务管理 (Linux) ====================
+
+/** 获取 systemd 服务单元名 */
+const systemdUnitName = (serviceName: string) => `${serviceName}.service`
+
+/** Linux: 检测 systemd 服务状态 */
+export const checkServiceSystemd = async (serviceName: string): Promise<any> => {
+  try {
+    const res = await executeCmd('systemctl', ['is-active', systemdUnitName(serviceName)])
+    const output = typeof res === 'string' ? res.trim() : res?.msg?.trim() || ''
+    if (output === 'active') return 'SERVICE_RUNNING'
+    if (output === 'inactive' || output === 'failed') return 'SERVICE_STOPPED'
+    return false
+  } catch {
+    return false
+  }
+}
+
+/** Linux: 安装 systemd 服务 */
+export const installServiceSystemd = async (
+  serviceName: string,
+  configPath: string,
+  configFileName: string,
+  options: { description?: string; disableAutostart?: boolean } = {}
+): Promise<boolean> => {
+  try {
+    const appDirectory = await getResourceDir()
+    const corePath = await join(appDirectory, 'easytier-core')
+    const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
+    const desc = options.description || `EasyTier P2P Network - ${serviceName}`
+
+    const unitContent = [
+      '[Unit]',
+      `Description=${desc}`,
+      'After=network.target',
+      '',
+      '[Service]',
+      'Type=simple',
+      `WorkingDirectory=${appDirectory}`,
+      `ExecStart=${corePath} --file-log-dir "${logDir}" --file-log-level ${logLevel} --config-file "${configPath}"`,
+      'Restart=on-failure',
+      'RestartSec=5',
+      '',
+      '[Install]',
+      'WantedBy=multi-user.target'
+    ].join('\n')
+
+    // 写入 unit 文件（需要 sudo）
+    const unitPath = `/etc/systemd/system/${systemdUnitName(serviceName)}`
+    await executeCmd('sudo', [
+      'sh',
+      '-c',
+      `cat > ${unitPath} << 'EOFUNIT'\n${unitContent}\nEOFUNIT`
+    ])
+    await executeCmd('sudo', ['systemctl', 'daemon-reload'])
+
+    if (!options.disableAutostart) {
+      await executeCmd('sudo', ['systemctl', 'enable', systemdUnitName(serviceName)])
+    }
+    return true
+  } catch (e: any) {
+    error(`安装 systemd 服务失败: ${e}`)
+    return false
+  }
+}
+
+/** Linux: 卸载 systemd 服务 */
+export const uninstallServiceSystemd = async (serviceName: string): Promise<boolean> => {
+  try {
+    await executeCmd('sudo', ['systemctl', 'stop', systemdUnitName(serviceName)])
+    await executeCmd('sudo', ['systemctl', 'disable', systemdUnitName(serviceName)])
+    await executeCmd('sudo', ['rm', '-f', `/etc/systemd/system/${systemdUnitName(serviceName)}`])
+    await executeCmd('sudo', ['systemctl', 'daemon-reload'])
+    return true
+  } catch (e: any) {
+    error(`卸载 systemd 服务失败: ${e}`)
+    return false
+  }
+}
+
+/** Linux: 启动 systemd 服务 */
+export const startServiceSystemd = async (serviceName: string): Promise<boolean> => {
+  try {
+    await executeCmd('sudo', ['systemctl', 'start', systemdUnitName(serviceName)])
+    await sleep(2000)
+    const status = await checkServiceSystemd(serviceName)
+    return status === 'SERVICE_RUNNING'
+  } catch (e: any) {
+    error(`启动 systemd 服务失败: ${e}`)
+    return false
+  }
+}
+
+/** Linux: 停止 systemd 服务 */
+export const stopServiceSystemd = async (serviceName: string): Promise<boolean> => {
+  try {
+    await executeCmd('sudo', ['systemctl', 'stop', systemdUnitName(serviceName)])
+    await sleep(2000)
+    const status = await checkServiceSystemd(serviceName)
+    return status === 'SERVICE_STOPPED' || status === false
+  } catch (e: any) {
+    error(`停止 systemd 服务失败: ${e}`)
+    return false
+  }
+}
+
+// ==================== launchd 服务管理 (macOS) ====================
+
+/** 获取 launchd plist 标签 */
+const launchdLabel = (serviceName: string) => `com.easytier.${serviceName}`
+/** 获取 launchd plist 路径 */
+const launchdPlistPath = (serviceName: string) =>
+  `$HOME/Library/LaunchAgents/${launchdLabel(serviceName)}.plist`
+
+/** macOS: 检测 launchd 服务状态 */
+export const checkServiceLaunchd = async (serviceName: string): Promise<any> => {
+  try {
+    const res = await executeCmd('launchctl', ['list', launchdLabel(serviceName)])
+    const output = typeof res === 'string' ? res : ''
+    if (output.includes(launchdLabel(serviceName))) return 'SERVICE_RUNNING'
+    return false
+  } catch {
+    // launchctl list 对不存在的服务会报错
+    return false
+  }
+}
+
+/** macOS: 安装 launchd 服务 */
+export const installServiceLaunchd = async (
+  serviceName: string,
+  configPath: string,
+  configFileName: string,
+  options: { description?: string; disableAutostart?: boolean } = {}
+): Promise<boolean> => {
+  try {
+    const appDirectory = await getResourceDir()
+    const corePath = await join(appDirectory, 'easytier-core')
+    const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
+    const label = launchdLabel(serviceName)
+
+    const plistContent = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+      '<plist version="1.0">',
+      '<dict>',
+      `  <key>Label</key><string>${label}</string>`,
+      '  <key>ProgramArguments</key>',
+      '  <array>',
+      `    <string>${corePath}</string>`,
+      `    <string>--file-log-dir</string><string>${logDir}</string>`,
+      `    <string>--file-log-level</string><string>${logLevel}</string>`,
+      `    <string>--config-file</string><string>${configPath}</string>`,
+      '  </array>',
+      `  <key>WorkingDirectory</key><string>${appDirectory}</string>`,
+      `  <key>RunAtLoad</key><${!options.disableAutostart}/>`,
+      '  <key>KeepAlive</key><true/>',
+      '</dict>',
+      '</plist>'
+    ].join('\n')
+
+    const plistPath = launchdPlistPath(serviceName)
+    // 展开 $HOME 并写入 plist
+    await executeCmd('sh', ['-c', `cat > ${plistPath} << 'EOFPLIST'\n${plistContent}\nEOFPLIST`])
+    await executeCmd('sh', ['-c', `launchctl load ${plistPath}`])
+    return true
+  } catch (e: any) {
+    error(`安装 launchd 服务失败: ${e}`)
+    return false
+  }
+}
+
+/** macOS: 卸载 launchd 服务 */
+export const uninstallServiceLaunchd = async (serviceName: string): Promise<boolean> => {
+  try {
+    const plistPath = launchdPlistPath(serviceName)
+    await executeCmd('sh', ['-c', `launchctl unload ${plistPath}`])
+    await executeCmd('sh', ['-c', `rm -f ${plistPath}`])
+    return true
+  } catch (e: any) {
+    error(`卸载 launchd 服务失败: ${e}`)
+    return false
+  }
+}
+
+/** macOS: 启动 launchd 服务 */
+export const startServiceLaunchd = async (serviceName: string): Promise<boolean> => {
+  try {
+    await executeCmd('launchctl', ['start', launchdLabel(serviceName)])
+    await sleep(2000)
+    const status = await checkServiceLaunchd(serviceName)
+    return status === 'SERVICE_RUNNING'
+  } catch (e: any) {
+    error(`启动 launchd 服务失败: ${e}`)
+    return false
+  }
+}
+
+/** macOS: 停止 launchd 服务 */
+export const stopServiceLaunchd = async (serviceName: string): Promise<boolean> => {
+  try {
+    await executeCmd('launchctl', ['stop', launchdLabel(serviceName)])
+    await sleep(2000)
+    const status = await checkServiceLaunchd(serviceName)
+    return status === 'SERVICE_STOPPED' || status === false
+  } catch (e: any) {
+    error(`停止 launchd 服务失败: ${e}`)
+    return false
+  }
+}
+
+// ==================== 跨平台原生服务统一接口 ====================
+
+/** 跨平台: 检测原生服务状态 (NSSM/systemd/launchd) */
+export const checkServiceNative = async (serviceName: string): Promise<any> => {
+  const platform = await getPlatform()
+  if (platform === 'windows') return checkServiceOnWindows(serviceName)
+  if (platform === 'linux') return checkServiceSystemd(serviceName)
+  if (platform === 'macos') return checkServiceLaunchd(serviceName)
+  return false
+}
+
+/** 跨平台: 安装原生服务 */
+export const installServiceNative = async (
+  serviceName: string,
+  configPath: string,
+  configFileName: string,
+  options: {
+    description?: string
+    displayName?: string
+    disableAutostart?: boolean
+    username?: string
+    password?: string
+  } = {}
+): Promise<boolean> => {
+  const platform = await getPlatform()
+  if (platform === 'windows') {
+    const args = await buildCoreArgsWithLogConfig(configFileName, configPath)
+    const installOptions =
+      options.username && options.password
+        ? { username: options.username, password: options.password }
+        : undefined
+    return (await installServiceOnWindows(serviceName, args, installOptions)) as boolean
+  }
+  if (platform === 'linux') {
+    return installServiceSystemd(serviceName, configPath, configFileName, options)
+  }
+  if (platform === 'macos') {
+    return installServiceLaunchd(serviceName, configPath, configFileName, options)
+  }
+  return false
+}
+
+/** 跨平台: 卸载原生服务 */
+export const uninstallServiceNative = async (serviceName: string): Promise<boolean> => {
+  const platform = await getPlatform()
+  if (platform === 'windows') return (await uninstallServiceOnWindows(serviceName)) as boolean
+  if (platform === 'linux') return uninstallServiceSystemd(serviceName)
+  if (platform === 'macos') return uninstallServiceLaunchd(serviceName)
+  return false
+}
+
+/** 跨平台: 启动原生服务 */
+export const startServiceNative = async (serviceName: string): Promise<boolean> => {
+  const platform = await getPlatform()
+  if (platform === 'windows') return (await startServiceOnWindows(serviceName)) as boolean
+  if (platform === 'linux') return startServiceSystemd(serviceName)
+  if (platform === 'macos') return startServiceLaunchd(serviceName)
+  return false
+}
+
+/** 跨平台: 停止原生服务 */
+export const stopServiceNative = async (serviceName: string): Promise<boolean> => {
+  const platform = await getPlatform()
+  if (platform === 'windows') return (await stopServiceOnWindows(serviceName)) as boolean
+  if (platform === 'linux') return stopServiceSystemd(serviceName)
+  if (platform === 'macos') return stopServiceLaunchd(serviceName)
+  return false
+}
+
+// ==================== 跨平台路由管理 ====================
+
+/** 跨平台: 检测路由是否存在 */
+export const checkRoute = async (ip: string): Promise<boolean> => {
+  try {
+    const platform = await getPlatform()
+    const enc = await platformEncoding()
+    if (platform === 'windows') {
+      const res = await executeCmd('route', ['print', '-4', ip], { encoding: enc })
+      return typeof res === 'string' && res.includes(ip)
+    } else if (platform === 'linux') {
+      const res = await executeCmd('ip', ['route', 'show', ip])
+      return typeof res === 'string' && res.includes(ip)
+    } else {
+      // macOS
+      const res = await executeCmd('sh', ['-c', `netstat -rn | grep ${ip}`])
+      return typeof res === 'string' && res.includes(ip)
+    }
+  } catch {
+    return false
+  }
+}
+
+/** 跨平台: 添加路由 */
+export const addRoute = async (ip: string): Promise<boolean> => {
+  try {
+    const platform = await getPlatform()
+    const enc = await platformEncoding()
+    if (platform === 'windows') {
+      const res = await executeCmd('route', ['add', ip, 'mask', '255.255.255.255', '0.0.0.0'], {
+        encoding: enc
+      })
+      return typeof res === 'string' && res.includes('OK!')
+    } else if (platform === 'linux') {
+      await executeCmd('sudo', ['ip', 'route', 'add', `${ip}/32`, 'dev', 'lo'])
+      return true
+    } else {
+      await executeCmd('sudo', ['route', 'add', '-host', ip, '127.0.0.1'])
+      return true
+    }
+  } catch (e: any) {
+    error(`添加路由失败: ${e}`)
+    return false
+  }
+}
+
+/** 跨平台: 删除路由 */
+export const delRoute = async (ip: string): Promise<boolean> => {
+  try {
+    const platform = await getPlatform()
+    const enc = await platformEncoding()
+    if (platform === 'windows') {
+      const res = await executeCmd('route', ['delete', ip], { encoding: enc })
+      return typeof res === 'string' && res.includes('OK!')
+    } else if (platform === 'linux') {
+      await executeCmd('sudo', ['ip', 'route', 'del', `${ip}/32`])
+      return true
+    } else {
+      await executeCmd('sudo', ['route', 'delete', '-host', ip])
+      return true
+    }
+  } catch (e: any) {
+    error(`删除路由失败: ${e}`)
+    return false
+  }
 }
 
 export const safeJsonParse = (str: string, fallback: any = {}) => {

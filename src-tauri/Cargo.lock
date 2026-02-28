@@ -955,6 +955,7 @@ name = "easytier-manager-pro"
 version = "3.2.7"
 dependencies = [
  "chrono",
+ "dirs",
  "log",
  "serde",
  "serde_json",

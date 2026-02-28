@@ -41,6 +41,9 @@
     "fs:allow-resource-write",
     "fs:allow-resource-write-recursive",
     "fs:allow-app-read-recursive",
+    "fs:allow-app-write-recursive",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
     "log:default",
     "log:allow-log",
     "os:default",
@@ -88,16 +91,46 @@
         {
           "args": true,
           "cmd": "$RESOURCE/resource/nssm",
+          "name": "nssm-resource"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/nssm",
+          "name": "nssm-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "nssm",
           "name": "nssm"
         },
         {
           "args": true,
           "cmd": "$RESOURCE/resource/easytier-core",
-          "name": "easytier-core"
+          "name": "easytier-core-resource"
         },
         {
           "args": true,
           "cmd": "$RESOURCE/resource/easytier-cli",
+          "name": "easytier-cli-resource"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/easytier-core",
+          "name": "easytier-core-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/easytier-cli",
+          "name": "easytier-cli-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "easytier-core",
+          "name": "easytier-core"
+        },
+        {
+          "args": true,
+          "cmd": "easytier-cli",
           "name": "easytier-cli"
         },
         {
@@ -164,6 +197,56 @@
           "args": true,
           "cmd": "mstsc",
           "name": "mstsc"
+        },
+        {
+          "args": true,
+          "cmd": "sh",
+          "name": "sh"
+        },
+        {
+          "args": true,
+          "cmd": "systemctl",
+          "name": "systemctl"
+        },
+        {
+          "args": true,
+          "cmd": "launchctl",
+          "name": "launchctl"
+        },
+        {
+          "args": true,
+          "cmd": "ip",
+          "name": "ip"
+        },
+        {
+          "args": true,
+          "cmd": "ifconfig",
+          "name": "ifconfig"
+        },
+        {
+          "args": true,
+          "cmd": "whoami",
+          "name": "whoami"
+        },
+        {
+          "args": true,
+          "cmd": "xdg-open",
+          "name": "xdg-open"
+        },
+        {
+          "args": true,
+          "cmd": "open",
+          "name": "open"
+        },
+        {
+          "args": true,
+          "cmd": "xterm",
+          "name": "xterm"
+        },
+        {
+          "args": true,
+          "cmd": "xfreerdp",
+          "name": "xfreerdp"
         }
       ]
     },
@@ -173,11 +256,31 @@
         {
           "args": true,
           "cmd": "$RESOURCE/resource/easytier-core",
-          "name": "easytier-core"
+          "name": "easytier-core-resource"
         },
         {
           "args": true,
           "cmd": "$RESOURCE/resource/easytier-cli",
+          "name": "easytier-cli-resource"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/easytier-core",
+          "name": "easytier-core-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/easytier-cli",
+          "name": "easytier-cli-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "easytier-core",
+          "name": "easytier-core"
+        },
+        {
+          "args": true,
+          "cmd": "easytier-cli",
           "name": "easytier-cli"
         },
         {
@@ -209,6 +312,21 @@
           "args": true,
           "cmd": "mstsc",
           "name": "mstsc"
+        },
+        {
+          "args": true,
+          "cmd": "sh",
+          "name": "sh"
+        },
+        {
+          "args": true,
+          "cmd": "xterm",
+          "name": "xterm"
+        },
+        {
+          "args": true,
+          "cmd": "open",
+          "name": "open"
         }
       ]
     },

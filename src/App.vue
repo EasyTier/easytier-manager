@@ -4,7 +4,7 @@ import { useDesign } from '@/hooks/web/useDesign'
 import { useAppStore } from '@/store/modules/app'
 import { useEasyTierStore } from '@/store/modules/easytier'
 import { useTrayStore } from '@/store/modules/trayStore'
-import { checkDir } from '@/utils/fileUtil'
+import { checkDir, initDataDir, migrateDataIfNeeded } from '@/utils/fileUtil'
 import { restoreStateCurrent, StateFlags } from '@tauri-apps/plugin-window-state'
 import { computed, onBeforeMount, onMounted, ref } from 'vue'
 
@@ -37,6 +37,8 @@ onBeforeMount(async () => {
   appStore.initTheme()
   trayStore.initTray()
   restoreStateCurrent(StateFlags.ALL)
+  await initDataDir()
+  await migrateDataIfNeeded()
   checkDir()
   easytierStore.setConfigPath()
 })

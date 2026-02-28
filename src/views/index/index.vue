@@ -10,7 +10,7 @@ import { useTrayStore } from '@/store/modules/trayStore'
 import { extractAllPublicIPs, readTextReverse } from '@/utils/easyTierUtil'
 import { clearETLogs, listTomlFiles, readFileContent } from '@/utils/fileUtil'
 import {
-  checkRouteOnWindows,
+  checkRoute,
   executeCmd,
   getRunningProcesses,
   killProcess,
@@ -18,7 +18,7 @@ import {
   runEasyTierCore,
   safeJsonParse
 } from '@/utils/shellUtil'
-import { notify, sleep } from '@/utils/sysUtil'
+import { getPlatform, notify, sleep } from '@/utils/sysUtil'
 import { ArrowDown, CopyDocument, Link, Monitor, Platform, Setting } from '@element-plus/icons-vue'
 import { invoke } from '@tauri-apps/api/core'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
@@ -126,15 +126,31 @@ watch(
 )
 const getActiveNetworkAdapter = async () => {
   try {
-    const res = await executeCmd(
-      'powershell',
-      [
-        '-NoProfile',
-        '-Command',
-        'Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq "Up" -and $_.NetAdapter.Name -notlike "et*" -and $_.NetAdapter.Name -notlike "easytier*"} | Sort-Object -Property InterfaceMetric | Select-Object -First 1 -ExpandProperty NetAdapter | Select-Object -ExpandProperty Name'
-      ],
-      { encoding: 'gbk' }
-    )
+    const platform = await getPlatform()
+    let res: string | boolean
+    if (platform === 'windows') {
+      res = await executeCmd(
+        'powershell',
+        [
+          '-NoProfile',
+          '-Command',
+          'Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq "Up" -and $_.NetAdapter.Name -notlike "et*" -and $_.NetAdapter.Name -notlike "easytier*"} | Sort-Object -Property InterfaceMetric | Select-Object -First 1 -ExpandProperty NetAdapter | Select-Object -ExpandProperty Name'
+        ],
+        { encoding: 'gbk' }
+      )
+    } else if (platform === 'linux') {
+      // Get the interface used for default route, excluding easytier interfaces
+      res = await executeCmd('sh', [
+        '-c',
+        'ip route get 1.1.1.1 2>/dev/null | head -1 | awk \'{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}\''
+      ])
+    } else {
+      // macOS
+      res = await executeCmd('sh', [
+        '-c',
+        "route -n get default 2>/dev/null | awk '/interface:/{print $2}'"
+      ])
+    }
     const adapterName = typeof res === 'string' ? res.trim() : ''
     return adapterName || null
   } catch (e) {
@@ -145,15 +161,33 @@ const getActiveNetworkAdapter = async () => {
 
 const disableAutoMetric = async (adapterName: string) => {
   try {
-    await executeCmd(
-      'powershell',
-      [
-        '-NoProfile',
-        '-Command',
-        `Set-NetIPInterface -InterfaceAlias "${adapterName}" -AutomaticMetric Disabled -InterfaceMetric 1`
-      ],
-      { encoding: 'gbk' }
-    )
+    const platform = await getPlatform()
+    if (platform === 'windows') {
+      await executeCmd(
+        'powershell',
+        [
+          '-NoProfile',
+          '-Command',
+          `Set-NetIPInterface -InterfaceAlias "${adapterName}" -AutomaticMetric Disabled -InterfaceMetric 1`
+        ],
+        { encoding: 'gbk' }
+      )
+    } else if (platform === 'linux') {
+      // Lower the metric on the default route via this interface
+      await executeCmd('sudo', [
+        'ip',
+        'route',
+        'change',
+        'default',
+        'dev',
+        adapterName,
+        'metric',
+        '1'
+      ])
+    } else {
+      // macOS: change default route metric
+      await executeCmd('sudo', ['route', 'change', 'default', '-interface', adapterName])
+    }
     return true
   } catch (e) {
     error(`关闭网卡自动跃点失败:${String(e)}`)
@@ -163,15 +197,33 @@ const disableAutoMetric = async (adapterName: string) => {
 
 const enableAutoMetric = async (adapterName: string) => {
   try {
-    await executeCmd(
-      'powershell',
-      [
-        '-NoProfile',
-        '-Command',
-        `Set-NetIPInterface -InterfaceAlias "${adapterName}" -AutomaticMetric Enabled`
-      ],
-      { encoding: 'gbk' }
-    )
+    const platform = await getPlatform()
+    if (platform === 'windows') {
+      await executeCmd(
+        'powershell',
+        [
+          '-NoProfile',
+          '-Command',
+          `Set-NetIPInterface -InterfaceAlias "${adapterName}" -AutomaticMetric Enabled`
+        ],
+        { encoding: 'gbk' }
+      )
+    } else if (platform === 'linux') {
+      // Restore default metric on the interface
+      await executeCmd('sudo', [
+        'ip',
+        'route',
+        'change',
+        'default',
+        'dev',
+        adapterName,
+        'metric',
+        '100'
+      ])
+    } else {
+      // macOS: restore default route
+      await executeCmd('sudo', ['route', 'change', 'default', '-interface', adapterName])
+    }
     return true
   } catch (e) {
     error(`开启网卡自动跃点失败:${String(e)}`)
@@ -215,12 +267,26 @@ const setExitRoute = async (val) => {
 
   const getDefaultGateway = async () => {
     try {
-      const res = await executeCmd('powershell', [
-        '-NoProfile',
-        '-Command',
-        // '(Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -ne "Disconnected"} | Select-Object -First 1 -ExpandProperty IPv4DefaultGateway).NextHop'
-        'Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq "Up" -and $_.NetAdapter.Name -notlike "et*" -and $_.NetAdapter.Name -notlike "easytier*"} | Sort-Object -Property InterfaceMetric | Select-Object -First 1 -ExpandProperty IPv4DefaultGateway | Select-Object -ExpandProperty NextHop'
-      ])
+      const platform = await getPlatform()
+      let res: string | boolean
+      if (platform === 'windows') {
+        res = await executeCmd('powershell', [
+          '-NoProfile',
+          '-Command',
+          'Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq "Up" -and $_.NetAdapter.Name -notlike "et*" -and $_.NetAdapter.Name -notlike "easytier*"} | Sort-Object -Property InterfaceMetric | Select-Object -First 1 -ExpandProperty IPv4DefaultGateway | Select-Object -ExpandProperty NextHop'
+        ])
+      } else if (platform === 'linux') {
+        res = await executeCmd('sh', [
+          '-c',
+          "ip route | grep '^default' | grep -v 'easytier\\|et_' | head -1 | awk '{print $3}'"
+        ])
+      } else {
+        // macOS
+        res = await executeCmd('sh', [
+          '-c',
+          "route -n get default 2>/dev/null | awk '/gateway:/{print $2}'"
+        ])
+      }
       const match = typeof res === 'string' ? res.match(/\d+\.\d+\.\d+\.\d+/) : null
       return match ? match[0] : null
     } catch (e) {
@@ -250,8 +316,42 @@ const setExitRoute = async (val) => {
     gateway: string,
     metric: number
   ) => {
-    const args = [method, target, 'mask', mask, gateway, 'metric', String(metric)]
-    await executeCmd('route', args, { encoding: 'gbk' })
+    const platform = await getPlatform()
+    if (platform === 'windows') {
+      const args = [method, target, 'mask', mask, gateway, 'metric', String(metric)]
+      await executeCmd('route', args, { encoding: 'gbk' })
+    } else if (platform === 'linux') {
+      if (method === 'add') {
+        await executeCmd('sudo', [
+          'ip',
+          'route',
+          'add',
+          `${target}/${mask}`,
+          'via',
+          gateway,
+          'metric',
+          String(metric)
+        ])
+      } else if (method === 'change') {
+        await executeCmd('sudo', [
+          'ip',
+          'route',
+          'replace',
+          `${target}/${mask}`,
+          'via',
+          gateway,
+          'metric',
+          String(metric)
+        ])
+      }
+    } else {
+      // macOS
+      if (method === 'add') {
+        await executeCmd('sudo', ['route', '-n', 'add', '-net', `${target}/${mask}`, gateway])
+      } else if (method === 'change') {
+        await executeCmd('sudo', ['route', '-n', 'change', '-net', `${target}/${mask}`, gateway])
+      }
+    }
   }
 
   if (val && parseValue.config_exit_nodes_route && parseValue.exit_nodes.length > 0) {
@@ -280,13 +380,7 @@ const setExitRoute = async (val) => {
 
       const canSet = Boolean(exitNodeIp && gateway && publicIps?.length && waitHole === true)
 
-      if (
-        canSet &&
-        exitNodeIp &&
-        gateway &&
-        publicIps &&
-        (await checkRouteOnWindows(localNode.ipv4))
-      ) {
+      if (canSet && exitNodeIp && gateway && publicIps && (await checkRoute(localNode.ipv4))) {
         await addRouteSeq('change', '0.0.0.0', '0.0.0.0', gateway, 30)
         // 按顺序依次添加路由，之间不跳过
         for (const publicIp of publicIps) {
@@ -307,26 +401,51 @@ const runningTag = computed(() => {
 })
 const handlePing = async (ip: string) => {
   if (!ip || ip === '服务器') return
-  // Windows: cmd /k ping <ip>
-  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ping ${ip}`]).spawn()
+  const platform = await getPlatform()
+  if (platform === 'windows') {
+    await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ping ${ip}`]).spawn()
+  } else if (platform === 'linux') {
+    await Command.create('sh', ['-c', `xterm -e "ping ${ip}" &`]).spawn()
+  } else {
+    await Command.create('open', ['-a', 'Terminal', `ping ${ip}`]).spawn()
+  }
 }
 
 const handleRDP = async (ip: string) => {
   if (!ip) return
-  // mstsc /v:<ip>
-  await Command.create('mstsc', [`/v:${ip}`]).spawn()
+  const platform = await getPlatform()
+  if (platform === 'windows') {
+    await Command.create('mstsc', [`/v:${ip}`]).spawn()
+  } else if (platform === 'linux') {
+    await Command.create('xfreerdp', [`/v:${ip}`]).spawn()
+  } else {
+    // macOS has built-in RDP via URL scheme
+    await Command.create('open', [`rdp://full%20address=s:${ip}`]).spawn()
+  }
 }
 
 const handleTelnet = async (ip: string) => {
   if (!ip || ip === '服务器') return
-  // Windows: cmd /k telnet <ip>
-  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `telnet ${ip}`]).spawn()
+  const platform = await getPlatform()
+  if (platform === 'windows') {
+    await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `telnet ${ip}`]).spawn()
+  } else if (platform === 'linux') {
+    await Command.create('sh', ['-c', `xterm -e "telnet ${ip}" &`]).spawn()
+  } else {
+    await Command.create('open', ['-a', 'Terminal', `telnet ${ip}`]).spawn()
+  }
 }
 
 const handleSSH = async (ip: string) => {
   if (!ip || ip === '服务器') return
-  // Windows: cmd /k ssh root@<ip>
-  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ssh root@${ip}`]).spawn()
+  const platform = await getPlatform()
+  if (platform === 'windows') {
+    await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ssh root@${ip}`]).spawn()
+  } else if (platform === 'linux') {
+    await Command.create('sh', ['-c', `xterm -e "ssh root@${ip}" &`]).spawn()
+  } else {
+    await Command.create('open', ['-a', 'Terminal', `ssh root@${ip}`]).spawn()
+  }
 }
 
 const handleXshell = async (ip: string) => {
@@ -1060,7 +1179,7 @@ onMounted(async () => {
                     <el-icon>
                       <Link />
                     </el-icon>
-                    Windows SSH
+                    SSH
                   </el-dropdown-item>
                   <el-dropdown-item :command="handleRDP">
                     <el-icon>
@@ -1068,7 +1187,7 @@ onMounted(async () => {
                     </el-icon>
                     远程桌面 (RDP)
                   </el-dropdown-item>
-                  <el-dropdown-item :command="handleXshell">
+                  <el-dropdown-item v-if="easyTierStore.os === 'windows'" :command="handleXshell">
                     <el-icon>
                       <Link />
                     </el-icon>

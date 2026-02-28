@@ -100,7 +100,7 @@ export interface FormWebData {
 
 // 服务安装配置
 export interface ServiceInstallConfig {
-  installMethod: 'nssm' | 'official' // 安装方式
+  installMethod: 'native' | 'official' // 安装方式: native=NSSM(Win)/systemd(Linux)/launchd(macOS)
   description?: string // 服务描述
   displayName?: string // 显示名称
   enableAutostart: boolean // 是否开机自启

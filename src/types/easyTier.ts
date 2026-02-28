@@ -124,7 +124,7 @@ interface RunningItem {
   fileName?: string
   pid?: number
   serviceStatus?: string
-  installMethod?: 'nssm' | 'official' | 'none' // 服务安装方式
+  installMethod?: 'native' | 'official' | 'none' // 服务安装方式
 }
 
 interface RunningWebItem {

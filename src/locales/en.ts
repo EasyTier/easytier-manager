@@ -679,7 +679,7 @@ export default {
     // Service management settings
     serviceManagementSettings: 'Service Management Settings',
     serviceInstallMethod: 'Service Install Method',
-    installMethodNssm: 'NSSM (Better Compatibility)',
+    installMethodNative: 'Native (NSSM/systemd/launchd)',
     installMethodOfficial: 'Official easytier-cli (v1.2.0+)',
     serviceDisplayName: 'Service Display Name',
     serviceDescription: 'Service Description',

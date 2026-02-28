@@ -8,8 +8,8 @@ import {
   USER_AGENT
 } from '@/constants/easytier'
 import { listTomlFiles } from '@/utils/fileUtil'
-import { startServiceOnWindows } from '@/utils/shellUtil'
-import { resourceDir } from '@tauri-apps/api/path'
+import { getDataDir } from '@/utils/fileUtil'
+import { startServiceNative } from '@/utils/shellUtil'
 import { fetch } from '@tauri-apps/plugin-http'
 import dayjs from 'dayjs'
 import { defineStore } from 'pinia'
@@ -60,7 +60,7 @@ export const useEasyTierStore = defineStore(
     // 当前选择的列（存储prop值）
     const selectedColumns = ref(['rx_bytes', 'tx_bytes', 'nat_type'])
     // 默认服务安装方式
-    const defaultServiceInstallMethod = ref<'nssm' | 'official'>('nssm')
+    const defaultServiceInstallMethod = ref<'native' | 'official'>('native')
     // 默认开机自启动
     const defaultEnableAutostart = ref(true)
     const setConfigList = (list) => {
@@ -158,7 +158,7 @@ export const useEasyTierStore = defineStore(
       //   return
       // }
       // 如果 configJsonObj 中存在 path 键，则设置 configPath 为 path 键的值，如果不存在则判断 path 是否为空，为空则设置为 resource 目录，否则设置为 path 键的值
-      configPath.value = await resourceDir()
+      configPath.value = getDataDir()
       // configJsonObj.configPath = RESOURCE_PATH
       // await writeConfigJsonObj(configJsonObj)
     }
@@ -322,7 +322,7 @@ export const useEasyTierStore = defineStore(
     const setSelectedColumns = (list) => {
       selectedColumns.value = list
     }
-    const setDefaultServiceInstallMethod = (method: 'nssm' | 'official') => {
+    const setDefaultServiceInstallMethod = (method: 'native' | 'official') => {
       defaultServiceInstallMethod.value = method
     }
     const setDefaultEnableAutostart = (enable: boolean) => {
@@ -334,7 +334,7 @@ export const useEasyTierStore = defineStore(
         const fileList = await listTomlFiles()
         for (const f of fileList) {
           const configName = f.replace('.toml', '')
-          await startServiceOnWindows(PREFIX_SVC + configName)
+          await startServiceNative(PREFIX_SVC + configName)
         }
       }
     }

@@ -9,24 +9,24 @@ import { useEasyTierStore } from '@/store/modules/easytier'
 import type { EasyTierFormData } from '@/types/formTypes'
 import {
   deleteFileOrDir,
+  getDataDir,
   getLogsDir,
   listTomlFiles,
   readFileContent,
   writeFileContent
 } from '@/utils/fileUtil'
 import {
-  buildCoreArgsWithLogConfig,
-  checkServiceOnWindows,
+  checkServiceNative,
   checkServiceWithOfficialCli,
   detectServiceInstallMethod,
-  installServiceOnWindows,
+  installServiceNative,
   installServiceWithOfficialCli,
   runEasyTierCli,
-  startServiceOnWindows,
+  startServiceNative,
   startServiceWithOfficialCli,
-  stopServiceOnWindows,
+  stopServiceNative,
   stopServiceWithOfficialCli,
-  uninstallServiceOnWindows,
+  uninstallServiceNative,
   uninstallServiceWithOfficialCli
 } from '@/utils/shellUtil'
 import {
@@ -35,7 +35,7 @@ import {
   saveServiceInstallConfig
 } from '@/utils/serviceConfigUtil'
 import { getCurrentUsername, getHostname, getOsType, sleep } from '@/utils/sysUtil'
-import { join, resourceDir } from '@tauri-apps/api/path'
+import { join } from '@tauri-apps/api/path'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import { cloneDeep } from 'lodash-es'
@@ -65,7 +65,7 @@ const logsDir = ref('')
 const installServiceDialogVisible = ref(false)
 const currentInstallRow = ref<any>(null)
 const serviceInstallForm = ref({
-  installMethod: 'nssm' as 'nssm' | 'official',
+  installMethod: 'native' as 'native' | 'official',
   description: '',
   displayName: '',
   enableAutostart: true,
@@ -81,10 +81,10 @@ const checkServiceStatus = async () => {
     // 检测安装方式
     const installMethod = await detectServiceInstallMethod(serviceName)
 
-    if (installMethod === 'nssm') {
-      const status = await checkServiceOnWindows(serviceName)
+    if (installMethod === 'native') {
+      const status = await checkServiceNative(serviceName)
       item.serviceStatus = serviceStatusDict(status as string | boolean)
-      item.installMethod = 'nssm'
+      item.installMethod = 'native'
     } else if (installMethod === 'official') {
       const status = await checkServiceWithOfficialCli(serviceName)
       item.serviceStatus = serviceStatusDict(status as string | boolean)
@@ -329,7 +329,7 @@ const addConfigAction = async () => {
   await getConfigList()
 }
 const saveConfigAction = async () => {
-  const resourceDirPath = await resourceDir()
+  const dataDirPath = getDataDir()
   if (editType.value === 'form') {
     // 验证必填 formRef
     if (!(await formRef.value.validateForm())) {
@@ -341,7 +341,7 @@ const saveConfigAction = async () => {
         // formData.value.file_logger.dir = formData.value.file_logger.dir
         //   ? formData.value.file_logger.dir
         //   : logsDir.value
-        formData.value.file_logger.dir = resourceDirPath + '\\' + LOG_PATH
+        formData.value.file_logger.dir = await join(dataDirPath, LOG_PATH)
         formData.value.file_logger.file = configFileName.value
         if (
           !formData.value.proxy_network ||
@@ -433,7 +433,7 @@ const saveConfigAction = async () => {
         ...parseValue,
         file_logger: {
           level: parseValue.file_logger?.level ? parseValue.file_logger?.level : 'error',
-          dir: resourceDirPath + '\\' + LOG_PATH, // parseValue.file_logger?.dir ? parseValue.file_logger?.dir : logsDir.value,
+          dir: await join(dataDirPath, LOG_PATH),
           file: configFileName.value
         }
       }
@@ -468,9 +468,9 @@ const delConfig = async (row?: any) => {
     type: 'warning'
   })
     .then(async () => {
-      const serviceStatus = await checkServiceOnWindows(PREFIX_SVC + row?.configFileName)
+      const serviceStatus = await checkServiceNative(PREFIX_SVC + row?.configFileName)
       if (serviceStatus) {
-        await uninstallServiceOnWindows(PREFIX_SVC + row?.configFileName)
+        await uninstallServiceNative(PREFIX_SVC + row?.configFileName)
       }
       await deleteFileOrDir(CONFIG_PATH + '/' + row?.fileName)
       ElNotification({
@@ -536,7 +536,7 @@ const confirmInstallService = async () => {
   // 保存配置
   saveServiceInstallConfig(row.configFileName, serviceInstallForm.value)
 
-  const configPath = await join(await resourceDir(), CONFIG_PATH, row.fileName)
+  const configPath = await join(getDataDir(), CONFIG_PATH, row.fileName)
   const serviceName = PREFIX_SVC + row.configFileName
 
   let result = false
@@ -546,7 +546,7 @@ const confirmInstallService = async () => {
     const supported = await checkOfficialCliSupport()
     if (!supported) {
       ElMessageBox.confirm(
-        '当前版本不支持官方服务管理功能，是否使用 NSSM 方式安装？',
+        '当前版本不支持官方服务管理功能，是否使用原生方式安装？',
         t('common.reminder'),
         {
           confirmButtonText: t('common.ok'),
@@ -554,16 +554,11 @@ const confirmInstallService = async () => {
           type: 'warning'
         }
       ).then(async () => {
-        serviceInstallForm.value.installMethod = 'nssm'
-        const args = await buildCoreArgsWithLogConfig(row.fileName, configPath)
-        const installOptions =
-          serviceInstallForm.value.username && serviceInstallForm.value.password
-            ? {
-                username: serviceInstallForm.value.username,
-                password: serviceInstallForm.value.password
-              }
-            : undefined
-        result = (await installServiceOnWindows(serviceName, args, installOptions)) as boolean
+        serviceInstallForm.value.installMethod = 'native'
+        result = await installServiceNative(serviceName, configPath, row.fileName, {
+          username: serviceInstallForm.value.username,
+          password: serviceInstallForm.value.password
+        })
         handleInstallResult(result)
       })
       return
@@ -575,15 +570,13 @@ const confirmInstallService = async () => {
       disableAutostart: !serviceInstallForm.value.enableAutostart
     })) as boolean
   } else {
-    const args = await buildCoreArgsWithLogConfig(row.fileName, configPath)
-    const installOptions =
-      serviceInstallForm.value.username && serviceInstallForm.value.password
-        ? {
-            username: serviceInstallForm.value.username,
-            password: serviceInstallForm.value.password
-          }
-        : undefined
-    result = (await installServiceOnWindows(serviceName, args, installOptions)) as boolean
+    result = await installServiceNative(serviceName, configPath, row.fileName, {
+      description: serviceInstallForm.value.description,
+      displayName: serviceInstallForm.value.displayName,
+      disableAutostart: !serviceInstallForm.value.enableAutostart,
+      username: serviceInstallForm.value.username,
+      password: serviceInstallForm.value.password
+    })
   }
 
   handleInstallResult(result)
@@ -621,7 +614,7 @@ const uninstallServiceHandle = async (row: any) => {
     if (installMethod === 'official') {
       res = (await uninstallServiceWithOfficialCli(serviceName)) as boolean
     } else {
-      res = (await uninstallServiceOnWindows(serviceName)) as boolean
+      res = (await uninstallServiceNative(serviceName)) as boolean
     }
 
     info(`卸载服务:${JSON.stringify(res)}`)
@@ -644,7 +637,7 @@ const startServiceHandle = async (row: any) => {
   if (installMethod === 'official') {
     res = (await startServiceWithOfficialCli(serviceName)) as boolean
   } else {
-    res = (await startServiceOnWindows(serviceName)) as boolean
+    res = (await startServiceNative(serviceName)) as boolean
   }
 
   info(`启动服务:${JSON.stringify(res)}`)
@@ -673,7 +666,7 @@ const stopServiceHandle = async (row: any) => {
   if (installMethod === 'official') {
     res = (await stopServiceWithOfficialCli(serviceName)) as boolean
   } else {
-    res = (await stopServiceOnWindows(serviceName)) as boolean
+    res = (await stopServiceNative(serviceName)) as boolean
   }
 
   info(`停止服务:${JSON.stringify(res)}`)
@@ -751,7 +744,7 @@ onMounted(async () => {
       </div>
 
       <div>
-        <el-text v-if="easyTierStore.os === 'windows'" type="info" effect="dark"
+        <el-text type="info" effect="dark"
           >安装服务前检查程序尽量不要放在含有空格、中文路径的目录下；如果组网是由服务启动的，则只能使用启动服务和停止服务，无法使用首页的启动和停止
         </el-text>
       </div>
@@ -791,7 +784,6 @@ onMounted(async () => {
           header-align="center"
           align="center"
           width="120"
-          v-if="easyTierStore.os === 'windows'"
         >
           <template #default="{ row }">
             <el-tag
@@ -835,13 +827,7 @@ onMounted(async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column
-          label="服务操作"
-          width="150"
-          header-align="center"
-          align="center"
-          v-if="easyTierStore.os === 'windows'"
-        >
+        <el-table-column label="服务操作" width="150" header-align="center" align="center">
           <template #default="{ row }">
             <div class="flex flex-col gap-5px">
               <div class="flex justify-center gap-5px">
@@ -984,13 +970,13 @@ onMounted(async () => {
       <ElForm :model="serviceInstallForm" label-width="120px">
         <ElFormItem :label="t('easytier.serviceInstallMethod')">
           <ElRadioGroup v-model="serviceInstallForm.installMethod">
-            <ElRadio label="nssm">{{ t('easytier.installMethodNssm') }}</ElRadio>
+            <ElRadio label="native">{{ t('easytier.installMethodNative') }}</ElRadio>
             <ElRadio label="official">{{ t('easytier.installMethodOfficial') }}</ElRadio>
           </ElRadioGroup>
         </ElFormItem>
 
-        <template v-if="serviceInstallForm.installMethod === 'nssm'">
-          <ElFormItem label="运行用户">
+        <template v-if="serviceInstallForm.installMethod === 'native'">
+          <ElFormItem label="运行用户" v-if="easyTierStore.os === 'windows'">
             <ElInput
               v-model="serviceInstallForm.username"
               placeholder="留空使用 LocalSystem（管理员权限）"
@@ -1000,7 +986,10 @@ onMounted(async () => {
             </template>
           </ElFormItem>
 
-          <ElFormItem label="用户密码" v-if="serviceInstallForm.username">
+          <ElFormItem
+            label="用户密码"
+            v-if="easyTierStore.os === 'windows' && serviceInstallForm.username"
+          >
             <ElInput
               v-model="serviceInstallForm.password"
               type="password"

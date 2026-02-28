@@ -18,6 +18,7 @@ import { useEasyTierStore } from '@/store/modules/easytier'
 import {
   downloadFile,
   extractFile,
+  getDataDir,
   getLogsDir,
   getResourceDir,
   listTomlFiles,
@@ -25,7 +26,7 @@ import {
 } from '@/utils/fileUtil'
 import { runEasyTierCli, stopAllNodes } from '@/utils/shellUtil'
 import { getAppVersion, getArch, getOsType } from '@/utils/sysUtil'
-import { appDataDir, appLogDir, join, resourceDir } from '@tauri-apps/api/path'
+import { appDataDir, appLogDir, join } from '@tauri-apps/api/path'
 import { fetch } from '@tauri-apps/plugin-http'
 import { useClipboard } from '@vueuse/core'
 import {
@@ -50,7 +51,7 @@ const p2pNotify = ref(true)
 const refreshInterval = ref(3)
 const xshellPath = ref('')
 const lockPassword = ref('')
-const defaultServiceInstallMethod = ref<'nssm' | 'official'>('nssm')
+const defaultServiceInstallMethod = ref<'native' | 'official'>('native')
 const defaultEnableAutostart = ref(true)
 
 const handleMinimizeChange = (value: boolean) => {
@@ -82,7 +83,7 @@ const saveLockPassword = () => {
   ElMessage.success('锁定密码已保存')
 }
 
-const handleServiceInstallMethodChange = (value: 'nssm' | 'official') => {
+const handleServiceInstallMethodChange = (value: 'native' | 'official') => {
   easyTierStore.setDefaultServiceInstallMethod(value)
 }
 
@@ -259,11 +260,11 @@ const checkCorePath = async () => {
   }
 }
 const openConfigPath = async () => {
-  const configPath = await join(await resourceDir(), 'config')
+  const configPath = await join(getDataDir(), 'config')
   await openPath(configPath)
 }
 const openCorePath = async () => {
-  const resourcePath = await join(await resourceDir(), RESOURCE_PATH)
+  const resourcePath = await join(getDataDir(), RESOURCE_PATH)
   await openPath(resourcePath)
 }
 // @ts-ignore
@@ -271,7 +272,7 @@ const openCorePath = async () => {
 const copyLogPath = async () => {
   // 拷贝
   const { copy, copied, isSupported } = useClipboard({
-    source: await join(await resourceDir(), LOG_PATH),
+    source: await join(getDataDir(), LOG_PATH),
     legacy: true
   })
   if (!isSupported) {
@@ -284,7 +285,7 @@ const copyLogPath = async () => {
   }
 }
 const openLogPath = async () => {
-  const resourcePath = await join(await resourceDir(), LOG_PATH)
+  const resourcePath = await join(getDataDir(), LOG_PATH)
   await openPath(resourcePath)
 }
 // const openLogPath2 = async () => {
@@ -599,7 +600,7 @@ onMounted(async () => {
               >工作台节点列表刷新间隔（秒），最低2秒</span
             >
           </el-form-item>
-          <el-form-item label="Xshell 路径">
+          <el-form-item v-if="easyTierStore.os === 'windows'" label="Xshell 路径">
             <el-input
               v-model="xshellPath"
               placeholder="例如: C:\Program Files (x86)\NetSarang\Xshell 7\Xshell.exe"
@@ -640,7 +641,16 @@ onMounted(async () => {
                   style="width: 280px"
                   @change="handleServiceInstallMethodChange"
                 >
-                  <el-option label="NSSM (推荐，兼容性好)" value="nssm" />
+                  <el-option
+                    :label="
+                      easyTierStore.os === 'windows'
+                        ? 'NSSM (推荐，兼容性好)'
+                        : easyTierStore.os === 'linux'
+                          ? 'systemd (推荐)'
+                          : 'launchd (推荐)'
+                    "
+                    value="native"
+                  />
                   <el-option label="官方 easytier-cli (v1.2.0+)" value="official" />
                 </el-select>
                 <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
