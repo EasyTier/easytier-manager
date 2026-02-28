@@ -1,5 +1,5 @@
 fn main() {
-    let mut attrs = tauri_build::Attributes::new();
+    let attrs = tauri_build::Attributes::new();
 
     #[cfg(target_os = "windows")]
     {

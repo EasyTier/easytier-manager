@@ -90,13 +90,13 @@ export function getBaseDirectory(): BaseDirectory {
 
 /**
  * 一次性迁移：将 resourceDir 下的 config/、resource/、logs/ 复制到 appDataDir
- * 仅在 useAppData=true 时执行，使用 .migrated 标记避免重复
+ * 仅在 useAppData=true 时执行，使用 migrated-flag 标记避免重复
  */
 export async function migrateDataIfNeeded(): Promise<void> {
   if (!useAppData) return
 
   try {
-    const markerExists = await exists('.migrated', { baseDir: BaseDirectory.AppData })
+    const markerExists = await exists('migrated-flag', { baseDir: BaseDirectory.AppData })
     if (markerExists) return
 
     info('开始从 resourceDir 迁移数据到 appDataDir...')
@@ -157,7 +157,7 @@ export async function migrateDataIfNeeded(): Promise<void> {
     }
 
     // 写入迁移标记
-    await writeTextFile('.migrated', new Date().toISOString(), {
+    await writeTextFile('migrated-flag', new Date().toISOString(), {
       baseDir: BaseDirectory.AppData
     })
     info('数据迁移完成')
