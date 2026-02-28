@@ -91,6 +91,16 @@
         {
           "args": true,
           "cmd": "$RESOURCE/resource/nssm",
+          "name": "nssm-resource"
+        },
+        {
+          "args": true,
+          "cmd": "$APPDATA/resource/nssm",
+          "name": "nssm-appdata"
+        },
+        {
+          "args": true,
+          "cmd": "nssm",
           "name": "nssm"
         },
         {

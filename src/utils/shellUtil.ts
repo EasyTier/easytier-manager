@@ -1,4 +1,4 @@
-import { CONFIG_PATH, NSSM_NAME } from '@/constants/easytier'
+import { CONFIG_PATH } from '@/constants/easytier'
 import { invoke } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
@@ -8,6 +8,7 @@ import {
   getCliScopeNames,
   getCoreDir,
   getDataDir,
+  getNssmScopeNames,
   getResourceDir,
   readFileContent
 } from './fileUtil'
@@ -492,7 +493,7 @@ export const checkServiceOnWindows = (serviceName: string): Promise<any> => {
   return new Promise(async (resolve) => {
     try {
       const args = ['status', serviceName]
-      const res: any = await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
+      const res: any = await executeCmdWithFallback(getNssmScopeNames(), args, { encoding: 'gbk' })
       // debug('检测服务:' + JSON.stringify(res))
       // Can't open service!\r\r\nOpenService(): The specified service does not exist as an installed service.
       if (res && (res.code! === 3 || res.includes('does not exist'))) {
@@ -573,31 +574,33 @@ export const installServiceOnWindows = async (
       // const args10 = ['set', serviceName, 'AppStdout', `${logsPath}\\service.log`]
       // const args11 = ['set', serviceName, 'AppStderr', `${logsPath}\\service.log`]
       // const args12 = ['set', serviceName, 'AppTimestampLog', '1']
-      await executeCmd(NSSM_NAME, args1, { encoding: 'gbk' }).then(async (res) => {
-        info(`安装服务结果:${JSON.stringify(res)}`)
-        if (
-          res &&
-          (res.code! === 0 ||
-            res.code! === 1 ||
-            res.includes('success') ||
-            res.includes('installed'))
-        ) {
-          await executeCmd(NSSM_NAME, args2, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args3, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args4, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args5, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args6, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args7, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args8, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args9, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args10, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args11, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args12, { encoding: 'gbk' })
-          resolve(true)
-          return
+      await executeCmdWithFallback(getNssmScopeNames(), args1, { encoding: 'gbk' }).then(
+        async (res) => {
+          info(`安装服务结果:${JSON.stringify(res)}`)
+          if (
+            res &&
+            (res.code! === 0 ||
+              res.code! === 1 ||
+              res.includes('success') ||
+              res.includes('installed'))
+          ) {
+            await executeCmdWithFallback(getNssmScopeNames(), args2, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args3, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args4, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args5, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args6, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args7, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args8, { encoding: 'gbk' })
+            await executeCmdWithFallback(getNssmScopeNames(), args9, { encoding: 'gbk' })
+            // await executeCmdWithFallback(getNssmScopeNames(), args10, { encoding: 'gbk' })
+            // await executeCmdWithFallback(getNssmScopeNames(), args11, { encoding: 'gbk' })
+            // await executeCmdWithFallback(getNssmScopeNames(), args12, { encoding: 'gbk' })
+            resolve(true)
+            return
+          }
+          resolve(false)
         }
-        resolve(false)
-      })
+      )
     } catch (e: any) {
       error(`安装服务失败:${e}`)
       resolve(false)
@@ -613,7 +616,7 @@ export const uninstallServiceOnWindows = (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
       const args = ['remove', serviceName, 'confirm']
-      const res: any = await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
+      const res: any = await executeCmdWithFallback(getNssmScopeNames(), args, { encoding: 'gbk' })
       info(`删除服务:${JSON.stringify(res)}`)
       if (res && (res.code! === 0 || res.includes('success'))) {
         resolve(true)
@@ -635,7 +638,7 @@ export const startServiceOnWindows = (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
       const args = ['start', serviceName]
-      await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
+      await executeCmdWithFallback(getNssmScopeNames(), args, { encoding: 'gbk' })
       await sleep(2000)
       const res = await checkServiceOnWindows(serviceName)
       info('启动服务:' + JSON.stringify(res))
@@ -660,7 +663,7 @@ export const stopServiceOnWindows = (serviceName: string) => {
   return new Promise(async (resolve) => {
     try {
       const args = ['stop', serviceName]
-      await executeCmd(NSSM_NAME, args, { encoding: 'gbk' })
+      await executeCmdWithFallback(getNssmScopeNames(), args, { encoding: 'gbk' })
       await sleep(2000)
       const res = await checkServiceOnWindows(serviceName)
       info('停止服务:' + JSON.stringify(res))

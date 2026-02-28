@@ -107,6 +107,13 @@ export function getCoreScopeNames(): string[] {
 }
 
 /**
+ * 获取 nssm 的 Tauri shell scope 名称（按优先级）
+ */
+export function getNssmScopeNames(): string[] {
+  return useAppData ? ['nssm-appdata', 'nssm-resource', 'nssm'] : ['nssm-resource', 'nssm']
+}
+
+/**
  * 一次性迁移：将 resourceDir 下的 config/、resource/、logs/ 复制到 appDataDir
  * 仅在 useAppData=true 时执行，使用 migrated-flag 标记避免重复
  */
