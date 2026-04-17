@@ -437,14 +437,7 @@ onMounted(async () => {
                 <el-tag :type="form.coreVersion ? 'success' : 'danger'" effect="light">
                   {{ form.coreVersion || '内核未安装' }}
                 </el-tag>
-                <el-button
-                  v-if="!form.coreVersion"
-                  type="primary"
-                  size="small"
-                  @click="checkCorePath"
-                >
-                  重新检测
-                </el-button>
+                <el-button type="primary" size="small" @click="checkCorePath"> 重新检测 </el-button>
               </div>
             </template>
           </el-descriptions-item>

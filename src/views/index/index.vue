@@ -447,7 +447,14 @@ const getNodeInfo = async () => {
       if (easyTierStore.stopLoop && !isFirstRun) break
       isFirstRun = false
 
-      const res = await runEasyTierCli(['--output', 'json', 'node'])
+      const config = await getCurrentConfig()
+      const rpcPortal = config?.rpc_portal
+        ? (config.rpc_portal as string).replace('0.0.0.0', '127.0.0.1')
+        : undefined
+      const cliArgs = rpcPortal
+        ? ['-p', rpcPortal, '--output', 'json', 'node']
+        : ['--output', 'json', 'node']
+      const res = await runEasyTierCli(cliArgs)
       if (res.code === 403) {
         easyTierStore.setStopLoop(true)
         runningTag2.value = false

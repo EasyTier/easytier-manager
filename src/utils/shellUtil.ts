@@ -15,9 +15,10 @@ attachConsole()
  * @param configFileName 配置文件名
  * @returns 日志目录和日志级别
  */
-async function getLogConfigFromFile(configFileName: string): Promise<{
+async function getConfigFromFile(configFileName: string): Promise<{
   logDir: string
   logLevel: string
+  rpcPortal: string | undefined
 }> {
   try {
     // 读取配置文件内容
@@ -27,17 +28,20 @@ async function getLogConfigFromFile(configFileName: string): Promise<{
     // 获取日志配置，提供默认值
     const logDir = config.file_logger?.dir || './log'
     const logLevel = config.file_logger?.level || 'info'
+    // 获取 rpc_portal 配置（v2.5.0 起配置文件中的 rpc_portal 不再生效，需通过命令行参数传递）
+    const rpcPortal = config.rpc_portal || undefined
 
-    return { logDir, logLevel }
+    return { logDir, logLevel, rpcPortal }
   } catch (e) {
-    error(`读取配置文件日志配置失败:${JSON.stringify(e)}`)
+    error(`读取配置文件失败:${JSON.stringify(e)}`)
     // 返回默认值
-    return { logDir: './log', logLevel: 'info' }
+    return { logDir: './log', logLevel: 'info', rpcPortal: undefined }
   }
 }
 
 /**
- * 构建 easytier-core 启动参数（包含日志配置）
+ * 构建 easytier-core 启动参数（包含日志配置和 rpc-portal）
+ * v2.5.0 起 rpc_portal 不再从配置文件读取，需通过 --rpc-portal 命令行参数传递
  * @param configFileName 配置文件名（如 server.toml）
  * @param configPath 配置文件完整路径
  * @returns 完整的启动参数字符串
@@ -46,8 +50,12 @@ export async function buildCoreArgsWithLogConfig(
   configFileName: string,
   configPath: string
 ): Promise<string> {
-  const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
-  return `--file-log-dir "${logDir}" --file-log-level ${logLevel} --config-file "${configPath}"`
+  const { logDir, logLevel, rpcPortal } = await getConfigFromFile(configFileName)
+  let args = `--file-log-dir "${logDir}" --file-log-level ${logLevel} --config-file "${configPath}"`
+  if (rpcPortal) {
+    args += ` --rpc-portal ${rpcPortal}`
+  }
+  return args
 }
 
 /**
@@ -203,23 +211,31 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
     const configPath = await join(await resourceDir(), CONFIG_PATH, configFileName)
     const program = await getCoreDir()
 
-    // 读取配置文件获取日志配置
-    const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
+    // 读取配置文件获取日志配置和 rpc_portal
+    // v2.5.0 起 rpc_portal 不再从配置文件读取，需通过 --rpc-portal 命令行参数传递
+    const { logDir, logLevel, rpcPortal } = await getConfigFromFile(configFileName)
+
+    const args: string[] = [
+      '--file-log-dir',
+      `${logDir}`,
+      '--file-log-level',
+      logLevel,
+      '--file-log-size',
+      '10',
+      '--file-log-count',
+      '10',
+      '--config-file',
+      `${configPath}`
+    ]
+
+    // 如果配置了 rpc_portal，通过命令行参数传递
+    if (rpcPortal) {
+      args.push('--rpc-portal', rpcPortal)
+    }
 
     const res = await invoke('run_command', {
       program,
-      args: [
-        '--file-log-dir',
-        `${logDir}`,
-        '--file-log-level',
-        logLevel,
-        '--file-log-size',
-        '10',
-        '--file-log-count',
-        '10',
-        '--config-file',
-        `${configPath}`
-      ]
+      args
     })
     info(`运行结果：${res}`)
     return res
@@ -714,11 +730,12 @@ export const installServiceWithOfficialCli = async (
       args.push('--core-path', `${corePath}`)
       args.push('--service-work-dir', appDirectory)
 
-      // 读取配置文件获取日志配置
-      const { logDir, logLevel } = await getLogConfigFromFile(configFileName)
+      // 读取配置文件获取日志配置和 rpc_portal
+      // v2.5.0 起 rpc_portal 不再从配置文件读取，需通过 --rpc-portal 命令行参数传递
+      const { logDir, logLevel, rpcPortal } = await getConfigFromFile(configFileName)
 
       // 构建服务运行时的参数
-      // 格式: easytier-core --file-log-dir ./log --file-log-level info --config-file config.toml
+      // 格式: easytier-core --file-log-dir ./log --file-log-level info --config-file config.toml [--rpc-portal addr]
       args.push(
         '--',
         '--file-log-dir',
@@ -728,6 +745,11 @@ export const installServiceWithOfficialCli = async (
         '--config-file',
         `${configPath}`
       )
+
+      // 如果配置了 rpc_portal，通过命令行参数传递
+      if (rpcPortal) {
+        args.push('--rpc-portal', rpcPortal)
+      }
 
       // 执行安装
       const res: any = await executeCmd('easytier-cli', args, { encoding: 'gbk' })
