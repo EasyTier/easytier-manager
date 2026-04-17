@@ -476,16 +476,7 @@ const delConfig = async (row?: any) => {
       ElNotification({
         title: t('common.reminder'),
         message: t('common.delSuccess'),
-        type: 'success',
-        duration: 2000
-      })
-    })
-    .catch(async () => {
-      ElNotification({
-        title: t('common.reminder'),
-        message: t('common.delError'),
-        type: 'error',
-        duration: 2000
+        type: 'success'
       })
     })
     .finally(async () => {
