@@ -27,67 +27,79 @@ export const STUN_SERVER_URL =
   'https://ghproxy.vip/https://gist.githubusercontent.com/mondain/b0ec1cf5f60ae726202e/raw/2d2b96b4508a38d342e0228d46eab84dad2398a3/public-stun-list.txt'
 export const GITHUB_MIRROR_URL = [
   {
-    value: 'https://ghproxy.vip/',
-    label: 'https://ghproxy.vip/'
-  },
-  {
-    value: 'https://ghproxy.cfd/',
-    label: 'https://ghproxy.cfd/'
-  },
-  {
-    value: 'https://gh-proxy.net/',
-    label: 'https://gh-proxy.net/'
-  },
-  {
-    value: 'https://fastgit.cc/',
-    label: 'https://fastgit.cc/'
-  },
-  {
-    value: 'https://ghfast.top/',
-    label: 'https://ghfast.top/'
-  },
-  {
     value: 'https://wget.la/',
-    label: 'https://wget.la/'
-  },
-  {
-    value: 'https://ghproxy.net/',
-    label: 'https://ghproxy.net/'
+    label: 'https://wget.la/',
+    latency: null
   },
   {
     value: 'https://gh-proxy.com/',
-    label: 'https://gh-proxy.com/'
-  },
-  {
-    value: 'https://ghproxy.1888866.xyz/',
-    label: 'https://ghproxy.1888866.xyz/'
-  },
-  {
-    value: 'https://github.boki.moe/',
-    label: 'https://github.boki.moe/'
-  },
-  {
-    value: 'https://hub.gitmirror.com/',
-    label: 'https://hub.gitmirror.com/'
+    label: 'https://gh-proxy.com/',
+    latency: null
   },
   {
     value: 'https://gh.monlor.com/',
-    label: 'https://gh.monlor.com/'
+    label: 'https://gh.monlor.com/',
+    latency: null
+  },
+  {
+    value: 'https://gh-proxy.com/',
+    label: 'https://gh-proxy.com/',
+    latency: null
+  },
+  {
+    value: 'https://github.boki.moe/',
+    label: 'https://github.boki.moe/',
+    latency: null
+  },
+  {
+    value: 'https://ghfast.top/',
+    label: 'https://ghfast.top/',
+    latency: null
+  },
+  {
+    value: 'https://gh-proxy.org/',
+    label: 'https://gh-proxy.org/',
+    latency: null
+  },
+  {
+    value: 'https://ghproxy.net/',
+    label: 'https://ghproxy.net/',
+    latency: null
+  },
+  {
+    value: 'https://ghproxy.vip/',
+    label: 'https://ghproxy.vip/',
+    latency: null
+  },
+  {
+    value: 'https://down.npee.cn/',
+    label: 'https://down.npee.cn/',
+    latency: null
+  },
+  {
+    value: 'https://fastgit.cc/',
+    label: 'https://fastgit.cc/',
+    latency: null
+  },
+  {
+    value: 'https://ghproxy.1888866.xyz/',
+    label: 'https://ghproxy.1888866.xyz/',
+    latency: null
   }
 ]
 
 export const DEFAULT_VER_OPTIONS = [
   {
-    name: 'v2.2.4',
-    tag_name: 'v2.2.4'
+    name: 'v2.6.0',
+    tag_name: 'v2.6.0'
   },
   {
-    name: 'v2.2.2',
-    tag_name: 'v2.2.2'
+    name: 'v2.6.0',
+    tag_name: 'v2.6.0'
   },
   {
-    name: 'v1.2.3',
-    tag_name: 'v1.2.3'
+    name: 'v2.4.5',
+    tag_name: 'v2.4.5'
   }
 ]
 

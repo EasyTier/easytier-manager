@@ -39,6 +39,8 @@ import {
 } from 'element-plus'
 import { cloneDeep, template } from 'lodash-es'
 import { onMounted, reactive, ref, unref } from 'vue'
+import { measureMirrorLatency } from '@/utils'
+import { info } from '@tauri-apps/plugin-log'
 
 const { t } = useI18n()
 const { getStorage, setStorage, clear: storageClear } = useStorage('localStorage')
@@ -102,14 +104,31 @@ const form = reactive({
   appLogLevel: ''
 })
 
-const verSelect = ref<string>('v2.4.5')
+const verSelect = ref<string>('v2.6.1')
 const verOptions = ref(cloneDeep(DEFAULT_VER_OPTIONS))
 const mirrorUrlSelect = ref<string>('')
+const getMirrorUrling = ref(false)
+const validMirrorUrl = ref(cloneDeep(GITHUB_MIRROR_URL))
 
+const getGitMirrorUrl = () => {
+  getMirrorUrling.value = true
+  measureMirrorLatency(GITHUB_MIRROR_URL, 2000, 6)
+    .then((results) => {
+      info(`results:\n${JSON.stringify(results)}`)
+      validMirrorUrl.value = results
+    })
+    .finally(() => {
+      getMirrorUrling.value = false
+    })
+}
+// const mirrorUrlSelectChange = (val: string) => {
+//   // console.log('val', val)
+//   // console.log('mirrorUrlSelect', mirrorUrlSelect.value)
+// }
 const downLoadCore = async () => {
   const mirrors = [...GITHUB_MIRROR_URL]
   if (mirrorUrlSelect.value) {
-    mirrors.unshift({ label: '自定义', value: mirrorUrlSelect.value })
+    mirrors.unshift({ label: '自定义', value: mirrorUrlSelect.value, latency: null })
   }
 
   const maxRetriesPerMirror = 3
@@ -509,12 +528,34 @@ onMounted(async () => {
             </div>
             <div class="flex items-center gap-8px flex-1 min-w-300px">
               <span class="text-14px">Github 加速链接:</span>
-              <el-input
+              <el-select
                 v-model="mirrorUrlSelect"
-                placeholder="例如: https://ghproxy.cn"
-                clearable
-                class="flex-1"
-              />
+                filterable
+                allow-create
+                default-first-option
+                style="width: 140px"
+              >
+                <!-- @change="mirrorUrlSelectChange"-->
+                <el-option
+                  v-for="item in validMirrorUrl"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                >
+                  <span style="float: left">{{
+                    item.value.replace('https://', '').replace('/', '')
+                  }}</span>
+                  <span
+                    v-if="item.latency != null"
+                    style="float: right; font-size: 12px; color: var(--el-color-success-light-3)"
+                  >
+                    {{ item.latency }}ms
+                  </span>
+                </el-option>
+              </el-select>
+              <el-button :loading="getMirrorUrling" @click="getGitMirrorUrl"
+                >获取可用加速源
+              </el-button>
             </div>
           </div>
           <div class="flex gap-10px">

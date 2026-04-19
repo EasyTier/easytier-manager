@@ -76,15 +76,15 @@ const nodeInfoSchema = reactive<DescriptionsSchema[]>([
   {
     field: 'stun_info.udp_nat_type',
     label: t('easytier.nat_type')
-  },
-  {
-    field: 'proxy_cidrs',
-    label: t('easytier.proxy_network')
-  },
-  {
-    field: 'listeners',
-    label: t('easytier.listeners')
   }
+  // {
+  //   field: 'proxy_cidrs',
+  //   label: t('easytier.proxy_network')
+  // },
+  // {
+  //   field: 'listeners',
+  //   label: t('easytier.listeners')
+  // }
 ])
 const delayColorMap = [
   { index: 0, min: 0, max: 10, color: 'green' },

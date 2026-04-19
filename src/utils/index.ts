@@ -1,3 +1,5 @@
+import { GITHUB_MIRROR_URL } from '@/constants/easytier'
+
 /**
  *
  * @param component 需要注册的组件
@@ -133,4 +135,79 @@ export function objToFormData(obj: Recordable) {
     formData.append(key, obj[key])
   })
   return formData
+}
+
+interface LatencyResult {
+  total: number
+}
+
+/**
+ * 测量单个镜像延迟
+ * 使用浏览器 fetch + no-cors，performance.now() 直接计时
+ * no-cors 模式下浏览器会建立 TCP 连接但不读取响应体，适合测连通延迟
+ */
+export async function measureLatency(
+  url: string,
+  timeoutMs: number = 2000
+): Promise<LatencyResult | null> {
+  const testUrl = `${url}?_t=${Date.now()}`
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  const start = performance.now()
+  try {
+    await window.fetch(testUrl, {
+      method: 'HEAD',
+      mode: 'no-cors',
+      signal: controller.signal
+    })
+    const total = Math.round(performance.now() - start)
+    return { total }
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * 并发测试所有镜像延迟
+ * @param mirrors  镜像列表
+ * @param timeout  单个镜像超时(ms)
+ * @param concurrency 最大并发数，避免瞬间打爆连接池
+ */
+export async function measureMirrorLatency(
+  mirrors: typeof GITHUB_MIRROR_URL,
+  timeout: number = 2000,
+  concurrency: number = 6
+): Promise<typeof mirrors> {
+  async function runBatch(items: any[]): Promise<any[]> {
+    const results = await Promise.allSettled(
+      items.map(async (item) => {
+        const result = await measureLatency(item.value, timeout)
+        const latency = result?.total
+        return { ...item, latency: latency != null && latency > 0 ? latency : undefined }
+      })
+    )
+    return results.map((r, i) =>
+      r.status === 'fulfilled' ? r.value : { ...items[i], latency: undefined }
+    )
+  }
+
+  // 分批并发：每批 concurrency 个
+  const allResults: any[] = []
+  for (let i = 0; i < mirrors.length; i += concurrency) {
+    const batch = mirrors.slice(i, i + concurrency)
+    const batchResults = await runBatch(batch)
+    allResults.push(...batchResults)
+  }
+
+  // 按延迟升序排列，undefined(不可达) 排末尾
+  allResults.sort((a, b) => {
+    if (a.latency == null && b.latency == null) return 0
+    if (a.latency == null) return 1
+    if (b.latency == null) return -1
+    return a.latency - b.latency
+  })
+  return allResults
 }
