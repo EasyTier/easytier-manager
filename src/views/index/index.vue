@@ -320,10 +320,35 @@ const handleRDP = async (ip: string) => {
   await Command.create('mstsc', [`/v:${ip}`]).spawn()
 }
 
-const handleTelnet = async (ip: string) => {
+const telnetDialogVisible = ref(false)
+const telnetPort = ref('22')
+const currentTelnetIp = ref('')
+
+const handleTelnet = (ip: string) => {
   if (!ip || ip === '服务器') return
-  // Windows: cmd /k telnet <ip>
-  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `telnet ${ip}`]).spawn()
+  currentTelnetIp.value = ip
+  telnetPort.value = '22'
+  telnetDialogVisible.value = true
+}
+
+const executeTelnet = async () => {
+  const port = telnetPort.value.trim()
+  if (!port) {
+    ElMessage.warning('请输入端口号')
+    return
+  }
+  telnetDialogVisible.value = false
+  await Command.create('cmd', [
+    '/c',
+    'start',
+    'cmd',
+    '/k',
+    `telnet ${currentTelnetIp.value} ${port}`
+  ]).spawn()
+}
+
+const setQuickPort = (port: string) => {
+  telnetPort.value = port
 }
 
 const handleSSH = async (ip: string) => {
@@ -1213,6 +1238,29 @@ onDeactivated(() => {
       </div>
       <template #footer>
         <el-button @click="logDialogVisible = false">{{ t('dialogDemo.close') }}</el-button>
+      </template>
+    </Dialog>
+
+    <Dialog title="Telnet 端口" v-model="telnetDialogVisible" width="400px" max-height="200px">
+      <el-form label-width="80px">
+        <el-form-item label="IP 地址">
+          <el-input v-model="currentTelnetIp" />
+        </el-form-item>
+        <el-form-item label="端口号">
+          <el-input v-model="telnetPort" placeholder="请输入端口号" />
+          <div style=" display: flex;margin-top: 8px; gap: 8px; flex-wrap: wrap">
+            <el-button size="small" @click="setQuickPort('22')">22 (SSH)</el-button>
+            <el-button size="small" @click="setQuickPort('80')">80 (HTTP)</el-button>
+            <el-button size="small" @click="setQuickPort('443')">443 (HTTPS)</el-button>
+            <el-button size="small" @click="setQuickPort('3389')">3389 (RDP)</el-button>
+            <el-button size="small" @click="setQuickPort('3306')">3306 (MySQL)</el-button>
+            <el-button size="small" @click="setQuickPort('8080')">8080 (Proxy)</el-button>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="telnetDialogVisible = false">{{ t('dialogDemo.close') }}</el-button>
+        <el-button type="primary" @click="executeTelnet">{{ t('common.ok') }}</el-button>
       </template>
     </Dialog>
   </div>

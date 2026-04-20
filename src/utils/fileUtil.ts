@@ -435,7 +435,7 @@ export const clearLogs = async () => {
     await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
   } catch (e: any) {
     // 如果清理失败，只记录警告，不阻塞启动
-    console.warn(`清理日志文件失败（不影响使用）: ${e.message || e}`)
+    error(`清理日志文件失败（不影响使用）: ${e.message || e}`)
   }
 }
 
@@ -454,6 +454,6 @@ export const clearETLogs = async (fileName: string) => {
     await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
   } catch (e: any) {
     // 如果清理失败，只记录警告，不阻塞启动
-    console.warn(`清理日志文件失败（不影响使用）: ${e.message || e}`)
+    error(`清理日志文件失败（不影响使用）: ${e.message || e}`)
   }
 }
