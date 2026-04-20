@@ -27,7 +27,7 @@ import { useClipboard } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox, ElNotification, ElOption, ElSelect, ElTree } from 'element-plus'
 import * as toml from 'smol-toml'
-import { computed, onMounted, reactive, ref, unref, watch } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted, reactive, ref, unref, watch } from 'vue'
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
 attachConsole()
 const { t } = useI18n()
@@ -35,7 +35,8 @@ const easyTierStore = useEasyTierStore()
 const trayStore = useTrayStore()
 const logDialogVisible = ref(false)
 const descriptionCollapse = ref(false)
-const runningTag2 = ref(false)
+const isStarting = ref(false)
+const isInitializing = ref(true)
 const logData = ref('')
 const disabledAutoMetricAdapter = ref<string | null>(null)
 const MonacoEditRef = ref()
@@ -305,6 +306,8 @@ const runningTag = computed(() => {
     (i) => i.configFileName === currentNodeKey.value.configFileName
   )
 })
+// 综合状态：loading = 正在启动或正在初始化
+const isLoading = computed(() => isStarting.value || isInitializing.value)
 const handlePing = async (ip: string) => {
   if (!ip || ip === '服务器') return
   // Windows: cmd /k ping <ip>
@@ -457,7 +460,6 @@ const getNodeInfo = async () => {
       const res = await runEasyTierCli(cliArgs)
       if (res.code === 403) {
         easyTierStore.setStopLoop(true)
-        runningTag2.value = false
         break
       }
       if (!res) {
@@ -465,6 +467,8 @@ const getNodeInfo = async () => {
         continue
       }
       nodeInfo.value = safeJsonParse(res)
+      // 同步到 store 缓存
+      easyTierStore.cachedNodeInfo = nodeInfo.value
       if (
         nodeInfo.value['ipv4_addr'] &&
         nodeInfo.value['stun_info'] &&
@@ -479,7 +483,6 @@ const getNodeInfo = async () => {
           nodeInfo.value['stun_info']['udp_nat_type']
         )
       }
-      runningTag2.value = true
       // 获取节点信息成功后，尝试刷新节点列表
       getPeerInfo()
       if (easyTierStore.stopLoop) break
@@ -529,7 +532,6 @@ const getPeerInfo = async () => {
       if (res.code === 403) {
         easyTierStore.setStopLoop(true)
         easyTierStore.removeRunningList(currentNodeKey.value.configFileName)
-        runningTag2.value = false
         break
       }
       if (!res) {
@@ -556,7 +558,8 @@ const getPeerInfo = async () => {
         value.nat_type = getNatType(value.nat_type)
         value.delayColor = getDelayColor(value.lat_ms)
       })
-      runningTag2.value = true
+      // 同步到 store 缓存
+      easyTierStore.cachedPeerInfo = [...peerInfo.value]
       if (
         easyTierStore.p2pNotifySetting &&
         easyTierStore.p2pNotify &&
@@ -578,19 +581,20 @@ const updateRunningList = async (res?: any) => {
   if (!res) {
     res = await getRunningProcesses(currentNodeKey.value.fileName!)
   }
-  // 先删除，再添加
-  easyTierStore.setRunningList([])
+  // 构建新的列表，然后一次性替换，避免先清空导致 runningTag 短暂为 false
+  const newList: RunningItem[] = []
   if (res.length > 0) {
     res.forEach((item) => {
       const configFileName = item.fileName.replace('.toml', '')
-      easyTierStore.addRunningList(configFileName, item.pid)
+      newList.push({ configFileName, pid: item.pid })
     })
   }
+  easyTierStore.setRunningList(newList)
   return res
 }
 const startAction = async () => {
   info(`开始运行配置:${currentNodeKey.value.fileName!}`)
-  runningTag2.value = true
+  isStarting.value = true
   try {
     const currentConfig = await getCurrentConfig()
     if (currentConfig?.config_exit_nodes_route) {
@@ -620,22 +624,19 @@ const startAction = async () => {
   }
 
   await runEasyTierCore(currentNodeKey.value.fileName!)
-    .then((_res) => {
+    .then(async (_res) => {
       // info(`运行配置结果:${JSON.stringify(res)}`)
       easyTierStore.stopSetRoute = false
-      // getNodeInfo()
-      // getPeerInfo()
-      updateRunningList()
+      await updateRunningList()
       easyTierStore.setStopLoop(false)
       easyTierStore.setP2pNotify(true)
       easyTierStore.setLastRunConfigName(currentNodeKey.value)
       // 暂时不再自动展开
       // descriptionCollapse.value = true
       trayStore.setTrayTooltip('当前运行配置：' + currentNodeKey.value.configFileName)
-      runningTag2.value = true
     })
     .catch(async () => {
-      runningTag2.value = false
+      isStarting.value = false
       ElMessageBox({
         title: '哦豁，出错啦',
         message: '运行当前配置出错，请在设置检查是否有核心程序，或核心程序是否有可执行权限',
@@ -652,7 +653,10 @@ const startAction = async () => {
         }
       }
     })
-    .finally(() => currentNodeKeyChange())
+    .finally(() => {
+      isStarting.value = false
+      currentNodeKeyChange()
+    })
 }
 const stopAction = async () => {
   info(`停止运行配置:${currentNodeKey.value.configFileName}`)
@@ -691,17 +695,16 @@ const stopAction = async () => {
 
   trayStore.setTrayTooltip(undefined)
   easyTierStore.setStopLoop(true)
-  runningTag2.value = false
-  // currentNodeKeyChange()
 }
 const reset = async () => {
   nodeInfo.value = {}
   peerInfo.value.length = 0
   descriptionCollapse.value = false
+  // 清除 store 缓存
+  easyTierStore.cachedNodeInfo = {}
+  easyTierStore.cachedPeerInfo = []
   easyTierStore.removeRunningList(currentNodeKey.value.configFileName)
   await updateRunningList()
-  runningTag2.value = false
-  // await getList()
 }
 async function getLog() {
   const date = dayjs(new Date()).format('YYYY-MM-DD')
@@ -733,11 +736,16 @@ const currentNodeKeyChange = async () => {
     currentConfigCache.value = null
     easyTierStore.setErrRunNotify(true)
     easyTierStore.setLastSelectedConfig(currentNodeKey.value)
-    // const res = await getRunningProcesses(currentNodeKey.value.fileName!)
     const res = await updateRunningList()
     if (res.length > 0) {
-      // await updateRunningList(res)
       easyTierStore.setStopLoop(false)
+      // 切换配置时，如果 store 中有该配置的缓存数据，先恢复显示
+      if (easyTierStore.cachedNodeInfo && Object.keys(easyTierStore.cachedNodeInfo).length > 0) {
+        nodeInfo.value = { ...easyTierStore.cachedNodeInfo }
+      }
+      if (easyTierStore.cachedPeerInfo && easyTierStore.cachedPeerInfo.length > 0) {
+        peerInfo.value = [...easyTierStore.cachedPeerInfo]
+      }
       getNodeInfo()
       getPeerInfo()
       return
@@ -745,7 +753,8 @@ const currentNodeKeyChange = async () => {
     nodeInfo.value = {}
     peerInfo.value.length = 0
     descriptionCollapse.value = false
-    runningTag2.value = false
+    easyTierStore.cachedNodeInfo = {}
+    easyTierStore.cachedPeerInfo = []
     easyTierStore.setStopLoop(true)
     // 即使未运行，也尝试查询一次
     getNodeInfo()
@@ -815,38 +824,89 @@ const selectedColumnsChange = (val) => {
   easyTierStore.setSelectedColumns(val)
 }
 onMounted(async () => {
-  // 1. 先检查是否为冷启动
-  const isColdStart = await invoke<boolean>('check_cold_start')
+  isInitializing.value = true
+  try {
+    // 1. 先检查是否为冷启动
+    const isColdStart = await invoke<boolean>('check_cold_start')
 
-  // 2. 并行执行初始化任务（无论是否冷启动都需要执行）
-  await Promise.all([checkCore(), getConfigList()])
-  easyTierStore.loadRunningList()
+    // 2. 并行执行初始化任务（无论是否冷启动都需要执行）
+    await Promise.all([checkCore(), getConfigList()])
 
-  // 3. 计算要加载的配置名称（冷启动与否都需要设置 UI 选中）
-  let configName = ''
-  if (easyTierStore.autoRunNetworkSetting && easyTierStore.autoRunConfigName) {
-    configName = easyTierStore.autoRunConfigName
-  } else {
-    configName = easyTierStore.getLastRunConfigName()
+    // 注意：不再先调用 loadRunningList()，避免从 localStorage 恢复旧状态导致 UI 跳动
+    // 而是直接通过 updateRunningList 从实际进程获取运行状态
+
+    // 3. 计算要加载的配置名称（冷启动与否都需要设置 UI 选中）
+    let configName = ''
+    if (easyTierStore.autoRunNetworkSetting && easyTierStore.autoRunConfigName) {
+      configName = easyTierStore.autoRunConfigName
+    } else {
+      configName = easyTierStore.getLastRunConfigName()
+    }
+
+    if (!configName) {
+      isInitializing.value = false
+      return
+    }
+
+    currentNodeKey.value.configFileName = configName
+    currentNodeKey.value.fileName = `${configName}.toml`
+
+    // 检查是否正在运行，保持 UI 运行态同步
+    const res = await updateRunningList()
+    const isRunning = res.some((item) => item.fileName === currentNodeKey.value.fileName)
+
+    // 初始化完成，UI 可以展示实际状态
+    isInitializing.value = false
+
+    if (isRunning) {
+      easyTierStore.setStopLoop(false)
+      // 如果 store 中有缓存数据，先恢复显示，再静默更新
+      if (easyTierStore.cachedNodeInfo && Object.keys(easyTierStore.cachedNodeInfo).length > 0) {
+        nodeInfo.value = { ...easyTierStore.cachedNodeInfo }
+      }
+      if (easyTierStore.cachedPeerInfo && easyTierStore.cachedPeerInfo.length > 0) {
+        peerInfo.value = [...easyTierStore.cachedPeerInfo]
+      }
+      getNodeInfo()
+      getPeerInfo()
+    } else if (isColdStart && easyTierStore.autoRunNetworkSetting) {
+      // 4. 仅在冷启动且开启自动运行时执行自动运行
+      startAction()
+    } else {
+      // 未运行时清除缓存
+      easyTierStore.cachedNodeInfo = {}
+      easyTierStore.cachedPeerInfo = []
+    }
+  } catch (e) {
+    isInitializing.value = false
+    error(`初始化异常:${String(e)}`)
   }
+})
 
-  if (!configName) return
-
-  currentNodeKey.value.configFileName = configName
-  currentNodeKey.value.fileName = `${configName}.toml`
-
-  // 检查是否正在运行，保持 UI 运行态同步
-  const res = await updateRunningList()
-  const isRunning = res.some((item) => item.fileName === currentNodeKey.value.fileName)
-
+// 页面被 keep-alive 激活时，恢复缓存数据并静默刷新
+onActivated(async () => {
+  // 如果正在运行，先恢复缓存数据让用户立刻看到内容，再静默刷新
+  const isRunning = easyTierStore.runningList.some(
+    (i) => i.configFileName === currentNodeKey.value.configFileName
+  )
   if (isRunning) {
+    // 先恢复缓存数据
+    if (easyTierStore.cachedNodeInfo && Object.keys(easyTierStore.cachedNodeInfo).length > 0) {
+      nodeInfo.value = { ...easyTierStore.cachedNodeInfo }
+    }
+    if (easyTierStore.cachedPeerInfo && easyTierStore.cachedPeerInfo.length > 0) {
+      peerInfo.value = [...easyTierStore.cachedPeerInfo]
+    }
+    // 静默刷新最新数据
     easyTierStore.setStopLoop(false)
     getNodeInfo()
     getPeerInfo()
-  } else if (isColdStart && easyTierStore.autoRunNetworkSetting) {
-    // 4. 仅在冷启动且开启自动运行时执行自动运行
-    startAction()
   }
+})
+
+// 页面被 keep-alive 停用时，停止轮询（保持缓存数据）
+onDeactivated(() => {
+  easyTierStore.setStopLoop(true)
 })
 </script>
 
@@ -891,25 +951,45 @@ onMounted(async () => {
                 <span
                   class="w-8px h-8px border-rd-50% mr-8px"
                   :class="
-                    runningTag
-                      ? 'bg-[var(--el-color-success)] shadow-[0_0_6px_var(--el-color-success)] animate-pulse'
-                      : 'bg-[var(--el-color-info)]'
+                    isLoading
+                      ? 'bg-[var(--el-color-warning)] shadow-[0_0_6px_var(--el-color-warning)] animate-pulse'
+                      : runningTag
+                        ? 'bg-[var(--el-color-success)] shadow-[0_0_6px_var(--el-color-success)] animate-pulse'
+                        : 'bg-[var(--el-color-info)]'
                   "
                 ></span>
                 <span
                   class="text-13px font-600 select-none"
                   :class="
-                    runningTag ? 'text-[var(--el-color-success)]' : 'text-[var(--el-color-info)]'
+                    isLoading
+                      ? 'text-[var(--el-color-warning)]'
+                      : runningTag
+                        ? 'text-[var(--el-color-success)]'
+                        : 'text-[var(--el-color-info)]'
                   "
                 >
-                  {{ runningTag ? t('easytier.running') : t('easytier.stopping') }}
+                  {{
+                    isLoading
+                      ? '加载中...'
+                      : runningTag
+                        ? t('easytier.running')
+                        : t('easytier.stopping')
+                  }}
                 </span>
               </div>
             </div>
-            <el-button type="success" @click="startAction" :disabled="runningTag || runningTag2">
+            <el-button
+              type="success"
+              @click="startAction"
+              :disabled="runningTag || isStarting || isInitializing"
+            >
               {{ t('easytier.run') }}
             </el-button>
-            <el-button type="danger" @click="stopAction" :disabled="!runningTag && !runningTag2">
+            <el-button
+              type="danger"
+              @click="stopAction"
+              :disabled="!runningTag || isStarting || isInitializing"
+            >
               {{ t('easytier.stop') }}
             </el-button>
             <el-button type="info" plain @click="viewLogAction">

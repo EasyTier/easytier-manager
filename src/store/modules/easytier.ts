@@ -63,6 +63,10 @@ export const useEasyTierStore = defineStore(
     const defaultServiceInstallMethod = ref<'nssm' | 'official'>('nssm')
     // 默认开机自启动
     const defaultEnableAutostart = ref(true)
+    // 缓存的节点信息（页面切换时保留，避免重新轮询）
+    const cachedNodeInfo = ref<any>({})
+    // 缓存的 peer 信息（页面切换时保留，避免重新轮询）
+    const cachedPeerInfo = ref<PeerInfo[]>([])
     const setConfigList = (list) => {
       configList.value = list
     }
@@ -364,6 +368,8 @@ export const useEasyTierStore = defineStore(
       selectedColumns,
       defaultServiceInstallMethod,
       defaultEnableAutostart,
+      cachedNodeInfo,
+      cachedPeerInfo,
       setConfigList,
       setConfigWebList,
       setFileList,

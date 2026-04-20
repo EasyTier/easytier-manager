@@ -494,7 +494,7 @@ onMounted(async () => {
         </template>
         <div class="flex flex-col gap-15px">
           <div class="text-13px text-[var(--el-text-color-secondary)] leading-22px">
-            <p>1. 选择或输入官方内核仓库的版本 (如: v2.1.1)</p>
+            <p>1. 选择或输入官方内核仓库的版本 (如: {{ verSelect ? verSelect : 'v2.6.0' }})</p>
             <p>2. 加速链接为空时使用内置源，下载视网络情况而定</p>
             <p>3. 下载完成后点击安装，安装成功后检测内核是否存在</p>
           </div>

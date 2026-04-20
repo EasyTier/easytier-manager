@@ -20,7 +20,8 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
         name: 'UserIndex',
         meta: {
           title: t('router.workplace'),
-          icon: 'la:network-wired'
+          icon: 'la:network-wired',
+          noCache: false
         }
       }
     ]
