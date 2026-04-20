@@ -732,6 +732,7 @@ export default {
     enable_quic_proxy: '启用 QUIC 代理',
     foreign_relay_bps_limit: '外部中继带宽限制',
     p2p_only: '仅 P2P 模式',
-    tld_dns_zone: 'TLD DNS 区域'
+    tld_dns_zone: 'TLD DNS 区域',
+    clear_log_on_run: '运行前清空日志'
   }
 }

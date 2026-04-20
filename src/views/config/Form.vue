@@ -418,8 +418,8 @@
           </el-form-item>
         </el-col>
       </el-row>
-      <el-row>
-        <el-col :md="12" :sm="12" :xs="12">
+      <el-row class="action-row">
+        <div style="flex: 2; min-width: 0; padding-right: 8px">
           <el-form-item prop="exit_nodes">
             <template #label>
               {{ t('easytier.exit_nodes') }}
@@ -443,9 +443,9 @@
               />
             </el-select>
           </el-form-item>
-        </el-col>
-        <el-col :md="12" :sm="12" :xs="12">
-          <el-form-item prop="config_exit_nodes_route">
+        </div>
+        <div style="flex: 1; min-width: 0; padding-right: 8px">
+          <el-form-item prop="config_exit_nodes_route" label-width="auto">
             <template #label>
               {{ t('easytier.config_exit_nodes_route') }}
               <el-tooltip
@@ -458,7 +458,22 @@
             </template>
             <el-switch v-model="localFormData.config_exit_nodes_route" />
           </el-form-item>
-        </el-col>
+        </div>
+        <div style="flex: 1; min-width: 0">
+          <el-form-item prop="clear_log_on_run" label-width="auto">
+            <template #label>
+              {{ t('easytier.clear_log_on_run') }}
+              <el-tooltip
+                trigger="hover"
+                content="每次启动该配置前，自动清空对应的日志文件"
+                placement="top"
+              >
+                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.clear_log_on_run" />
+          </el-form-item>
+        </div>
       </el-row>
       <el-row>
         <el-col :span="12">
@@ -1780,7 +1795,22 @@ defineExpose({
 .form {
   height: calc(100vh - 250px);
   padding: 10px;
-  overflow-y: auto;
+  overflow: hidden auto;
+}
+
+/* 修复三列布局换行和对齐问题 */
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.action-row > .el-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.action-row .el-form-item {
+  margin-right: 8px;
 }
 
 .stun-select-wrapper {

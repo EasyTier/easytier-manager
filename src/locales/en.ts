@@ -727,6 +727,7 @@ export default {
     enable_quic_proxy: 'Enable QUIC Proxy',
     foreign_relay_bps_limit: 'Foreign Relay Bandwidth Limit',
     p2p_only: 'P2P Only Mode',
-    tld_dns_zone: 'TLD DNS Zone'
+    tld_dns_zone: 'TLD DNS Zone',
+    clear_log_on_run: 'Clear log before run'
   }
 }

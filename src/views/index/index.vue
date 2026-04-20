@@ -36,7 +36,7 @@ const trayStore = useTrayStore()
 const logDialogVisible = ref(false)
 const descriptionCollapse = ref(false)
 const isStarting = ref(false)
-const isInitializing = ref(true)
+const isInitializing = ref(false)
 const logData = ref('')
 const disabledAutoMetricAdapter = ref<string | null>(null)
 const MonacoEditRef = ref()
@@ -597,6 +597,11 @@ const startAction = async () => {
   isStarting.value = true
   try {
     const currentConfig = await getCurrentConfig()
+    // 如果配置了运行前清空日志，则清空当前配置的日志文件
+    if (currentConfig?.clear_log_on_run) {
+      await clearETLogs(currentNodeKey.value.configFileName)
+      info(`已清空日志: ${currentNodeKey.value.configFileName}`)
+    }
     if (currentConfig?.config_exit_nodes_route) {
       ElNotification({
         title: '开始运行',
@@ -824,7 +829,6 @@ const selectedColumnsChange = (val) => {
   easyTierStore.setSelectedColumns(val)
 }
 onMounted(async () => {
-  isInitializing.value = true
   try {
     // 1. 先检查是否为冷启动
     const isColdStart = await invoke<boolean>('check_cold_start')
@@ -844,7 +848,6 @@ onMounted(async () => {
     }
 
     if (!configName) {
-      isInitializing.value = false
       return
     }
 
@@ -854,9 +857,6 @@ onMounted(async () => {
     // 检查是否正在运行，保持 UI 运行态同步
     const res = await updateRunningList()
     const isRunning = res.some((item) => item.fileName === currentNodeKey.value.fileName)
-
-    // 初始化完成，UI 可以展示实际状态
-    isInitializing.value = false
 
     if (isRunning) {
       easyTierStore.setStopLoop(false)
@@ -878,7 +878,6 @@ onMounted(async () => {
       easyTierStore.cachedPeerInfo = []
     }
   } catch (e) {
-    isInitializing.value = false
     error(`初始化异常:${String(e)}`)
   }
 })

@@ -86,6 +86,7 @@ interface EasyTierConfig {
   exit_nodes: string[]
   external_node?: string // 外部节点
   config_exit_nodes_route: boolean
+  clear_log_on_run?: boolean
   peer: PeerConfig[]
   proxy_network: NetworkConfig[]
   file_logger: FileLoggerConfig
