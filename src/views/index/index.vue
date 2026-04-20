@@ -1248,13 +1248,13 @@ onDeactivated(() => {
         </el-form-item>
         <el-form-item label="端口号">
           <el-input v-model="telnetPort" placeholder="请输入端口号" />
-          <div style=" display: flex;margin-top: 8px; gap: 8px; flex-wrap: wrap">
+          <div style="display: flex; margin-top: 8px; gap: 8px; flex-wrap: wrap">
             <el-button size="small" @click="setQuickPort('22')">22 (SSH)</el-button>
             <el-button size="small" @click="setQuickPort('80')">80 (HTTP)</el-button>
             <el-button size="small" @click="setQuickPort('443')">443 (HTTPS)</el-button>
             <el-button size="small" @click="setQuickPort('3389')">3389 (RDP)</el-button>
             <el-button size="small" @click="setQuickPort('3306')">3306 (MySQL)</el-button>
-            <el-button size="small" @click="setQuickPort('8080')">8080 (Proxy)</el-button>
+            <el-button size="small" @click="setQuickPort('8080')">8080 (Web)</el-button>
           </div>
         </el-form-item>
       </el-form>
