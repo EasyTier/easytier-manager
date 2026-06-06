@@ -14,6 +14,7 @@ import {
   executeCmd,
   getRunningProcesses,
   killProcess,
+  replaceLastWithZero,
   runEasyTierCli,
   runEasyTierCore,
   safeJsonParse
@@ -288,6 +289,18 @@ const setExitRoute = async (val) => {
         publicIps &&
         (await checkRouteOnWindows(localNode.ipv4))
       ) {
+        let exitRouteExists = false
+        for (let i = 0; i < 10; i++) {
+          if (await checkRouteOnWindows(replaceLastWithZero(exitNodeIp))) {
+            exitRouteExists = true
+            break
+          }
+          await sleep(2000)
+        }
+        if (!exitRouteExists) {
+          easyTierStore.stopSetRoute = true
+          return
+        }
         await addRouteSeq('change', '0.0.0.0', '0.0.0.0', gateway, 30)
         // 按顺序依次添加路由，之间不跳过
         for (const publicIp of publicIps) {

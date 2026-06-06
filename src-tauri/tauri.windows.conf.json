@@ -11,15 +11,7 @@
       "nsis": {
         "displayLanguageSelector": true,
         "installMode": "perMachine",
-        "languages": [
-          "SimpChinese",
-          "English"
-        ]
-      },
-      "wix": {
-        "language": [
-          "zh-CN"
-        ]
+        "languages": ["SimpChinese", "English"]
       }
     }
   }

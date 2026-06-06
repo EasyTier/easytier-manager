@@ -964,6 +964,9 @@ export const detectServiceInstallMethod = async (
   return 'none'
 }
 
+export const replaceLastWithZero = (ip: string) => {
+  return ip.substring(0, ip.lastIndexOf('.') + 1) + '0'
+}
 /**
  * Windows 检测路由是否存在
  * @param ip

@@ -71,7 +71,9 @@
                 content="机器 ID，用于 Web 配置服务器识别机器，断线重连后恢复配置。默认从系统获取。"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input
@@ -109,7 +111,9 @@
             <template #label>
               {{ t('easytier.peers') }}
               <el-tooltip trigger="hover" content="支持手动输入" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select
@@ -160,7 +164,9 @@
             <template #label>
               {{ t('easytier.listeners') }}
               <el-tooltip trigger="hover" content="支持手动输入" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select
@@ -191,7 +197,9 @@
                 content="手动指定监听器的公网地址，其他节点可以使用该地址连接到本节点。例如：tcp://123.123.123.123:11223，可以指定多个"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select
@@ -218,7 +226,9 @@
             <template #label>
               {{ t('easytier.proxy_network') }}
               <el-tooltip trigger="hover" content="支持手动输入" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select
@@ -250,7 +260,9 @@
                 content="路由，将流量路由到指定的网络。例如：10.0.0.0/8,192.168.0.0/16"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="localFormData.routes" type="text" clearable />
@@ -267,7 +279,9 @@
                 content="WireGuard客户端CIDR，例如：10.14.14.0/24"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="vpnPortalConfig.client_cidr" type="text" clearable />
@@ -282,7 +296,9 @@
                 content="WireGuard监听地址，例如：0.0.0.0:11010"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="vpnWireguardListen" type="text" clearable />
@@ -299,7 +315,9 @@
                 content="IPv4 STUN 服务器列表，用于 NAT 穿透。支持手动输入，多个服务器。"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <div class="stun-select-wrapper">
@@ -342,7 +360,9 @@
                 content="IPv6 STUN 服务器列表，用于 IPv6 NAT 穿透。"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select
@@ -374,7 +394,9 @@
                 content="RPC 门户白名单，限制哪些 IP 可以访问 RPC 接口。支持 IP 和 CIDR。例如：127.0.0.1,127.0.0.0/8"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select
@@ -406,7 +428,9 @@
                 content="SOCKS5 代理地址。例如：socks5://0.0.0.0:1080"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input
@@ -424,7 +448,9 @@
             <template #label>
               {{ t('easytier.exit_nodes') }}
               <el-tooltip trigger="hover" content="支持手动输入" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select
@@ -453,7 +479,9 @@
                 content="自动设置出口路由，如果断网，请关闭"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.config_exit_nodes_route" />
@@ -468,7 +496,9 @@
                 content="每次启动该配置前，自动清空对应的日志文件"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.clear_log_on_run" />
@@ -485,7 +515,9 @@
                 content="使用不同的 RPC 端口，可以在首页实时查看节点信息"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="localFormData.rpc_portal" type="text" clearable />
@@ -539,7 +571,9 @@
                 content="单个日志文件大小，单位 MB，默认值为 100MB"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input-number
@@ -556,7 +590,9 @@
             <template #label>
               {{ t('easytier.file_log_count') }}
               <el-tooltip trigger="hover" content="最大日志文件数量，默认值为 10" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input-number
@@ -581,7 +617,9 @@
             <template #label>
               {{ t('easytier.default_protocol') }}
               <el-tooltip trigger="hover" content="连接到对等节点时使用的默认协议" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select v-model="localFormData.flags.default_protocol" clearable>
@@ -599,7 +637,9 @@
             <template #label>
               {{ t('easytier.dev_name') }}
               <el-tooltip trigger="hover" content="TUN接口名称，为空则随机生成" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input
@@ -622,7 +662,9 @@
                 content="延迟优先模式，将尝试使用最低延迟路径转发流量，关闭则使用最短路径"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.latency_first" />
@@ -663,7 +705,9 @@
                 content="选择加密算法：aes-gcm（默认）、aes-256-gcm、xor（最快）、chacha20"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-select
@@ -696,7 +740,9 @@
                 content="TUN 设备的 MTU 值。默认：非加密 1380，加密 1360"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input-number
@@ -724,7 +770,9 @@
                 content="多线程模式下使用的线程数，默认为 2。需要先启用多线程模式。"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input-number
@@ -747,7 +795,9 @@
                 content="将连接器的套接字绑定到物理设备以避免路由问题。比如子网代理网段与某节点的网段冲突，绑定物理设备后可以与该节点正常通信"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.bind_device" />
@@ -758,7 +808,9 @@
             <template #label>
               {{ t('easytier.disable_tcp_hole_punching') }}
               <el-tooltip trigger="hover" content="禁用 TCP 打洞功能" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.disable_tcp_hole_punching" />
@@ -775,7 +827,9 @@
                 content="启用KCP代理，提高在 UDP 丢包网络上的延迟和吞吐量"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.enable_kcp_proxy" />
@@ -790,7 +844,9 @@
                 content="不允许其他节点使用 KCP 代理 TCP 流到此节点。开启 KCP 代理的节点访问此节点时，依然使用原始 TCP 连接"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.disable_kcp_input" />
@@ -807,7 +863,9 @@
                 content="启用 QUIC 协议代理，提供更好的性能和连接质量"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.enable_quic_proxy" />
@@ -822,7 +880,9 @@
                 content="禁用基于生日攻击的对称 NAT (NAT4) UDP 打洞功能。该功能可能被运营商封锁。"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.disable_sym_hole_punching" />
@@ -839,7 +899,9 @@
                 content="no-tun,不创建TUN设备，可以使用子网代理访问节点"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.no_tun" />
@@ -854,7 +916,9 @@
                 content="use-smoltcp,为子网代理启用smoltcp堆栈"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.use_smoltcp" />
@@ -871,7 +935,9 @@
                 content="disable-p2p,禁用P2P通信，只通过--peers指定的节点转发数据包"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.disable_p2p" />
@@ -886,7 +952,9 @@
                 content="disable-udp-hole-punching,禁用UDP打洞功能"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.disable_udp_hole_punching" />
@@ -903,7 +971,9 @@
                 content="仅使用 P2P 直连模式，不使用中继节点。可能导致部分节点无法连接。"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.p2p_only" />
@@ -914,7 +984,9 @@
             <template #label>
               {{ t('easytier.disable_ipv6') }}
               <el-tooltip trigger="hover" content="完全禁用 IPv6 功能" placement="top">
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.disable_ipv6" />
@@ -936,7 +1008,9 @@
                 content="relay-all-peer-rpc,转发所有对等节点的RPC数据包，即使对等节点不在转发网络白名单中。这可以帮助白名单外网络中的对等节点建立P2P连接"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.relay_all_peer_rpc" />
@@ -953,7 +1027,9 @@
                 content="使用魔法DNS，您可以使用域名访问其他节点，例如：<hostname>.et.net。魔法DNS将修改您的系统DNS设置，请谨慎启用。 [env:ET_ACCEPT_DNS=] [possible values: true, false]"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.accept_dns" />
@@ -968,7 +1044,9 @@
                 content="如果为true，则不允许使用了与本网络不相同的网络名称和密码的节点通过本节点进行握手或中转 [env: ET_PRIVATE_MODE=] [possible values: true, false]"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.private_mode" />
@@ -983,7 +1061,9 @@
                 content="proxy-forward-by-system,通过系统路由转发代理流量，而不是通过smoltcp。这可以提高性能，但需要管理员权限。 [env: ET_PROXY_FORWARD_BY_SYSTEM=] [possible values: true, false]"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.proxy_forward_by_system" />
@@ -1001,7 +1081,9 @@
                     中继网络白名单，允许中继流量到这些网络。例如：10.0.0.0/8,192.168.0.0/16</div
                   >
                 </template>
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="localFormData.flags.relay_network_whitelist" type="text" clearable />
@@ -1018,7 +1100,9 @@
                 content="外部中继带宽限制（字节/秒）。限制通过本节点中继的外部网络流量带宽。"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input-number
@@ -1041,7 +1125,9 @@
                 content="IPv6监听器，用于监听IPv6地址。例如：[::]:11010"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="localFormData.flags.ipv6_listener" type="text" clearable />
@@ -1058,7 +1144,9 @@
                 content="SOCKS5代理，用于代理TCP流量。例如：127.0.0.1:1080"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="localFormData.flags.socks5" type="text" clearable />
@@ -1075,7 +1163,9 @@
                 content="自定义顶级域名 DNS 区域。例如：net.et"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input
@@ -1097,7 +1187,9 @@
                 content="TCP port whitelist. Supports single ports (80) and ranges (8000-9000) 2.4以上版本支持"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="localFormData.tcp_whitelist" type="text" clearable />
@@ -1112,7 +1204,9 @@
                 content="UDP port whitelist. Supports single ports (53) and ranges (5000-6000) 2.4以上版本支持"
                 placement="top"
               >
-                <el-icon class="label-info-icon"><InfoFilled /></el-icon>
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
             </template>
             <el-input v-model="localFormData.udp_whitelist" type="text" clearable />
@@ -1337,6 +1431,10 @@ const listenersOptions = reactive([
     label: 'faketcp://0.0.0.0:11013'
   },
   {
+    value: 'quic://0.0.0.0:11014',
+    label: 'quic://0.0.0.0:11014'
+  },
+  {
     value: 'tcp://[::]:11010',
     label: 'tcp://[::]:11010'
   },
@@ -1437,6 +1535,26 @@ const flags_default_protocolOptions = reactive([
   {
     label: 'faketcp',
     value: 'faketcp'
+  },
+  {
+    label: 'http',
+    value: 'http'
+  },
+  {
+    label: 'https',
+    value: 'https'
+  },
+  {
+    label: 'quic',
+    value: 'quic'
+  },
+  {
+    label: 'txt',
+    value: 'txt'
+  },
+  {
+    label: 'srv',
+    value: 'srv'
   },
   {
     label: 'wg',
