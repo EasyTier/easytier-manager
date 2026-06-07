@@ -19,6 +19,8 @@ interface FileLogger {
   level?: string | undefined
   file?: string | undefined | null
   dir?: string | undefined | null
+  size?: number | undefined
+  count?: number | undefined
 }
 
 interface Flags {
@@ -48,11 +50,26 @@ interface Flags {
   disable_kcp_input: boolean
   enable_kcp_proxy: boolean
   enable_quic_proxy?: boolean | undefined // 启用 QUIC 代理
+  disable_quic_input?: boolean | undefined // 禁用 QUIC 输入
   accept_dns: boolean
   private_mode: boolean
   proxy_forward_by_system: boolean
   foreign_relay_bps_limit?: number | undefined // 外部中继带宽限制
+  instance_recv_bps_limit?: number | undefined // 实例入站带宽限制
   p2p_only?: boolean | undefined // 仅 P2P
+  lazy_p2p?: boolean | undefined // 按需建立 P2P
+  need_p2p?: boolean | undefined // 声明需要主动 P2P
+  disable_upnp?: boolean | undefined // 禁用 UPnP/NAT-PMP 映射
+  no_listener?: boolean | undefined // 不监听任何端口
+  ipv6_public_addr_provider?: boolean | undefined // 共享公网 IPv6 子网
+  ipv6_public_addr_auto?: boolean | undefined // 自动获取公网 IPv6 地址
+  ipv6_public_addr_prefix?: string | undefined // 手动指定公网 IPv6 子网
+  enable_udp_broadcast_relay?: boolean | undefined // 启用 UDP 广播中继
+  secure_mode?: boolean | undefined // 启用安全模式
+  disable_relay_kcp?: boolean | undefined // 禁止转发 KCP 数据包
+  disable_relay_quic?: boolean | undefined // 禁止转发 QUIC 数据包
+  enable_relay_foreign_network_kcp?: boolean | undefined // 允许转发外部网络 KCP
+  enable_relay_foreign_network_quic?: boolean | undefined // 允许转发外部网络 QUIC
   tld_dns_zone?: string | undefined // TLD DNS 区域
 }
 
@@ -75,6 +92,10 @@ export interface EasyTierFormData {
   rpc_portal: string
   rpc_portal_whitelist?: string[] | undefined // RPC 门户白名单
   socks5_proxy?: string | undefined // SOCKS5 代理（顶层）
+  local_private_key?: string | undefined // 安全模式本地私钥
+  local_public_key?: string | undefined // 安全模式本地公钥
+  credential?: string | undefined // 临时入网凭据
+  credential_file?: string | undefined // 凭据存储文件路径
   tcp_whitelist?: string | undefined // TCP 白名单
   udp_whitelist?: string | undefined // UDP 白名单
   stun_servers?: string[] | undefined // STUN 服务器列表

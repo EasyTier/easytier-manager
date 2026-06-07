@@ -66,8 +66,23 @@ interface Flags {
   disable_ipv6?: boolean // 禁用 IPv6
   enable_kcp_proxy?: boolean // 启用 KCP 代理
   enable_quic_proxy?: boolean // 启用 QUIC 代理
+  disable_quic_input?: boolean // 禁用 QUIC 输入
   foreign_relay_bps_limit?: number // 外部中继带宽限制
+  instance_recv_bps_limit?: number // 实例入站带宽限制
   p2p_only?: boolean // 仅 P2P
+  lazy_p2p?: boolean // 按需建立 P2P
+  need_p2p?: boolean // 声明需要主动 P2P
+  disable_upnp?: boolean // 禁用 UPnP/NAT-PMP 映射
+  no_listener?: boolean // 不监听任何端口
+  ipv6_public_addr_provider?: boolean // 共享公网 IPv6 子网
+  ipv6_public_addr_auto?: boolean // 自动获取公网 IPv6 地址
+  ipv6_public_addr_prefix?: string // 手动指定公网 IPv6 子网
+  enable_udp_broadcast_relay?: boolean // 启用 UDP 广播中继
+  secure_mode?: boolean // 启用安全模式
+  disable_relay_kcp?: boolean // 禁止转发 KCP 数据包
+  disable_relay_quic?: boolean // 禁止转发 QUIC 数据包
+  enable_relay_foreign_network_kcp?: boolean // 允许转发外部网络 KCP
+  enable_relay_foreign_network_quic?: boolean // 允许转发外部网络 QUIC
   tld_dns_zone?: string // TLD DNS 区域
   ipv6_listener: string
 }
@@ -96,6 +111,10 @@ interface EasyTierConfig {
   vpn_portal_config: VpnPortalConfig
   routes: string[]
   socks5_proxy: string
+  local_private_key?: string // 安全模式本地私钥
+  local_public_key?: string // 安全模式本地公钥
+  credential?: string // 临时入网凭据
+  credential_file?: string // 凭据存储文件路径
   tcp_whitelist?: string // TCP 白名单
   udp_whitelist?: string // UDP 白名单
   stun_server: string[] // STUN 服务器列表（保留兼容）

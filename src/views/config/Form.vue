@@ -140,7 +140,7 @@
           </el-form-item>
         </el-col>
       </el-row>
-      <!-- <el-row>
+      <el-row>
         <el-col :md="24" :sm="24" :xs="24">
           <el-tooltip
             trigger="hover"
@@ -157,7 +157,7 @@
             </el-form-item>
           </el-tooltip>
         </el-col>
-      </el-row> -->
+      </el-row>
       <el-row>
         <el-col :md="24" :sm="12" :xs="12">
           <el-form-item prop="listeners">
@@ -184,6 +184,25 @@
                 :value="item.value"
               />
             </el-select>
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="flags.no_listener">
+            <template #label>
+              {{ t('easytier.no_listener') }}
+              <el-tooltip
+                trigger="hover"
+                content="不监听任何端口，只主动连接到对等节点"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.no_listener" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -550,6 +569,20 @@
         </el-col>
       </el-row>
       <el-row>
+        <el-col :span="12">
+          <el-form-item :label="t('easytier.console_log_level')" prop="console_logger.level">
+            <el-select v-model="localFormData.console_logger.level" clearable>
+              <el-option
+                v-for="(item, index) in file_logger_levelOptions"
+                :key="index"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
         <el-col :md="24" :sm="12" :xs="12">
           <el-form-item :label="t('easytier.file_log_dir')" prop="file_logger.dir">
             <el-input
@@ -871,6 +904,25 @@
             <el-switch v-model="localFormData.flags.enable_quic_proxy" />
           </el-form-item>
         </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="flags.disable_quic_input">
+            <template #label>
+              {{ t('easytier.disable_quic_input') }}
+              <el-tooltip
+                trigger="hover"
+                content="不允许其他节点使用 QUIC 代理 TCP 流到此节点"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.disable_quic_input" />
+          </el-form-item>
+        </el-col>
         <el-col :span="12">
           <el-form-item prop="flags.disable_sym_hole_punching">
             <template #label>
@@ -980,6 +1032,61 @@
           </el-form-item>
         </el-col>
         <el-col :span="12">
+          <el-form-item prop="flags.lazy_p2p">
+            <template #label>
+              {{ t('easytier.lazy_p2p') }}
+              <el-tooltip
+                trigger="hover"
+                content="仅在实际流量需要某个对等节点时才尝试建立 P2P"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.lazy_p2p" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="flags.need_p2p">
+            <template #label>
+              {{ t('easytier.need_p2p') }}
+              <el-tooltip
+                trigger="hover"
+                content="声明即使其他节点启用按需 P2P，也应主动与当前节点建立 P2P"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.need_p2p" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item prop="flags.disable_upnp">
+            <template #label>
+              {{ t('easytier.disable_upnp') }}
+              <el-tooltip
+                trigger="hover"
+                content="禁用监听器运行时 UPnP/NAT-PMP 自动端口映射"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.disable_upnp" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
           <el-form-item prop="flags.disable_ipv6">
             <template #label>
               {{ t('easytier.disable_ipv6') }}
@@ -1052,6 +1159,25 @@
             <el-switch v-model="localFormData.flags.private_mode" />
           </el-form-item>
         </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="flags.secure_mode">
+            <template #label>
+              {{ t('easytier.secure_mode') }}
+              <el-tooltip
+                trigger="hover"
+                content="启用安全模式，安全密钥和凭据字段仅在该模式下使用"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.secure_mode" />
+          </el-form-item>
+        </el-col>
         <el-col :span="12">
           <el-form-item prop="flags.proxy_forward_by_system">
             <template #label>
@@ -1067,6 +1193,88 @@
               </el-tooltip>
             </template>
             <el-switch v-model="localFormData.flags.proxy_forward_by_system" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="local_private_key">
+            <template #label>
+              {{ t('easytier.local_private_key') }}
+              <el-tooltip
+                trigger="hover"
+                content="安全模式下的本地私钥；留空时由内核随机生成"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-input
+              v-model="localFormData.local_private_key"
+              type="password"
+              :show-password="true"
+              clearable
+            />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item prop="local_public_key">
+            <template #label>
+              {{ t('easytier.local_public_key') }}
+              <el-tooltip
+                trigger="hover"
+                content="安全模式下的本地公钥；留空时可由私钥派生或由内核生成"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-input v-model="localFormData.local_public_key" type="text" clearable />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="credential">
+            <template #label>
+              {{ t('easytier.credential') }}
+              <el-tooltip
+                trigger="hover"
+                content="凭据密钥，用于临时节点加入网络，无需 network_secret"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-input
+              v-model="localFormData.credential"
+              type="password"
+              :show-password="true"
+              clearable
+            />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item prop="credential_file">
+            <template #label>
+              {{ t('easytier.credential_file') }}
+              <el-tooltip
+                trigger="hover"
+                content="凭据存储文件路径，用于管理节点重启后保留已生成的凭据"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-input v-model="localFormData.credential_file" type="text" clearable />
           </el-form-item>
         </el-col>
       </el-row>
@@ -1117,6 +1325,103 @@
       </el-row>
       <el-row>
         <el-col :span="24">
+          <el-form-item prop="flags.instance_recv_bps_limit">
+            <template #label>
+              {{ t('easytier.instance_recv_bps_limit') }}
+              <el-tooltip
+                trigger="hover"
+                content="限制当前网络实例整体入站流量的总接收速率，单位 BPS，0 表示不限制"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-input-number
+              v-model="localFormData.flags.instance_recv_bps_limit"
+              :min="0"
+              :step="10240"
+              placeholder="字节/秒，0 表示不限制"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="flags.disable_relay_kcp">
+            <template #label>
+              {{ t('easytier.disable_relay_kcp') }}
+              <el-tooltip
+                trigger="hover"
+                content="禁止节点转发 KCP 数据包，防止过度消耗流量"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.disable_relay_kcp" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item prop="flags.disable_relay_quic">
+            <template #label>
+              {{ t('easytier.disable_relay_quic') }}
+              <el-tooltip
+                trigger="hover"
+                content="禁止节点转发 QUIC 数据包，防止过度消耗流量"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.disable_relay_quic" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="flags.enable_relay_foreign_network_kcp">
+            <template #label>
+              {{ t('easytier.enable_relay_foreign_network_kcp') }}
+              <el-tooltip
+                trigger="hover"
+                content="作为共享节点时也允许转发其他网络的 KCP 数据包"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.enable_relay_foreign_network_kcp" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item prop="flags.enable_relay_foreign_network_quic">
+            <template #label>
+              {{ t('easytier.enable_relay_foreign_network_quic') }}
+              <el-tooltip
+                trigger="hover"
+                content="作为共享节点时也允许转发其他网络的 QUIC 数据包"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.enable_relay_foreign_network_quic" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="24">
           <el-form-item prop="flags.ipv6_listener">
             <template #label>
               {{ t('easytier.ipv6_listener') }}
@@ -1131,6 +1436,83 @@
               </el-tooltip>
             </template>
             <el-input v-model="localFormData.flags.ipv6_listener" type="text" clearable />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="flags.ipv6_public_addr_provider">
+            <template #label>
+              {{ t('easytier.ipv6_public_addr_provider') }}
+              <el-tooltip
+                trigger="hover"
+                content="将本节点的公网 IPv6 子网共享给其他节点，仅 Linux 支持"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.ipv6_public_addr_provider" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item prop="flags.ipv6_public_addr_auto">
+            <template #label>
+              {{ t('easytier.ipv6_public_addr_auto') }}
+              <el-tooltip
+                trigger="hover"
+                content="自动从共享 IPv6 子网的对等节点获取公网 IPv6 地址"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.ipv6_public_addr_auto" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="12">
+          <el-form-item prop="flags.ipv6_public_addr_prefix">
+            <template #label>
+              {{ t('easytier.ipv6_public_addr_prefix') }}
+              <el-tooltip
+                trigger="hover"
+                content="手动指定要共享的公网 IPv6 子网，不从系统路由自动检测"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-input
+              v-model="localFormData.flags.ipv6_public_addr_prefix"
+              type="text"
+              placeholder="2001:db8:abcd::/64"
+              clearable
+            />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item prop="flags.enable_udp_broadcast_relay">
+            <template #label>
+              {{ t('easytier.enable_udp_broadcast_relay') }}
+              <el-tooltip
+                trigger="hover"
+                content="仅 Windows：转发物理网卡上的 UDP 广播包，帮助局域网游戏发现房间"
+                placement="top"
+              >
+                <el-icon class="label-info-icon">
+                  <InfoFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-switch v-model="localFormData.flags.enable_udp_broadcast_relay" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -1680,6 +2062,46 @@ watch(
   }
 )
 watch(
+  () => localFormData.value.external_node,
+  (value) => {
+    if (value === '') {
+      localFormData.value.external_node = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.local_private_key,
+  (value) => {
+    if (value === '') {
+      localFormData.value.local_private_key = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.local_public_key,
+  (value) => {
+    if (value === '') {
+      localFormData.value.local_public_key = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.credential,
+  (value) => {
+    if (value === '') {
+      localFormData.value.credential = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.credential_file,
+  (value) => {
+    if (value === '') {
+      localFormData.value.credential_file = undefined
+    }
+  }
+)
+watch(
   () => localFormData.value.stun_servers,
   (value) => {
     if (!value || value.length === 0 || value === '') {
@@ -1793,6 +2215,14 @@ watch(
   (value) => {
     if (value === '') {
       localFormData.value.flags.ipv6_listener = undefined
+    }
+  }
+)
+watch(
+  () => localFormData.value.flags.ipv6_public_addr_prefix,
+  (value) => {
+    if (value === '') {
+      localFormData.value.flags.ipv6_public_addr_prefix = undefined
     }
   }
 )

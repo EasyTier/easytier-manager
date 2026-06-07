@@ -21,6 +21,10 @@ const defaultFormData: EasyTierFormData | any = {
   rpc_portal: '0.0.0.0:15888',
   rpc_portal_whitelist: undefined, // RPC 白名单
   socks5_proxy: undefined, // SOCKS5 代理（顶层）
+  local_private_key: undefined, // 安全模式本地私钥
+  local_public_key: undefined, // 安全模式本地公钥
+  credential: undefined, // 临时入网凭据
+  credential_file: undefined, // 凭据存储文件路径
   tcp_whitelist: [],
   udp_whitelist: [],
   stun_servers: undefined, // STUN 服务器列表
@@ -66,11 +70,26 @@ const defaultFormData: EasyTierFormData | any = {
     disable_kcp_input: false,
     enable_kcp_proxy: false,
     enable_quic_proxy: undefined, // 启用 QUIC 代理
+    disable_quic_input: undefined, // 禁用 QUIC 输入
     accept_dns: false,
     private_mode: false,
     proxy_forward_by_system: false,
     foreign_relay_bps_limit: undefined, // 外部中继带宽限制
+    instance_recv_bps_limit: undefined, // 实例入站带宽限制
     p2p_only: undefined, // 仅 P2P 模式
+    lazy_p2p: undefined, // 按需建立 P2P
+    need_p2p: undefined, // 声明需要主动 P2P
+    disable_upnp: undefined, // 禁用 UPnP/NAT-PMP 映射
+    no_listener: undefined, // 不监听任何端口
+    ipv6_public_addr_provider: undefined, // 共享公网 IPv6 子网
+    ipv6_public_addr_auto: undefined, // 自动获取公网 IPv6 地址
+    ipv6_public_addr_prefix: undefined, // 手动指定公网 IPv6 子网
+    enable_udp_broadcast_relay: undefined, // 启用 UDP 广播中继
+    secure_mode: undefined, // 启用安全模式
+    disable_relay_kcp: undefined, // 禁止转发 KCP 数据包
+    disable_relay_quic: undefined, // 禁止转发 QUIC 数据包
+    enable_relay_foreign_network_kcp: undefined, // 允许转发外部网络 KCP
+    enable_relay_foreign_network_quic: undefined, // 允许转发外部网络 QUIC
     tld_dns_zone: undefined // TLD DNS 区域
   }
 }

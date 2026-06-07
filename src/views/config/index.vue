@@ -196,6 +196,34 @@ const checkConfigFileName = async () => {
 const configFileNameChange = async () => {
   formData.value.file_logger.file = configFileName.value
 }
+
+/**
+ * 清理表单新增的可选字段，避免空字符串被写入 TOML 配置。
+ * @param data 当前表单配置数据
+ */
+const cleanupOptionalFormFields = (data: EasyTierFormData) => {
+  const optionalTopLevelFields = [
+    'external_node',
+    'local_private_key',
+    'local_public_key',
+    'credential',
+    'credential_file'
+  ] as const
+
+  optionalTopLevelFields.forEach((field) => {
+    if (data[field] === '') {
+      data[field] = undefined
+    }
+  })
+
+  if (data.flags?.ipv6_public_addr_prefix === '') {
+    data.flags.ipv6_public_addr_prefix = undefined
+  }
+}
+
+/**
+ * 新增配置文件，并在表单模式下保存清理后的 TOML 数据。
+ */
 const addConfigAction = async () => {
   if (await checkConfigFileName()) {
     await ElMessageBox.alert('配置文件名已存在', { type: 'error' })
@@ -265,6 +293,7 @@ const addConfigAction = async () => {
       if (formData.value.flags?.ipv6_listener === '') {
         formData.value.flags.ipv6_listener = undefined
       }
+      cleanupOptionalFormFields(formData.value)
       if (!formData.value.routes || formData.value.routes.length === 0) {
         formData.value.routes = undefined
       }
@@ -328,6 +357,10 @@ const addConfigAction = async () => {
   }
   await getConfigList()
 }
+
+/**
+ * 保存已有配置文件，并处理表单模式与编辑器模式的持久化差异。
+ */
 const saveConfigAction = async () => {
   const resourceDirPath = await resourceDir()
   if (editType.value === 'form') {
@@ -397,6 +430,7 @@ const saveConfigAction = async () => {
         if (formData.value.flags?.ipv6_listener === '') {
           formData.value.flags.ipv6_listener = undefined
         }
+        cleanupOptionalFormFields(formData.value)
         if (!formData.value.routes || formData.value.routes.length === 0) {
           formData.value.routes = undefined
         }
