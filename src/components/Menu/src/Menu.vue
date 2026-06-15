@@ -147,9 +147,15 @@ export default defineComponent({
     // 设置子菜单悬停的高亮和背景色
     .@{elNamespace}-sub-menu__title,
     .@{elNamespace}-menu-item {
+      margin: 3px 8px;
+      border-radius: var(--app-control-radius);
+      transition:
+        color var(--transition-time-02),
+        background-color var(--transition-time-02);
+
       &:hover {
         color: var(--left-menu-text-active-color) !important;
-        background-color: var(--left-menu-bg-color) !important;
+        background-color: rgb(255 255 255 / 8%) !important;
       }
     }
 
@@ -157,6 +163,7 @@ export default defineComponent({
     .@{elNamespace}-menu-item.is-active {
       color: var(--left-menu-text-active-color) !important;
       background-color: var(--left-menu-bg-active-color) !important;
+      box-shadow: 0 8px 18px rgb(0 0 0 / 12%);
 
       &:hover {
         background-color: var(--left-menu-bg-active-color) !important;
@@ -172,6 +179,10 @@ export default defineComponent({
       .@{elNamespace}-sub-menu__title,
       .@{elNamespace}-menu-item:not(.is-active) {
         background-color: var(--left-menu-bg-light-color) !important;
+
+        &:hover {
+          background-color: rgb(255 255 255 / 8%) !important;
+        }
       }
     }
   }
@@ -242,9 +253,15 @@ export default defineComponent({
   // 设置子菜单悬停的高亮和背景色
   .el-sub-menu__title,
   .el-menu-item {
+    margin: 3px 8px;
+    border-radius: var(--app-control-radius);
+    transition:
+      color var(--transition-time-02),
+      background-color var(--transition-time-02);
+
     &:hover {
       color: var(--left-menu-text-active-color) !important;
-      background-color: var(--left-menu-bg-color) !important;
+      background-color: rgb(255 255 255 / 8%) !important;
     }
   }
 
@@ -252,6 +269,7 @@ export default defineComponent({
   .el-menu-item.is-active {
     position: relative;
     background-color: var(--left-menu-bg-active-color) !important;
+    box-shadow: 0 8px 18px rgb(0 0 0 / 12%);
 
     &:hover {
       background-color: var(--left-menu-bg-active-color) !important;

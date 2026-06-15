@@ -1,4 +1,4 @@
-import { defineConfig, toEscapedSelector as e, presetUno, presetIcons } from 'unocss'
+import { defineConfig, presetIcons, presetUno, toEscapedSelector as e } from 'unocss'
 import transformerVariantGroup from '@unocss/transformer-variant-group'
 import { loadEnv } from 'vite'
 import { ICON_PREFIX } from './src/constants'
@@ -54,14 +54,21 @@ ${selector} {
 ${selector} {
   display: flex;
   height: 100%;
+  min-width: 38px;
   padding: 1px 10px 0;
+  border-radius: var(--app-control-radius);
   cursor: pointer;
   align-items: center;
-  transition: background var(--transition-time-02);
+  justify-content: center;
+  transition:
+    color var(--transition-time-02),
+    background-color var(--transition-time-02),
+    box-shadow var(--transition-time-02);
 }
 /* you can have multiple rules */
 ${selector}:hover {
   background-color: var(--top-header-hover-color);
+  box-shadow: inset 0 0 0 1px var(--app-border-color);
 }
 .dark ${selector}:hover {
   background-color: var(--el-bg-color-overlay);
@@ -81,7 +88,7 @@ ${selector}:before {
   left: 0;
   width: 1px;
   height: 100%;
-  background-color: var(--el-border-color);
+  background-color: var(--app-border-color);
   z-index: 3;
 }
 `
@@ -99,7 +106,7 @@ ${selector}:after {
   right: 0;
   width: 1px;
   height: 100%;
-  background-color: var(--el-border-color);
+  background-color: var(--app-border-color);
   z-index: 3;
 }
 `
@@ -117,7 +124,7 @@ ${selector}:before {
   left: 0;
   width: 100%;
   height: 1px;
-  background-color: var(--el-border-color);
+  background-color: var(--app-border-color);
   z-index: 3;
 }
 `
@@ -135,7 +142,7 @@ ${selector}:after {
   left: 0;
   width: 100%;
   height: 1px;
-  background-color: var(--el-border-color);
+  background-color: var(--app-border-color);
   z-index: 3;
 }
 `

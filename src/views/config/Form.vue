@@ -276,7 +276,7 @@
               {{ t('easytier.routes') }}
               <el-tooltip
                 trigger="hover"
-                content="路由，将流量路由到指定的网络。例如：10.0.0.0/8,192.168.0.0/16"
+                content="路由，将流量路由到指定的网络。例如：10.0.0.0/8"
                 placement="top"
               >
                 <el-icon class="label-info-icon">
@@ -284,7 +284,24 @@
                 </el-icon>
               </el-tooltip>
             </template>
-            <el-input v-model="localFormData.routes" type="text" clearable />
+            <div class="stun-select-wrapper">
+              <el-select
+                v-model="localFormData.routes"
+                clearable
+                filterable
+                allow-create
+                multiple
+                placeholder="例如：10.0.0.0/8"
+                class="stun-select"
+              >
+                <el-option
+                  v-for="(item, index) in manualRoutes"
+                  :key="index"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -1867,6 +1884,16 @@ const proxy_network_cidrOptions = reactive([
   {
     label: '192.168.31.0/24',
     value: '192.168.31.0/24'
+  }
+])
+const manualRoutes = reactive([
+  {
+    label: '10.0.0.0/8',
+    value: '10.0.0.0/8'
+  },
+  {
+    label: '192.168.0.0/16',
+    value: '192.168.0.0/16'
   }
 ])
 const exit_nodesOptions = reactive([

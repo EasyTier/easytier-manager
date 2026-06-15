@@ -1,7 +1,103 @@
 @import './var.css';
 @import 'element-plus/theme-chalk/dark/css-vars.css';
 
+html,
+body,
+#app {
+  background: var(--app-content-bg-color);
+  color: var(--el-text-color-primary);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizelegibility;
+}
+
 // 解决抽屉弹出时，body宽度变化的问题
 .el-popup-parent--hidden {
   width: 100% !important;
+}
+
+.el-card {
+  border-color: var(--app-border-color) !important;
+  border-radius: var(--app-card-radius) !important;
+  background: var(--app-card-bg-color);
+  box-shadow: var(--app-soft-shadow);
+}
+
+.el-card__header {
+  padding: 12px 14px !important;
+  border-bottom-color: var(--app-border-color) !important;
+}
+
+.el-card__body {
+  padding: 14px !important;
+}
+
+.el-button {
+  border-radius: var(--app-control-radius);
+  transition:
+    color var(--transition-time-02),
+    background-color var(--transition-time-02),
+    border-color var(--transition-time-02),
+    box-shadow var(--transition-time-02);
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner,
+.el-input-group__append,
+.el-input-group__prepend {
+  border-radius: var(--app-control-radius);
+  box-shadow: 0 0 0 1px var(--app-border-color) inset;
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--el-border-color) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+}
+
+.el-table {
+  border-radius: var(--app-card-radius);
+  overflow: hidden;
+
+  th.el-table__cell {
+    background: var(--app-table-header-bg-color) !important;
+    color: var(--el-text-color-primary);
+    font-weight: 600;
+  }
+
+  .el-table__cell {
+    border-bottom-color: var(--app-border-color);
+  }
+
+  .el-table__row:hover > td.el-table__cell {
+    background-color: var(--el-fill-color-lighter) !important;
+  }
+}
+
+.el-dialog {
+  border-radius: var(--app-card-radius);
+  overflow: hidden;
+  box-shadow: 0 18px 48px rgb(15 23 42 / 16%);
+
+  &__header {
+    border-bottom-color: var(--app-border-color) !important;
+  }
+
+  &__footer {
+    border-top-color: var(--app-border-color) !important;
+  }
+}
+
+.el-popover.el-popper,
+.el-dropdown__popper.el-popper {
+  border-color: var(--app-border-color);
+  border-radius: var(--app-card-radius);
+  box-shadow: var(--app-soft-shadow);
 }

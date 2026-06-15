@@ -17,7 +17,7 @@ defineProps({
   <ElCard :class="[prefixCls]" shadow="never">
     <template v-if="title" #header>
       <div class="flex items-center">
-        <span class="text-16px font-700">{{ title }}</span>
+        <span class="text-15px font-600 text-[var(--el-text-color-primary)]">{{ title }}</span>
         <ElTooltip v-if="message" effect="dark" placement="right">
           <template #content>
             <div class="max-w-200px">{{ message }}</div>
@@ -34,3 +34,15 @@ defineProps({
     </div>
   </ElCard>
 </template>
+
+<style lang="less" scoped>
+@prefix-cls: ~'@{adminNamespace}-content-wrap';
+
+.@{prefix-cls} {
+  overflow: hidden;
+
+  :deep(.el-card__header) {
+    background: linear-gradient(180deg, var(--el-fill-color-extra-light), transparent);
+  }
+}
+</style>

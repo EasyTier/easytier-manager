@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // @ts-ignore
 // @ts-nocheck
-import { onMounted, watch, computed, unref, ref, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, ref, unref, watch } from 'vue'
 import type { RouteLocationNormalizedLoaded, RouterLinkProps } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { usePermissionStore } from '@/store/modules/permission'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useAppStore } from '@/store/modules/app'
@@ -489,13 +489,20 @@ watch(
 
   &__tool {
     position: relative;
+    transition:
+      color var(--transition-time-02),
+      background-color var(--transition-time-02);
+
+    &:hover {
+      background: var(--top-header-hover-color);
+    }
 
     &::before {
       position: absolute;
       top: 1px;
       left: 0;
       width: 100%;
-      height: calc(~'100% - 1px');
+      height: calc(100% - 1px);
       border-left: 1px solid var(--el-border-color);
       content: '';
     }
@@ -506,7 +513,7 @@ watch(
         top: 1px;
         left: 0;
         width: 100%;
-        height: calc(~'100% - 1px');
+        height: calc(100% - 1px);
         border-right: 1px solid var(--el-border-color);
         border-left: none;
         content: '';
@@ -517,13 +524,20 @@ watch(
   &__item {
     position: relative;
     top: 3px;
-    height: calc(~'100% - 6px');
+    height: calc(100% - 6px);
     padding-right: 25px;
     margin-left: 4px;
     font-size: 12px;
+    color: var(--el-text-color-regular);
     cursor: pointer;
-    border: 1px solid #d9d9d9;
-    border-radius: 2px;
+    background: var(--el-fill-color-extra-light);
+    border: 1px solid var(--app-border-color);
+    border-radius: var(--app-control-radius);
+    transition:
+      color var(--transition-time-02),
+      background-color var(--transition-time-02),
+      border-color var(--transition-time-02),
+      box-shadow var(--transition-time-02);
 
     &--close {
       position: absolute;
@@ -542,6 +556,8 @@ watch(
   &__item:not(.is-active) {
     &:hover {
       color: var(--el-color-primary);
+      background: var(--el-color-primary-light-9);
+      border-color: var(--el-color-primary-light-7);
     }
   }
 
@@ -549,6 +565,8 @@ watch(
     color: var(--el-color-white);
     background-color: var(--el-color-primary);
     border: 1px solid var(--el-color-primary);
+    box-shadow: 0 6px 14px rgb(15 23 42 / 10%);
+
     .@{prefix-cls}__item--close {
       :deep(svg) {
         color: var(--el-color-white) !important;
@@ -568,7 +586,9 @@ watch(
     }
 
     &__item {
-      border: 1px solid var(--el-border-color);
+      color: var(--el-text-color-regular);
+      background: var(--el-fill-color-light);
+      border: 1px solid var(--app-border-color);
     }
 
     &__item:not(.is-active) {
