@@ -27,6 +27,24 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/overview',
+    component: Layout,
+    name: 'overview',
+    meta: {},
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/overview/index.vue'),
+        name: 'NetworkOverview',
+        meta: {
+          title: t('router.networkOverview'),
+          icon: 'mdi:view-dashboard-outline',
+          noCache: false
+        }
+      }
+    ]
+  },
+  {
     path: '/config',
     component: Layout,
     name: 'config',

@@ -145,6 +145,62 @@ interface RunningItem {
   pid?: number
   serviceStatus?: string
   installMethod?: 'nssm' | 'official' | 'none' // 服务安装方式
+  /** RPC 门户地址，如 127.0.0.1:15888 */
+  rpcPortal?: string
+  /** 完整命令行（用于多实例识别） */
+  commandLine?: string
+}
+
+/** 从 easytier-core 进程命令行解析出的运行实例 */
+interface CoreProcessInstance {
+  pid: number
+  configFileName: string
+  fileName: string
+  configPath?: string
+  rpcPortal?: string
+  commandLine: string
+  memory?: number
+  path?: string
+}
+
+/** 运行总览中单个配置的状态缓存 */
+interface NetworkStatusCache {
+  nodeInfo: any
+  peerInfo: PeerInfo[]
+  lastError?: string
+  updatedAt?: number
+  loading?: boolean
+}
+
+/** easytier-cli route 单条记录（-o json route） */
+interface EasyTierCliRoute {
+  ipv4?: string
+  hostname?: string
+  proxy_cidrs?: string
+  next_hop_ipv4?: string
+  next_hop_hostname?: string
+  next_hop_lat?: number
+  path_len?: number
+  path_latency?: number
+  next_hop_ipv4_lat_first?: string
+  next_hop_hostname_lat_first?: string
+  path_len_lat_first?: number
+  path_latency_lat_first?: number
+  version?: string
+  /** 来源配置（多实例合并时标注） */
+  configFileName?: string
+}
+
+/** 系统中 EasyTier 注入的路由（如 metric 9005，备用） */
+interface SystemEtRoute {
+  destination: string
+  nextHop: string
+  metric: number
+  interfaceAlias?: string
+  interfaceIp?: string
+  /** 反查到的配置名 */
+  configFileName?: string
+  source: 'system'
 }
 
 interface RunningWebItem {

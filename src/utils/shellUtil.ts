@@ -373,10 +373,133 @@ export const testWMIC = async () => {
 }
 
 /**
- * 获取正在运行的程序信息
- * @param {string} [programName] - 可选的程序名，用于模糊查询
- * @returns {Promise<Array>} - 返回一个包含程序信息的数组对象
+ * 从命令行参数中提取指定 flag 的值
+ * 支持 --flag value、--flag=value、带引号路径
  */
+export function extractArgValue(commandLine: string, flag: string): string | undefined {
+  if (!commandLine || !flag) return undefined
+  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // --flag=value 或 --flag "value" 或 --flag value
+  const re = new RegExp(`${escaped}(?:=|\\s+)(?:"([^"]+)"|'([^']+)'|(\\S+))`, 'i')
+  const m = commandLine.match(re)
+  if (!m) return undefined
+  return (m[1] || m[2] || m[3] || '').trim() || undefined
+}
+
+/**
+ * 规范化 rpc_portal 地址，供 easytier-cli -p 使用
+ * 0.0.0.0 / :: → 127.0.0.1
+ */
+export function normalizeRpcPortal(portal?: string | null): string | undefined {
+  if (!portal) return undefined
+  let p = String(portal).trim()
+  if (!p) return undefined
+  p = p.replace(/^0\.0\.0\.0/, '127.0.0.1').replace(/^\[?::\]?/, '127.0.0.1')
+  return p
+}
+
+/**
+ * 从配置文件路径提取配置名（不含 .toml）
+ */
+export function extractConfigNameFromPath(configPath: string): {
+  configFileName: string
+  fileName: string
+} {
+  const normalized = configPath.replace(/\\/g, '/')
+  const base = normalized.split('/').pop() || configPath
+  const fileName = base.endsWith('.toml') ? base : `${base}.toml`
+  const configFileName = fileName.replace(/\.toml$/i, '')
+  return { configFileName, fileName }
+}
+
+/**
+ * 解析 easytier-core 命令行，提取配置文件与 rpc 端口
+ */
+export function parseCoreCommandLine(commandLine: string): {
+  configPath?: string
+  configFileName?: string
+  fileName?: string
+  rpcPortal?: string
+} {
+  if (!commandLine) return {}
+  const configPath =
+    extractArgValue(commandLine, '--config-file') || extractArgValue(commandLine, '-c')
+  const rpcRaw = extractArgValue(commandLine, '--rpc-portal') || extractArgValue(commandLine, '-r')
+  const rpcPortal = normalizeRpcPortal(rpcRaw)
+  if (!configPath) {
+    return { rpcPortal }
+  }
+  const { configFileName, fileName } = extractConfigNameFromPath(configPath)
+  return { configPath, configFileName, fileName, rpcPortal }
+}
+
+/**
+ * 列出所有正在运行的 easytier-core 实例（按 commandLine 识别配置）
+ */
+export async function listRunningCoreInstances(): Promise<CoreProcessInstance[]> {
+  const processes = await getRunningProcesses('easytier-core')
+  const instances: CoreProcessInstance[] = []
+  const seenPid = new Set<number>()
+
+  for (const p of processes) {
+    const pid = p.pid || 0
+    if (!pid || seenPid.has(pid)) continue
+    // 过滤 powershell / 自身查询噪声
+    const name = (p.name || '').toLowerCase()
+    if (name.includes('powershell') || name.includes('cmd.exe')) continue
+    const commandLine = p.commandLine || ''
+    if (!commandLine.toLowerCase().includes('easytier-core')) continue
+
+    const parsed = parseCoreCommandLine(commandLine)
+    // 未解析到配置文件时，尝试用进程字段兜底
+    let configFileName = parsed.configFileName || p.configFileName
+    let fileName = parsed.fileName || p.fileName
+    let rpcPortal = parsed.rpcPortal || p.rpcPortal
+
+    // 兼容：若 commandLine 含某个 .toml 路径但 flag 解析失败
+    if (!configFileName) {
+      const tomlMatch = commandLine.match(/([^\s"'=]+\.toml)/i)
+      if (tomlMatch) {
+        const extracted = extractConfigNameFromPath(tomlMatch[1])
+        configFileName = extracted.configFileName
+        fileName = extracted.fileName
+      }
+    }
+
+    // 从配置文件补全 rpc（命令行未带 --rpc-portal 时）
+    if (configFileName && !rpcPortal) {
+      try {
+        const cfg = await getConfigFromFile(fileName || `${configFileName}.toml`)
+        rpcPortal = normalizeRpcPortal(cfg.rpcPortal)
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!configFileName) {
+      configFileName = `unknown-${pid}`
+      fileName = `unknown-${pid}.toml`
+    }
+    if (!fileName || fileName === 'easytier-core') {
+      fileName = `${configFileName}.toml`
+    }
+
+    seenPid.add(pid)
+    instances.push({
+      pid,
+      configFileName,
+      fileName,
+      configPath: parsed.configPath,
+      rpcPortal,
+      commandLine,
+      memory: p.memory,
+      path: p.path
+    })
+  }
+
+  return instances
+}
+
 export const getRunningProcesses = async (
   programName: string = 'easytier-core'
 ): Promise<Array<any>> => {
@@ -415,55 +538,42 @@ export const getRunningProcesses = async (
     }
     executeCmd(program, args, { encoding })
       .then((res) => {
-        res = JSON.parse(res || '[]')
-        res = Array.isArray(res) ? res : []
-        const result = res.filter((r) => !r.name.includes('powershell.exe'))
-        if (result.length === 0) {
-          resolve(processInfo)
-          return
-        }
+        // Windows 返回 JSON；Unix ps 返回文本，需分支处理
+        let result: any[] = []
         if (platform === 'windows') {
-          // 解析JSON 输出
+          try {
+            const parsed = JSON.parse(res || '[]')
+            result = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
+          } catch {
+            result = []
+          }
+          result = result.filter((r) => r && r.name && !String(r.name).includes('powershell.exe'))
+          if (result.length === 0) {
+            resolve(processInfo)
+            return
+          }
           result.forEach((p) => {
-            if (p.commandLine && p.commandLine.includes(programName)) {
+            if (p.commandLine && String(p.commandLine).includes(programName)) {
+              const parsedCmd = parseCoreCommandLine(p.commandLine)
               const process = {
                 name: p.name,
                 commandLine: p.commandLine,
                 path: p.path,
                 pid: parseInt(p.pid, 10) || 0,
                 memory: parseInt(p.memory, 10) || 0,
-                fileName: programName
+                // 优先从 commandLine 解析真实配置文件名，兼容按 toml 名过滤的旧调用
+                fileName: parsedCmd.fileName || programName,
+                configFileName: parsedCmd.configFileName,
+                rpcPortal: parsedCmd.rpcPortal
               }
               processInfo.push(process)
             }
           })
-          // 解析 PowerShell 的 CSV 输出
-          // const lines = result.trim().split('\n').slice(1) // 去掉标题行
-          // lines.forEach((line: string) => {
-          //   // "Caption","CommandLine","ExecutablePath","ProcessId","WorkingSetSize"
-          //   const values = line
-          //     .slice(1, -1)
-          //     .split('","')
-          //     .map((v) => v.trim())
-          //
-          //   if (values.length >= 5) {
-          //     const [caption, commandLine, executablePath, processId, workingSetSize] = values
-          //     if (commandLine && commandLine.includes(programName)) {
-          //       const process = {
-          //         name: caption,
-          //         commandLine: commandLine,
-          //         path: executablePath,
-          //         pid: parseInt(processId, 10),
-          //         memory: parseInt(workingSetSize, 10),
-          //         fileName: programName
-          //       }
-          //       processInfo.push(process)
-          //     }
-          //   }
-          // })
         } else if (platform === 'macos' || platform === 'linux') {
           // 解析 macOS 和 Linux 的 ps 输出
-          const lines = result.trim().split('\n')
+          const lines = String(res || '')
+            .trim()
+            .split('\n')
           lines.forEach((line: string) => {
             const parts = line.trim().split(/\s+/)
             if (parts.length >= 4) {
@@ -475,13 +585,16 @@ export const getRunningProcesses = async (
                 const rss = argsParts[pidIndex + 1]
 
                 if (commandLine.includes(programName)) {
+                  const parsedCmd = parseCoreCommandLine(commandLine)
                   const process = {
                     name: comm,
                     commandLine: commandLine,
                     path: comm, // ps 命令不直接提供可执行文件路径
                     pid: parseInt(pid, 10),
                     memory: parseInt(rss, 10) * 1024, // rss 单位是 KB
-                    fileName: programName
+                    fileName: parsedCmd.fileName || programName,
+                    configFileName: parsedCmd.configFileName,
+                    rpcPortal: parsedCmd.rpcPortal
                   }
                   processInfo.push(process)
                 }
@@ -496,6 +609,7 @@ export const getRunningProcesses = async (
       })
   })
 }
+
 /**
  * 检测服务是否存在
  * @param serviceName 服务名
@@ -1038,4 +1152,156 @@ export const safeJsonParse = (str: string, fallback: any = {}) => {
   } catch (e) {
     return fallback
   }
+}
+
+/**
+ * 归一化 IP 用于归属比对（去掉 CIDR 后缀）
+ */
+export function normalizeIpForMatch(ip?: string | null): string {
+  if (!ip) return ''
+  return String(ip).split('/')[0].trim()
+}
+
+/**
+ * 列出系统中 EasyTier 相关路由（Windows 优先 metric=9005）
+ * @param metric 默认 9005，与 ET 组网注入路由一致
+ */
+export async function listSystemEtRoutes(metric: number = 9005): Promise<SystemEtRoute[]> {
+  const platform = await getPlatform()
+  try {
+    if (platform === 'windows') {
+      // Get-NetRoute 结构化输出更稳，失败再回退 route print
+      const ps = `
+        Get-NetRoute -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+          Where-Object { $_.RouteMetric -eq ${metric} } |
+          Select-Object DestinationPrefix, NextHop, RouteMetric, InterfaceAlias |
+          ConvertTo-Json -Compress
+      `.trim()
+      try {
+        const res = await executeCmd('powershell', ['-NoProfile', '-Command', ps], {
+          encoding: 'gbk'
+        })
+        const parsed = safeJsonParse(res, [])
+        const rows = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
+        return rows
+          .map((r: any) => ({
+            destination: String(r.DestinationPrefix || '').trim(),
+            nextHop: String(r.NextHop || '').trim(),
+            metric: Number(r.RouteMetric) || metric,
+            interfaceAlias: r.InterfaceAlias ? String(r.InterfaceAlias) : undefined,
+            source: 'system' as const
+          }))
+          .filter((r) => r.destination)
+      } catch (e) {
+        warn(`Get-NetRoute 失败，回退 route print: ${String(e)}`)
+        const text = await executeCmd('route', ['print', '-4'], { encoding: 'gbk' })
+        return parseWindowsRoutePrint(String(text || ''), metric)
+      }
+    }
+
+    if (platform === 'linux') {
+      // 过滤 et/easytier 接口上的路由
+      const res = await executeCmd('sh', ['-c', 'ip -4 -j route 2>/dev/null || ip -4 route'])
+      try {
+        const parsed = safeJsonParse(res, null)
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((r: any) => {
+              const dev = String(r.dev || '')
+              return /^(et|easytier)/i.test(dev) || Number(r.metric) === metric
+            })
+            .map((r: any) => ({
+              destination: String(r.dst || r.destination || ''),
+              nextHop: String(r.gateway || r.via || '0.0.0.0'),
+              metric: Number(r.metric) || 0,
+              interfaceAlias: r.dev ? String(r.dev) : undefined,
+              source: 'system' as const
+            }))
+            .filter((r) => r.destination)
+        }
+      } catch {
+        // fallthrough
+      }
+      return []
+    }
+
+    // macOS 等：暂返回空，后续可扩展
+    return []
+  } catch (e) {
+    error(`获取系统 ET 路由失败: ${String(e)}`)
+    return []
+  }
+}
+
+/**
+ * 解析 Windows `route print -4` 文本，筛选指定 metric
+ */
+function parseWindowsRoutePrint(text: string, metric: number): SystemEtRoute[] {
+  const lines = text.split(/\r?\n/)
+  const routes: SystemEtRoute[] = []
+  // 典型列: Network Destination  Netmask  Gateway  Interface  Metric
+  const re =
+    /^\s*(\d+\.\d+\.\d+\.\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(\S+)\s+(\d+\.\d+\.\d+\.\d+)\s+(\d+)\s*$/
+  for (const line of lines) {
+    const m = line.match(re)
+    if (!m) continue
+    const rowMetric = parseInt(m[5], 10)
+    if (rowMetric !== metric) continue
+    const dest = m[1]
+    const mask = m[2]
+    const gateway = m[3] === 'On-link' || m[3] === '在链路上' ? m[4] : m[3]
+    const ifaceIp = m[4]
+    routes.push({
+      destination: maskToCidr(dest, mask),
+      nextHop: gateway,
+      metric: rowMetric,
+      interfaceIp: ifaceIp,
+      source: 'system'
+    })
+  }
+  return routes
+}
+
+/**
+ * 将点分掩码转为 CIDR 前缀长度字符串
+ */
+function maskToCidr(dest: string, mask: string): string {
+  try {
+    const parts = mask.split('.').map((x) => parseInt(x, 10))
+    if (parts.length !== 4 || parts.some((n) => isNaN(n))) return dest
+    let bits = 0
+    for (const p of parts) {
+      bits += p.toString(2).split('1').length - 1
+    }
+    return `${dest}/${bits}`
+  } catch {
+    return dest
+  }
+}
+
+/**
+ * 根据本机虚拟 IP 列表，为系统路由标注所属配置
+ * @param routes 系统路由
+ * @param localIpMap configFileName -> ipv4
+ */
+export function attachRouteOwnership(
+  routes: SystemEtRoute[],
+  localIpMap: Record<string, string>
+): SystemEtRoute[] {
+  const entries = Object.entries(localIpMap)
+    .map(([name, ip]) => [name, normalizeIpForMatch(ip)] as const)
+    .filter(([, ip]) => !!ip)
+
+  return routes.map((r) => {
+    const hop = normalizeIpForMatch(r.nextHop)
+    const iface = normalizeIpForMatch(r.interfaceIp)
+    let configFileName: string | undefined
+    for (const [name, ip] of entries) {
+      if (ip && (ip === hop || ip === iface)) {
+        configFileName = name
+        break
+      }
+    }
+    return { ...r, configFileName }
+  })
 }

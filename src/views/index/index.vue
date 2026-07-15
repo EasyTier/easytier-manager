@@ -14,6 +14,7 @@ import {
   executeCmd,
   getRunningProcesses,
   killProcess,
+  listRunningCoreInstances,
   replaceLastWithZero,
   runEasyTierCli,
   runEasyTierCore,
@@ -615,20 +616,70 @@ const getPeerInfo = async () => {
     isPeerInfoLooping.value = false
   }
 }
+/**
+ * 同步运行列表：优先扫描全部 core 实例（按 commandLine 识别配置）
+ * 兼容旧调用传入 getRunningProcesses 结果
+ */
 const updateRunningList = async (res?: any) => {
+  // 优先使用全量实例扫描，避免多开时只查到当前配置
   if (!res) {
-    res = await getRunningProcesses(currentNodeKey.value.fileName!)
+    try {
+      const instances = await listRunningCoreInstances()
+      const newList: RunningItem[] = instances.map((item) => ({
+        configFileName: item.configFileName,
+        fileName: item.fileName,
+        pid: item.pid,
+        rpcPortal: item.rpcPortal,
+        commandLine: item.commandLine
+      }))
+      easyTierStore.setRunningList(newList)
+      // 返回与旧逻辑兼容的结构（含 fileName）
+      return instances.map((item) => ({
+        fileName: item.fileName,
+        pid: item.pid,
+        configFileName: item.configFileName,
+        rpcPortal: item.rpcPortal
+      }))
+    } catch (e) {
+      error(`扫描运行实例失败，回退旧逻辑: ${String(e)}`)
+      res = await getRunningProcesses(currentNodeKey.value.fileName!)
+    }
   }
   // 构建新的列表，然后一次性替换，避免先清空导致 runningTag 短暂为 false
   const newList: RunningItem[] = []
-  if (res.length > 0) {
-    res.forEach((item) => {
-      const configFileName = item.fileName.replace('.toml', '')
-      newList.push({ configFileName, pid: item.pid })
+  if (res && res.length > 0) {
+    res.forEach((item: any) => {
+      const fileName = item.fileName || item.configFileName
+      const configFileName =
+        item.configFileName || (fileName ? String(fileName).replace(/\.toml$/i, '') : '')
+      if (!configFileName) return
+      newList.push({
+        configFileName,
+        fileName: fileName?.endsWith?.('.toml') ? fileName : `${configFileName}.toml`,
+        pid: item.pid,
+        rpcPortal: item.rpcPortal,
+        commandLine: item.commandLine
+      })
     })
   }
   easyTierStore.setRunningList(newList)
-  return res
+  return res || []
+}
+
+/**
+ * 应用从运行总览跳转过来的待选配置
+ */
+const applyPendingWorkbenchConfig = () => {
+  const pending = easyTierStore.consumePendingWorkbenchConfig()
+  if (!pending?.configFileName) return false
+  currentNodeKey.value = {
+    configFileName: pending.configFileName,
+    fileName: pending.fileName || `${pending.configFileName}.toml`,
+    pid: pending.pid,
+    rpcPortal: pending.rpcPortal
+  }
+  currentConfigCache.value = null
+  return true
 }
 const startAction = async () => {
   info(`开始运行配置:${currentNodeKey.value.fileName!}`)
@@ -877,32 +928,51 @@ onMounted(async () => {
     // 注意：不再先调用 loadRunningList()，避免从 localStorage 恢复旧状态导致 UI 跳动
     // 而是直接通过 updateRunningList 从实际进程获取运行状态
 
+    // 优先应用运行总览跳转带来的配置
+    const hasPending = applyPendingWorkbenchConfig()
+
     // 3. 计算要加载的配置名称（冷启动与否都需要设置 UI 选中）
-    let configName = ''
-    if (easyTierStore.autoRunNetworkSetting && easyTierStore.autoRunConfigName) {
-      configName = easyTierStore.autoRunConfigName
-    } else {
-      configName = easyTierStore.getLastRunConfigName()
-    }
+    if (!hasPending) {
+      let configName = ''
+      if (easyTierStore.autoRunNetworkSetting && easyTierStore.autoRunConfigName) {
+        configName = easyTierStore.autoRunConfigName
+      } else {
+        configName = easyTierStore.getLastRunConfigName()
+      }
 
-    if (!configName) {
-      return
-    }
+      if (!configName) {
+        return
+      }
 
-    currentNodeKey.value.configFileName = configName
-    currentNodeKey.value.fileName = `${configName}.toml`
+      currentNodeKey.value.configFileName = configName
+      currentNodeKey.value.fileName = `${configName}.toml`
+    }
 
     // 检查是否正在运行，保持 UI 运行态同步
     const res = await updateRunningList()
-    const isRunning = res.some((item) => item.fileName === currentNodeKey.value.fileName)
+    const isRunning = res.some(
+      (item: any) =>
+        item.fileName === currentNodeKey.value.fileName ||
+        item.configFileName === currentNodeKey.value.configFileName
+    )
 
     if (isRunning) {
       easyTierStore.setStopLoop(false)
-      // 如果 store 中有缓存数据，先恢复显示，再静默更新
-      if (easyTierStore.cachedNodeInfo && Object.keys(easyTierStore.cachedNodeInfo).length > 0) {
+      // 优先使用多网络缓存中对应配置的数据
+      const multi = easyTierStore.multiNetworkCache[currentNodeKey.value.configFileName]
+      if (multi?.nodeInfo && Object.keys(multi.nodeInfo).length > 0) {
+        nodeInfo.value = { ...multi.nodeInfo }
+        easyTierStore.cachedNodeInfo = { ...multi.nodeInfo }
+      } else if (
+        easyTierStore.cachedNodeInfo &&
+        Object.keys(easyTierStore.cachedNodeInfo).length > 0
+      ) {
         nodeInfo.value = { ...easyTierStore.cachedNodeInfo }
       }
-      if (easyTierStore.cachedPeerInfo && easyTierStore.cachedPeerInfo.length > 0) {
+      if (multi?.peerInfo && multi.peerInfo.length > 0) {
+        peerInfo.value = [...multi.peerInfo]
+        easyTierStore.cachedPeerInfo = [...multi.peerInfo]
+      } else if (easyTierStore.cachedPeerInfo && easyTierStore.cachedPeerInfo.length > 0) {
         peerInfo.value = [...easyTierStore.cachedPeerInfo]
       }
       getNodeInfo()
@@ -922,17 +992,32 @@ onMounted(async () => {
 
 // 页面被 keep-alive 激活时，恢复缓存数据并静默刷新
 onActivated(async () => {
+  // 处理从运行总览跳转选中
+  const hasPending = applyPendingWorkbenchConfig()
+  if (hasPending) {
+    currentConfigCache.value = null
+    await updateRunningList()
+    nodeInfo.value = {}
+    peerInfo.value = []
+    // 尝试恢复该配置的多网络缓存
+    const multi = easyTierStore.multiNetworkCache[currentNodeKey.value.configFileName]
+    if (multi?.nodeInfo) nodeInfo.value = { ...multi.nodeInfo }
+    if (multi?.peerInfo) peerInfo.value = [...multi.peerInfo]
+  }
+
   // 如果正在运行，先恢复缓存数据让用户立刻看到内容，再静默刷新
   const isRunning = easyTierStore.runningList.some(
     (i) => i.configFileName === currentNodeKey.value.configFileName
   )
   if (isRunning) {
     // 先恢复缓存数据
-    if (easyTierStore.cachedNodeInfo && Object.keys(easyTierStore.cachedNodeInfo).length > 0) {
-      nodeInfo.value = { ...easyTierStore.cachedNodeInfo }
-    }
-    if (easyTierStore.cachedPeerInfo && easyTierStore.cachedPeerInfo.length > 0) {
-      peerInfo.value = [...easyTierStore.cachedPeerInfo]
+    if (!hasPending) {
+      if (easyTierStore.cachedNodeInfo && Object.keys(easyTierStore.cachedNodeInfo).length > 0) {
+        nodeInfo.value = { ...easyTierStore.cachedNodeInfo }
+      }
+      if (easyTierStore.cachedPeerInfo && easyTierStore.cachedPeerInfo.length > 0) {
+        peerInfo.value = [...easyTierStore.cachedPeerInfo]
+      }
     }
     // 静默刷新最新数据
     easyTierStore.setStopLoop(false)

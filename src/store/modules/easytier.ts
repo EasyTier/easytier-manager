@@ -67,6 +67,10 @@ export const useEasyTierStore = defineStore(
     const cachedNodeInfo = ref<any>({})
     // 缓存的 peer 信息（页面切换时保留，避免重新轮询）
     const cachedPeerInfo = ref<PeerInfo[]>([])
+    // 多网络状态缓存（运行总览按配置名分桶）
+    const multiNetworkCache = ref<Record<string, NetworkStatusCache>>({})
+    // 从运行总览跳转到工作台时待选中的配置
+    const pendingWorkbenchConfig = ref<RunningItem | null>(null)
     const setConfigList = (list) => {
       configList.value = list
     }
@@ -128,6 +132,46 @@ export const useEasyTierStore = defineStore(
     }
     const setStopLoop = (flag) => {
       stopLoop.value = flag
+    }
+    /**
+     * 更新某个配置在运行总览中的状态缓存
+     */
+    const setNetworkStatusCache = (configFileName: string, data: Partial<NetworkStatusCache>) => {
+      const prev = multiNetworkCache.value[configFileName] || {
+        nodeInfo: {},
+        peerInfo: []
+      }
+      multiNetworkCache.value = {
+        ...multiNetworkCache.value,
+        [configFileName]: {
+          ...prev,
+          ...data,
+          updatedAt: data.updatedAt ?? Date.now()
+        }
+      }
+    }
+    /**
+     * 移除已停止配置的状态缓存
+     */
+    const removeNetworkStatusCache = (configFileName: string) => {
+      if (!multiNetworkCache.value[configFileName]) return
+      const next = { ...multiNetworkCache.value }
+      delete next[configFileName]
+      multiNetworkCache.value = next
+    }
+    /**
+     * 设置从运行总览跳转工作台时的待选配置
+     */
+    const setPendingWorkbenchConfig = (config: RunningItem | null) => {
+      pendingWorkbenchConfig.value = config
+    }
+    /**
+     * 取出并清空待选配置（工作台消费）
+     */
+    const consumePendingWorkbenchConfig = () => {
+      const cfg = pendingWorkbenchConfig.value
+      pendingWorkbenchConfig.value = null
+      return cfg
     }
     const setP2pNotify = (flag) => {
       p2pNotify.value = flag
@@ -370,6 +414,8 @@ export const useEasyTierStore = defineStore(
       defaultEnableAutostart,
       cachedNodeInfo,
       cachedPeerInfo,
+      multiNetworkCache,
+      pendingWorkbenchConfig,
       setConfigList,
       setConfigWebList,
       setFileList,
@@ -400,13 +446,25 @@ export const useEasyTierStore = defineStore(
       setSelectedColumns,
       setDefaultServiceInstallMethod,
       setDefaultEnableAutostart,
+      setNetworkStatusCache,
+      removeNetworkStatusCache,
+      setPendingWorkbenchConfig,
+      consumePendingWorkbenchConfig,
       autorun
     }
   },
   {
     persist: {
       key: 'easytier',
-      storage: localStorage
+      storage: localStorage,
+      // 运行时缓存不落盘，避免过期状态污染
+      omit: [
+        'multiNetworkCache',
+        'pendingWorkbenchConfig',
+        'cachedNodeInfo',
+        'cachedPeerInfo',
+        'stopLoop'
+      ]
     }
   }
 )

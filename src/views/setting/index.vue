@@ -40,7 +40,6 @@ import {
 import { cloneDeep, template } from 'lodash-es'
 import { onMounted, reactive, ref, unref } from 'vue'
 import { measureMirrorLatency } from '@/utils'
-import { info } from '@tauri-apps/plugin-log'
 
 const { t } = useI18n()
 const { getStorage, setStorage, clear: storageClear } = useStorage('localStorage')
@@ -114,7 +113,7 @@ const getGitMirrorUrl = () => {
   getMirrorUrling.value = true
   measureMirrorLatency(GITHUB_MIRROR_URL, 2000, 6)
     .then((results) => {
-      info(`results:\n${JSON.stringify(results)}`)
+      // info(`results:\n${JSON.stringify(results)}`)
       validMirrorUrl.value = results
     })
     .finally(() => {
