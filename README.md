@@ -159,6 +159,18 @@ pnpm run tauri
   pnpm run tauri:build
   ```
 
+### macOS Apple Silicon 构建
+
+仓库提供 `CI Pro MacOS ARM64` GitHub Actions 工作流，用于构建 Apple Silicon（`aarch64`）版本的 Pro 应用。工作流在 `codex/macos-local-build` 分支的 push 或手动触发时运行，成功后会上传 `easytier-manager-pro-macos-arm64` artifact。
+
+该构建使用 ad-hoc 签名，适合本地验证，不包含 Apple notarization。下载 DMG 后可在 macOS 上执行：
+
+```bash
+hdiutil verify easytier-manager-pro-aarch64.dmg
+```
+
+详细的构建、下载和验证步骤见 [macOS Apple Silicon 构建指南](./doc/macOS构建.md)。
+
 ## 更新日志
 
 ## 如何贡献
@@ -193,7 +205,7 @@ pnpm run tauri
 
 ## 系统支持
 
-理论支持Windows 11 、Windows 10 、 ~~Windows 7~~ 、 ~~Linux (桌面版)~~、~~MacOS(暂时无证书，无法打包测试)~~
+理论支持 Windows 11、Windows 10、Apple Silicon MacOS（本地 ad-hoc 签名构建）、~~Windows 7~~、~~Linux (桌面版)~~
 
 ## 许可证
 
