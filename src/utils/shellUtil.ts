@@ -5,10 +5,17 @@ import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
 import { getCliDir, getConfigDir, getCoreDir, getResourceDir, readFileContent } from './fileUtil'
 import { normalizeRpcPortal } from './rpcPortal'
+import { extractConfigNameFromPath, parseCoreCommandLine } from './coreProcess'
 import { getPlatform, sleep } from './sysUtil'
 import * as toml from 'smol-toml'
 
 export { normalizeRpcPortal } from './rpcPortal'
+export {
+  extractArgValue,
+  extractConfigNameFromPath,
+  extractConfigPath,
+  parseCoreCommandLine
+} from './coreProcess'
 
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
 attachConsole()
@@ -387,55 +394,6 @@ export const testWMIC = async () => {
 }
 
 /**
- * 从命令行参数中提取指定 flag 的值
- * 支持 --flag value、--flag=value、带引号路径
- */
-export function extractArgValue(commandLine: string, flag: string): string | undefined {
-  if (!commandLine || !flag) return undefined
-  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  // --flag=value 或 --flag "value" 或 --flag value
-  const re = new RegExp(`${escaped}(?:=|\\s+)(?:"([^"]+)"|'([^']+)'|(\\S+))`, 'i')
-  const m = commandLine.match(re)
-  if (!m) return undefined
-  return (m[1] || m[2] || m[3] || '').trim() || undefined
-}
-
-/**
- * 从配置文件路径提取配置名（不含 .toml）
- */
-export function extractConfigNameFromPath(configPath: string): {
-  configFileName: string
-  fileName: string
-} {
-  const normalized = configPath.replace(/\\/g, '/')
-  const base = normalized.split('/').pop() || configPath
-  const fileName = base.endsWith('.toml') ? base : `${base}.toml`
-  const configFileName = fileName.replace(/\.toml$/i, '')
-  return { configFileName, fileName }
-}
-
-/**
- * 解析 easytier-core 命令行，提取配置文件与 rpc 端口
- */
-export function parseCoreCommandLine(commandLine: string): {
-  configPath?: string
-  configFileName?: string
-  fileName?: string
-  rpcPortal?: string
-} {
-  if (!commandLine) return {}
-  const configPath =
-    extractArgValue(commandLine, '--config-file') || extractArgValue(commandLine, '-c')
-  const rpcRaw = extractArgValue(commandLine, '--rpc-portal') || extractArgValue(commandLine, '-r')
-  const rpcPortal = rpcRaw ? normalizeRpcPortal(rpcRaw) : undefined
-  if (!configPath) {
-    return { rpcPortal }
-  }
-  const { configFileName, fileName } = extractConfigNameFromPath(configPath)
-  return { configPath, configFileName, fileName, rpcPortal }
-}
-
-/**
  * 列出所有正在运行的 easytier-core 实例（按 commandLine 识别配置）
  */
 export async function listRunningCoreInstances(): Promise<CoreProcessInstance[]> {
@@ -454,8 +412,9 @@ export async function listRunningCoreInstances(): Promise<CoreProcessInstance[]>
 
     const parsed = parseCoreCommandLine(commandLine)
     // 未解析到配置文件时，尝试用进程字段兜底
-    let configFileName = parsed.configFileName || p.configFileName
-    let fileName = parsed.fileName || p.fileName
+    // 原生枚举返回的结构化字段不会受 ps 展开含空格 argv 的影响。
+    let configFileName = p.configFileName || parsed.configFileName
+    let fileName = p.fileName || parsed.fileName
     let rpcPortal = parsed.rpcPortal || p.rpcPortal
 
     // 兼容：若 commandLine 含某个 .toml 路径但 flag 解析失败

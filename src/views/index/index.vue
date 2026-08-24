@@ -54,6 +54,8 @@ const currentNodeKey = ref<RunningItem>({
   configFileName: ''
 })
 const currentConfigCache = ref<EasyTierConfig | null>(null)
+const isWindows = getOsType() === 'windows'
+const isMacos = getOsType() === 'macos'
 const currentDepartment = ref('')
 const tableRowClassName = ({ rowIndex }: { row: any; rowIndex: number }) => {
   if (rowIndex === 1) {
@@ -323,10 +325,23 @@ const runningTag = computed(() => {
 })
 // 综合状态：loading = 正在启动或正在初始化
 const isLoading = computed(() => isStarting.value || isInitializing.value)
+const openMacTerminal = async (action: 'ping' | 'telnet' | 'ssh', host: string, port?: number) => {
+  try {
+    await invoke('open_terminal_macos', { action, host, port })
+  } catch (e) {
+    error(`打开 macOS Terminal 失败:${String(e)}`)
+    ElMessage.error('无法打开 Terminal，请检查系统自动化权限')
+  }
+}
 const handlePing = async (ip: string) => {
   if (!ip || ip === '服务器') return
-  // Windows: cmd /k ping <ip>
-  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ping ${ip}`]).spawn()
+  if (isMacos) {
+    await openMacTerminal('ping', ip)
+    return
+  }
+  if (isWindows) {
+    await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ping ${ip}`]).spawn()
+  }
 }
 
 const handleRDP = async (ip: string) => {
@@ -352,7 +367,16 @@ const executeTelnet = async () => {
     ElMessage.warning('请输入端口号')
     return
   }
+  const portNumber = Number(port)
+  if (!Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535) {
+    ElMessage.warning('请输入 1-65535 之间的端口号')
+    return
+  }
   telnetDialogVisible.value = false
+  if (isMacos) {
+    await openMacTerminal('telnet', currentTelnetIp.value, portNumber)
+    return
+  }
   await Command.create('cmd', [
     '/c',
     'start',
@@ -368,8 +392,13 @@ const setQuickPort = (port: string) => {
 
 const handleSSH = async (ip: string) => {
   if (!ip || ip === '服务器') return
-  // Windows: cmd /k ssh root@<ip>
-  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ssh root@${ip}`]).spawn()
+  if (isMacos) {
+    await openMacTerminal('ssh', ip)
+    return
+  }
+  if (isWindows) {
+    await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ssh root@${ip}`]).spawn()
+  }
 }
 
 const handleXshell = async (ip: string) => {
@@ -1236,15 +1265,16 @@ onDeactivated(() => {
           header-align="center"
           show-overflow-tooltip
         />
-        <el-table-column :label="t('common.action')" width="100" align="center" fixed="right">
+        <el-table-column
+          v-if="isWindows || isMacos"
+          :label="t('common.action')"
+          width="100"
+          align="center"
+          fixed="right"
+        >
           <template #default="{ row }">
             <el-dropdown
-              v-if="
-                easyTierStore.os === 'windows' &&
-                row.ipv4 &&
-                row.ipv4 !== '服务器' &&
-                row.cost !== '本机'
-              "
+              v-if="row.ipv4 && row.ipv4 !== '服务器' && row.cost !== '本机'"
               trigger="click"
               @command="(cmd) => cmd(row.ipv4)"
             >
@@ -1272,15 +1302,15 @@ onDeactivated(() => {
                     <el-icon>
                       <Link />
                     </el-icon>
-                    Windows SSH
+                    SSH 连接
                   </el-dropdown-item>
-                  <el-dropdown-item :command="handleRDP">
+                  <el-dropdown-item v-if="isWindows" :command="handleRDP">
                     <el-icon>
                       <Monitor />
                     </el-icon>
                     远程桌面 (RDP)
                   </el-dropdown-item>
-                  <el-dropdown-item :command="handleXshell">
+                  <el-dropdown-item v-if="isWindows" :command="handleXshell">
                     <el-icon>
                       <Link />
                     </el-icon>

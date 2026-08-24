@@ -1,6 +1,7 @@
 use chrono::Local;
 use serde::Serialize;
 use serde_json::json;
+use std::net::IpAddr;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -404,6 +405,46 @@ fn stop_core_macos(pid: u32, force: bool) -> Result<(), String> {
     }
 }
 
+fn build_terminal_command(action: &str, host: &str, port: Option<u16>) -> Result<String, String> {
+    let host = host
+        .parse::<IpAddr>()
+        .map_err(|_| "invalid node IP address".to_string())?;
+    match action {
+        "ping" => Ok(format!("ping {host}")),
+        "ssh" => Ok(format!("ssh root@{host}")),
+        "telnet" => port
+            .map(|port| format!("nc -v {host} {port}"))
+            .ok_or_else(|| "port is required for telnet".to_string()),
+        _ => Err("unsupported terminal action".to_string()),
+    }
+}
+
+#[tauri::command]
+fn open_terminal_macos(action: String, host: String, port: Option<u16>) -> Result<(), String> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (action, host, port);
+        return Err("macOS Terminal integration is unavailable on this platform".to_string());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let command = build_terminal_command(&action, &host, port)?;
+        run_osascript(
+            &[
+                "on run argv",
+                "set commandText to item 1 of argv",
+                "tell application \"Terminal\"",
+                "activate",
+                "do script commandText",
+                "end tell",
+                "end run",
+            ],
+            &[command],
+        )?;
+        Ok(())
+    }
+}
+
 #[tauri::command]
 fn list_core_processes() -> Result<Vec<ProcessInfo>, String> {
     #[cfg(target_os = "windows")]
@@ -509,6 +550,7 @@ pub fn run() {
             install_core_archive,
             start_core_macos,
             stop_core_macos,
+            open_terminal_macos,
             list_core_processes,
             get_exe_directory,
             check_cold_start
@@ -624,5 +666,19 @@ mod tests {
             .command_line
             .contains("easytier-core --config-file /Users/test/Library/Application Support"));
         assert!(parse_process_line("1 512 /sbin/launchd /sbin/launchd").is_none());
+    }
+
+    #[test]
+    fn validates_terminal_commands() {
+        assert_eq!(
+            build_terminal_command("ssh", "10.144.144.23", None).unwrap(),
+            "ssh root@10.144.144.23"
+        );
+        assert_eq!(
+            build_terminal_command("telnet", "10.144.144.23", Some(22)).unwrap(),
+            "nc -v 10.144.144.23 22"
+        );
+        assert!(build_terminal_command("ping", "127.0.0.1; whoami", None).is_err());
+        assert!(build_terminal_command("shell", "127.0.0.1", None).is_err());
     }
 }
