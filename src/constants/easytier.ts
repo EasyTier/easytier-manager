@@ -88,21 +88,6 @@ export const GITHUB_MIRROR_URL = [
   }
 ]
 
-export const DEFAULT_VER_OPTIONS = [
-  {
-    name: 'v2.6.0',
-    tag_name: 'v2.6.0'
-  },
-  {
-    name: 'v2.6.0',
-    tag_name: 'v2.6.0'
-  },
-  {
-    name: 'v2.4.5',
-    tag_name: 'v2.4.5'
-  }
-]
-
 export const DEFAULT_STUN_SERVER = [
   'stun.nas.net:3478',
   'stun.qq.com:3478',

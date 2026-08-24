@@ -15,6 +15,7 @@ import {
   getRunningProcesses,
   killProcess,
   listRunningCoreInstances,
+  normalizeRpcPortal,
   replaceLastWithZero,
   runEasyTierCli,
   runEasyTierCore,
@@ -490,12 +491,8 @@ const getNodeInfo = async () => {
       isFirstRun = false
 
       const config = await getCurrentConfig()
-      const rpcPortal = config?.rpc_portal
-        ? (config.rpc_portal as string).replace('0.0.0.0', '127.0.0.1')
-        : undefined
-      const cliArgs = rpcPortal
-        ? ['-p', rpcPortal, '--output', 'json', 'node']
-        : ['--output', 'json', 'node']
+      const rpcPortal = normalizeRpcPortal(config?.rpc_portal)
+      const cliArgs = ['-p', rpcPortal, '--output', 'json', 'node']
       const res = await runEasyTierCli(cliArgs)
       if (res.code === 403) {
         easyTierStore.setStopLoop(true)
@@ -563,7 +560,7 @@ const getPeerInfo = async () => {
       }
       const res = await runEasyTierCli([
         '-p',
-        (data.rpc_portal as string).replace('0.0.0.0', '127.0.0.1'),
+        normalizeRpcPortal(data.rpc_portal),
         '--output',
         'json',
         'peer'

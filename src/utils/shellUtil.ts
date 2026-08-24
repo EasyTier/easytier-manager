@@ -4,8 +4,11 @@ import { join } from '@tauri-apps/api/path'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
 import { getCliDir, getConfigDir, getCoreDir, getResourceDir, readFileContent } from './fileUtil'
+import { normalizeRpcPortal } from './rpcPortal'
 import { getPlatform, sleep } from './sysUtil'
 import * as toml from 'smol-toml'
+
+export { normalizeRpcPortal } from './rpcPortal'
 
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
 attachConsole()
@@ -398,18 +401,6 @@ export function extractArgValue(commandLine: string, flag: string): string | und
 }
 
 /**
- * 规范化 rpc_portal 地址，供 easytier-cli -p 使用
- * 0.0.0.0 / :: → 127.0.0.1
- */
-export function normalizeRpcPortal(portal?: string | null): string | undefined {
-  if (!portal) return undefined
-  let p = String(portal).trim()
-  if (!p) return undefined
-  p = p.replace(/^0\.0\.0\.0/, '127.0.0.1').replace(/^\[?::\]?/, '127.0.0.1')
-  return p
-}
-
-/**
  * 从配置文件路径提取配置名（不含 .toml）
  */
 export function extractConfigNameFromPath(configPath: string): {
@@ -436,7 +427,7 @@ export function parseCoreCommandLine(commandLine: string): {
   const configPath =
     extractArgValue(commandLine, '--config-file') || extractArgValue(commandLine, '-c')
   const rpcRaw = extractArgValue(commandLine, '--rpc-portal') || extractArgValue(commandLine, '-r')
-  const rpcPortal = normalizeRpcPortal(rpcRaw)
+  const rpcPortal = rpcRaw ? normalizeRpcPortal(rpcRaw) : undefined
   if (!configPath) {
     return { rpcPortal }
   }

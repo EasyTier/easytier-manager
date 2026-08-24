@@ -1,7 +1,6 @@
 <script setup lang="tsx">
 import { ContentWrap } from '@/components/ContentWrap'
 import {
-  DEFAULT_VER_OPTIONS,
   EASYTIER_NAME,
   GITHUB_DOWN_URL,
   GITHUB_EASYTIER,
@@ -14,6 +13,7 @@ import {
 import { useI18n } from '@/hooks/web/useI18n'
 import { useStorage } from '@/hooks/web/useStorage'
 import { useEasyTierStore } from '@/store/modules/easytier'
+import type { CoreRelease } from '@/utils/easytierRelease'
 import {
   downloadFile,
   extractFile,
@@ -39,7 +39,7 @@ import {
   ElSelect
 } from 'element-plus'
 import { cloneDeep, template } from 'lodash-es'
-import { onMounted, reactive, ref, unref } from 'vue'
+import { computed, onMounted, reactive, ref, unref } from 'vue'
 import { measureMirrorLatency } from '@/utils'
 
 const { t } = useI18n()
@@ -106,8 +106,14 @@ const form = reactive({
   appLogLevel: ''
 })
 
-const verSelect = ref<string>('v2.6.1')
-const verOptions = ref(cloneDeep(DEFAULT_VER_OPTIONS))
+const verSelect = ref('')
+const allVerOptions = ref<CoreRelease[]>([])
+const showPrereleases = ref(false)
+const verOptions = computed(() =>
+  showPrereleases.value
+    ? allVerOptions.value
+    : allVerOptions.value.filter((release) => !release.prerelease)
+)
 const mirrorUrlSelect = ref<string>('')
 const getMirrorUrling = ref(false)
 const validMirrorUrl = ref(cloneDeep(GITHUB_MIRROR_URL))
@@ -137,7 +143,10 @@ const downLoadCore = async () => {
   }
 
   const sources = [
-    { label: 'GitHub', value: `${GITHUB_EASYTIER}${GITHUB_DOWN_URL}/${verSelect.value}${fileName.value}` }
+    {
+      label: 'GitHub',
+      value: `${GITHUB_EASYTIER}${GITHUB_DOWN_URL}/${verSelect.value}${fileName.value}`
+    }
   ]
   const mirrors = [...GITHUB_MIRROR_URL]
   if (mirrorUrlSelect.value) {
@@ -249,6 +258,13 @@ const verSelectChange = (val: string) => {
   })
 }
 
+const handlePrereleaseVisibilityChange = () => {
+  if (!verOptions.value.some((release) => release.tag_name === verSelect.value)) {
+    verSelect.value = verOptions.value[0]?.tag_name || ''
+    if (verSelect.value) verSelectChange(verSelect.value)
+  }
+}
+
 // 刷新版本列表
 const verRefreshing = ref(false)
 const handleRefreshVersions = async () => {
@@ -256,9 +272,9 @@ const handleRefreshVersions = async () => {
   try {
     const data = await easyTierStore.refreshCoreReleaseInfo()
     if (data && data.length > 0) {
-      verOptions.value = data
-      verSelect.value = data[0].tag_name
-      verSelectChange(verSelect.value)
+      allVerOptions.value = data
+      verSelect.value = verOptions.value[0]?.tag_name || ''
+      if (verSelect.value) verSelectChange(verSelect.value)
       ElMessage.success('版本列表已更新')
     }
   } catch (error) {
@@ -427,18 +443,22 @@ onMounted(async () => {
   form.appVersion = await getAppVersion()
   const newVar = await easyTierStore.getCoreReleaseInfo()
   if (newVar && newVar.length > 0) {
-    verOptions.value = newVar
+    allVerOptions.value = newVar
+  } else {
+    ElMessage.warning('未能获取当前平台可安装的内核版本')
   }
-  verSelect.value = verOptions.value[0].tag_name
+  verSelect.value = verOptions.value[0]?.tag_name || ''
   // form.appLogLevel = await getLogLevel()
   const winUrlTemplate = template(EASYTIER_NAME)
   // easytier-windows-x86_64-v2.0.3.zip
   // easytier-win32-x64-v2.0.3.zip
-  fileName.value = winUrlTemplate({
-    osType: getOsType(),
-    osArch: getArch(),
-    version: verSelect.value
-  })
+  if (verSelect.value) {
+    fileName.value = winUrlTemplate({
+      osType: getOsType(),
+      osArch: getArch(),
+      version: verSelect.value
+    })
+  }
 })
 </script>
 
@@ -516,11 +536,19 @@ onMounted(async () => {
               >
                 <el-option
                   v-for="item in verOptions"
-                  :key="item.name"
-                  :label="item.name"
+                  :key="item.tag_name"
+                  :label="item.prerelease ? `${item.name}（预发布）` : item.name"
                   :value="item.tag_name"
                 />
               </el-select>
+              <div class="flex items-center gap-6px whitespace-nowrap">
+                <span class="text-13px">预发布版</span>
+                <el-switch
+                  v-model="showPrereleases"
+                  size="small"
+                  @change="handlePrereleaseVisibilityChange"
+                />
+              </div>
               <el-button
                 :loading="verRefreshing"
                 @click="handleRefreshVersions"
