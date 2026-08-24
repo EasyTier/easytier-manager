@@ -20,7 +20,7 @@ import {
   runEasyTierCore,
   safeJsonParse
 } from '@/utils/shellUtil'
-import { notify, sleep } from '@/utils/sysUtil'
+import { getOsType, notify, sleep } from '@/utils/sysUtil'
 import { ArrowDown, CopyDocument, Link, Monitor, Platform, Setting } from '@element-plus/icons-vue'
 import { invoke } from '@tauri-apps/api/core'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
@@ -691,7 +691,7 @@ const startAction = async () => {
       await clearETLogs(currentNodeKey.value.configFileName)
       info(`已清空日志: ${currentNodeKey.value.configFileName}`)
     }
-    if (currentConfig?.config_exit_nodes_route) {
+    if (getOsType() === 'windows' && currentConfig?.config_exit_nodes_route) {
       ElNotification({
         title: '开始运行',
         message: '请稍等，正在启动并配置各项参数...',
@@ -718,7 +718,8 @@ const startAction = async () => {
   }
 
   await runEasyTierCore(currentNodeKey.value.fileName!)
-    .then(async (_res) => {
+    .then(async (res) => {
+      if (res === 403) throw new Error('内核启动失败')
       // info(`运行配置结果:${JSON.stringify(res)}`)
       easyTierStore.stopSetRoute = false
       await updateRunningList()
@@ -1241,7 +1242,12 @@ onDeactivated(() => {
         <el-table-column :label="t('common.action')" width="100" align="center" fixed="right">
           <template #default="{ row }">
             <el-dropdown
-              v-if="row.ipv4 && row.ipv4 !== '服务器' && row.cost !== '本机'"
+              v-if="
+                easyTierStore.os === 'windows' &&
+                row.ipv4 &&
+                row.ipv4 !== '服务器' &&
+                row.cost !== '本机'
+              "
               trigger="click"
               @command="(cmd) => cmd(row.ipv4)"
             >
