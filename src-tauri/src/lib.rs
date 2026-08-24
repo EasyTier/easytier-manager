@@ -434,7 +434,7 @@ fn parse_process_line(line: &str) -> Option<ProcessInfo> {
     let memory = memory.parse::<u64>().ok()?.saturating_mul(1024);
     let core_end = process_text.find("easytier-core")? + "easytier-core".len();
     let command_path = &process_text[..core_end];
-    let command_line = process_text[core_end..].trim_start().to_string();
+    let command_line = process_text.to_string();
     let file_name = extract_toml_file_name(&command_line);
     let config_file_name = file_name
         .as_deref()
@@ -611,7 +611,7 @@ mod tests {
     #[test]
     fn parses_easytier_process_line() {
         let process = parse_process_line(
-            "  123 2048 /Users/test/Library/Application Support/easytier-manager-pro/resource/current/easytier-core /Users/test/Library/Application Support/easytier-manager-pro/resource/current/easytier-core --config-file /Users/test/Library/Application Support/easytier-manager-pro/config/office.toml",
+            "  123 2048 /Users/test/Lib /Users/test/Library/Application Support/easytier-manager-pro/resource/current/easytier-core --config-file /Users/test/Library/Application Support/easytier-manager-pro/config/office.toml",
         )
         .unwrap();
         assert_eq!(process.pid, 123);
@@ -622,7 +622,7 @@ mod tests {
         assert_eq!(process.file_name.as_deref(), Some("office.toml"));
         assert!(process
             .command_line
-            .contains("--config-file /Users/test/Library/Application Support"));
+            .contains("easytier-core --config-file /Users/test/Library/Application Support"));
         assert!(parse_process_line("1 512 /sbin/launchd /sbin/launchd").is_none());
     }
 }
