@@ -1,23 +1,23 @@
 <script setup lang="tsx">
 import { ContentWrap } from '@/components/ContentWrap'
 import {
-  DEFAULT_VER_OPTIONS,
   EASYTIER_NAME,
   GITHUB_DOWN_URL,
   GITHUB_EASYTIER,
   GITHUB_MIRROR_URL,
-  LOG_PATH,
+  RESOURCE_PATH,
   MANAGER_INFO_API,
   MANAGER_REPO_URL,
-  RESOURCE_PATH,
   USER_AGENT
 } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useStorage } from '@/hooks/web/useStorage'
 import { useEasyTierStore } from '@/store/modules/easytier'
+import type { CoreRelease } from '@/utils/easytierRelease'
 import {
   downloadFile,
   extractFile,
+  getConfigDir,
   getLogsDir,
   getResourceDir,
   listTomlFiles,
@@ -25,7 +25,8 @@ import {
 } from '@/utils/fileUtil'
 import { runEasyTierCli, stopAllNodes } from '@/utils/shellUtil'
 import { getAppVersion, getArch, getOsType } from '@/utils/sysUtil'
-import { appDataDir, appLogDir, join, resourceDir } from '@tauri-apps/api/path'
+import { appDataDir, appLogDir, join } from '@tauri-apps/api/path'
+import { invoke } from '@tauri-apps/api/core'
 import { fetch } from '@tauri-apps/plugin-http'
 import { useClipboard } from '@vueuse/core'
 import {
@@ -38,11 +39,13 @@ import {
   ElSelect
 } from 'element-plus'
 import { cloneDeep, template } from 'lodash-es'
-import { onMounted, reactive, ref, unref } from 'vue'
+import { computed, onMounted, reactive, ref, unref } from 'vue'
 import { measureMirrorLatency } from '@/utils'
 
 const { t } = useI18n()
 const { getStorage, setStorage, clear: storageClear } = useStorage('localStorage')
+const isWindows = getOsType() === 'windows'
+const isMacos = getOsType() === 'macos'
 
 const minimizeOnStart = ref(false)
 const autoRunNetwork = ref(false)
@@ -103,8 +106,14 @@ const form = reactive({
   appLogLevel: ''
 })
 
-const verSelect = ref<string>('v2.6.1')
-const verOptions = ref(cloneDeep(DEFAULT_VER_OPTIONS))
+const verSelect = ref('')
+const allVerOptions = ref<CoreRelease[]>([])
+const showPrereleases = ref(false)
+const verOptions = computed(() =>
+  showPrereleases.value
+    ? allVerOptions.value
+    : allVerOptions.value.filter((release) => !release.prerelease)
+)
 const mirrorUrlSelect = ref<string>('')
 const getMirrorUrling = ref(false)
 const validMirrorUrl = ref(cloneDeep(GITHUB_MIRROR_URL))
@@ -125,28 +134,44 @@ const getGitMirrorUrl = () => {
 //   // console.log('mirrorUrlSelect', mirrorUrlSelect.value)
 // }
 const downLoadCore = async () => {
+  const assetName = fileName.value.replace(/^\//, '')
+  const release: any = verOptions.value.find((item: any) => item.tag_name === verSelect.value)
+  const asset = release?.assets?.find((item: any) => item.name === assetName)
+  if (!asset?.digest?.startsWith('sha256:')) {
+    ElMessage.error('官方 Release 未提供该资产的 SHA-256，已拒绝下载')
+    return
+  }
+
+  const sources = [
+    {
+      label: 'GitHub',
+      value: `${GITHUB_EASYTIER}${GITHUB_DOWN_URL}/${verSelect.value}${fileName.value}`
+    }
+  ]
   const mirrors = [...GITHUB_MIRROR_URL]
   if (mirrorUrlSelect.value) {
     mirrors.unshift({ label: '自定义', value: mirrorUrlSelect.value, latency: null })
   }
+  for (const mirror of mirrors) {
+    let baseUrl = mirror.value
+    if (!baseUrl.endsWith('/')) baseUrl += '/'
+    sources.push({
+      label: mirror.label,
+      value: `${baseUrl}${GITHUB_EASYTIER}${GITHUB_DOWN_URL}/${verSelect.value}${fileName.value}`
+    })
+  }
 
   const maxRetriesPerMirror = 3
-  for (let i = 0; i < mirrors.length; i++) {
+  for (let i = 0; i < sources.length; i++) {
     for (let attempt = 1; attempt <= maxRetriesPerMirror; attempt++) {
       const notification = ElNotification({
         title: '下载中',
-        message: `使用加速源 ${mirrors[i].label} (尝试 ${attempt}/${maxRetriesPerMirror})...`,
+        message: `使用 ${sources[i].label} (尝试 ${attempt}/${maxRetriesPerMirror})...`,
         type: 'info',
         duration: 0
       })
       try {
-        let baseUrl = mirrors[i].value
-        if (!baseUrl.endsWith('/')) {
-          baseUrl += '/'
-        }
-        const url =
-          baseUrl + GITHUB_EASYTIER + GITHUB_DOWN_URL + '/' + verSelect.value + fileName.value
-        const res = await downloadFile(url)
+        const res = await downloadFile(sources[i].value, false)
         if (res) {
           notification.close()
           ElNotification({
@@ -158,7 +183,7 @@ const downLoadCore = async () => {
           return
         }
       } catch (error) {
-        console.error(`下载失败 (源 ${mirrors[i].label}, 尝试 ${attempt}):`, error)
+        console.error(`下载失败 (源 ${sources[i].label}, 尝试 ${attempt}):`, error)
       } finally {
         notification.close()
       }
@@ -167,30 +192,6 @@ const downLoadCore = async () => {
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
-  }
-
-  // 如果所有镜像和重试都失败，则尝试直接从 GitHub 下载
-  try {
-    const notification = ElNotification({
-      title: '下载中',
-      message: '正在尝试从 GitHub 直接下载...',
-      type: 'info',
-      duration: 0
-    })
-    const url = GITHUB_EASYTIER + GITHUB_DOWN_URL + '/' + verSelect.value + fileName.value
-    const res = await downloadFile(url)
-    notification.close()
-    if (res) {
-      ElNotification({
-        title: '下载成功',
-        message: '内核文件下载完成',
-        type: 'success',
-        duration: 3000
-      })
-      return
-    }
-  } catch (error) {
-    console.error('GitHub 直接下载失败:', error)
   }
 
   ElMessageBox.confirm('所有下载方式均失败，请检查网络连接或手动下载！', {
@@ -211,10 +212,26 @@ const installCore = async () => {
     type: 'warning'
   }).then(async () => {
     try {
+      const assetName = fileName.value.replace(/^\//, '')
+      const release: any = verOptions.value.find((item: any) => item.tag_name === verSelect.value)
+      const digest = release?.assets?.find((item: any) => item.name === assetName)?.digest
       // 停止所有节点
       await stopAllNodes()
-      const zipPath = await join(RESOURCE_PATH, fileName.value.replace('/', ''))
-      await extractFile(zipPath, RESOURCE_PATH)
+      if (isMacos) {
+        if (!digest?.startsWith('sha256:')) {
+          throw new Error('官方 Release 未提供该资产的 SHA-256')
+        }
+        const archivePath = await join(await getResourceDir(), fileName.value.replace('/', ''))
+        const version = await invoke<string>('install_core_archive', {
+          archivePath,
+          expectedSha256: digest
+        })
+        form.coreVersion = version
+        checkCorePathSuccess.value = true
+      } else {
+        const zipPath = await join(RESOURCE_PATH, fileName.value.replace('/', ''))
+        await extractFile(zipPath, RESOURCE_PATH)
+      }
       ElNotification({
         title: '安装成功',
         message: '内核安装完成',
@@ -241,6 +258,13 @@ const verSelectChange = (val: string) => {
   })
 }
 
+const handlePrereleaseVisibilityChange = () => {
+  if (!verOptions.value.some((release) => release.tag_name === verSelect.value)) {
+    verSelect.value = verOptions.value[0]?.tag_name || ''
+    if (verSelect.value) verSelectChange(verSelect.value)
+  }
+}
+
 // 刷新版本列表
 const verRefreshing = ref(false)
 const handleRefreshVersions = async () => {
@@ -248,9 +272,9 @@ const handleRefreshVersions = async () => {
   try {
     const data = await easyTierStore.refreshCoreReleaseInfo()
     if (data && data.length > 0) {
-      verOptions.value = data
-      verSelect.value = data[0].tag_name
-      verSelectChange(verSelect.value)
+      allVerOptions.value = data
+      verSelect.value = verOptions.value[0]?.tag_name || ''
+      if (verSelect.value) verSelectChange(verSelect.value)
       ElMessage.success('版本列表已更新')
     }
   } catch (error) {
@@ -277,19 +301,17 @@ const checkCorePath = async () => {
   }
 }
 const openConfigPath = async () => {
-  const configPath = await join(await resourceDir(), 'config')
-  await openPath(configPath)
+  await openPath(await getConfigDir())
 }
 const openCorePath = async () => {
-  const resourcePath = await join(await resourceDir(), RESOURCE_PATH)
-  await openPath(resourcePath)
+  await openPath(await getResourceDir())
 }
 // @ts-ignore
 // @ts-nocheck
 const copyLogPath = async () => {
   // 拷贝
   const { copy, copied, isSupported } = useClipboard({
-    source: await join(await resourceDir(), LOG_PATH),
+    source: await getLogsDir(),
     legacy: true
   })
   if (!isSupported) {
@@ -302,8 +324,7 @@ const copyLogPath = async () => {
   }
 }
 const openLogPath = async () => {
-  const resourcePath = await join(await resourceDir(), LOG_PATH)
-  await openPath(resourcePath)
+  await openPath(await getLogsDir())
 }
 // const openLogPath2 = async () => {
 //   const resourcePath = await appLogDir()
@@ -422,18 +443,22 @@ onMounted(async () => {
   form.appVersion = await getAppVersion()
   const newVar = await easyTierStore.getCoreReleaseInfo()
   if (newVar && newVar.length > 0) {
-    verOptions.value = newVar
+    allVerOptions.value = newVar
+  } else {
+    ElMessage.warning('未能获取当前平台可安装的内核版本')
   }
-  verSelect.value = verOptions.value[0].tag_name
+  verSelect.value = verOptions.value[0]?.tag_name || ''
   // form.appLogLevel = await getLogLevel()
   const winUrlTemplate = template(EASYTIER_NAME)
   // easytier-windows-x86_64-v2.0.3.zip
   // easytier-win32-x64-v2.0.3.zip
-  fileName.value = winUrlTemplate({
-    osType: getOsType(),
-    osArch: getArch(),
-    version: verSelect.value
-  })
+  if (verSelect.value) {
+    fileName.value = winUrlTemplate({
+      osType: getOsType(),
+      osArch: getArch(),
+      version: verSelect.value
+    })
+  }
 })
 </script>
 
@@ -511,11 +536,19 @@ onMounted(async () => {
               >
                 <el-option
                   v-for="item in verOptions"
-                  :key="item.name"
-                  :label="item.name"
+                  :key="item.tag_name"
+                  :label="item.prerelease ? `${item.name}（预发布）` : item.name"
                   :value="item.tag_name"
                 />
               </el-select>
+              <div class="flex items-center gap-6px whitespace-nowrap">
+                <span class="text-13px">预发布版</span>
+                <el-switch
+                  v-model="showPrereleases"
+                  size="small"
+                  @change="handlePrereleaseVisibilityChange"
+                />
+              </div>
               <el-button
                 :loading="verRefreshing"
                 @click="handleRefreshVersions"
@@ -585,7 +618,7 @@ onMounted(async () => {
               >开启后，启动程序将自动隐藏到系统托盘</span
             >
           </el-form-item>
-          <el-form-item label="启动后自动运行网络">
+          <el-form-item v-if="isWindows" label="启动后自动运行网络">
             <div class="flex flex-col gap-10px w-100%">
               <div class="flex items-center">
                 <el-switch v-model="autoRunNetwork" @change="handleAutoRunNetworkChange" />
@@ -632,7 +665,7 @@ onMounted(async () => {
               >工作台节点列表刷新间隔（秒），最低2秒</span
             >
           </el-form-item>
-          <el-form-item label="Xshell 路径">
+          <el-form-item v-if="isWindows" label="Xshell 路径">
             <el-input
               v-model="xshellPath"
               placeholder="例如: C:\Program Files (x86)\NetSarang\Xshell 7\Xshell.exe"
@@ -662,33 +695,22 @@ onMounted(async () => {
             </div>
           </el-form-item>
 
-          <!-- 服务管理设置 -->
-          <el-divider content-position="left">服务管理设置</el-divider>
-
-          <el-form-item label="默认服务安装方式">
-            <div class="flex flex-col gap-10px w-100%">
-              <div class="flex items-center">
-                <el-select
-                  v-model="defaultServiceInstallMethod"
-                  style="width: 280px"
-                  @change="handleServiceInstallMethodChange"
-                >
-                  <el-option label="NSSM (推荐，兼容性好)" value="nssm" />
-                  <el-option label="官方 easytier-cli (v1.2.0+)" value="official" />
-                </el-select>
-                <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
-                  >新配置安装服务时的默认方式</span
-                >
-              </div>
-            </div>
-          </el-form-item>
-
-          <el-form-item label="默认开机自启动">
-            <el-switch v-model="defaultEnableAutostart" @change="handleServiceAutostartChange" />
-            <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
-              >安装服务时是否默认开机自启</span
-            >
-          </el-form-item>
+          <template v-if="isWindows">
+            <el-divider content-position="left">服务管理设置</el-divider>
+            <el-form-item label="默认服务安装方式">
+              <el-select
+                v-model="defaultServiceInstallMethod"
+                style="width: 280px"
+                @change="handleServiceInstallMethodChange"
+              >
+                <el-option label="NSSM (推荐，兼容性好)" value="nssm" />
+                <el-option label="官方 easytier-cli (v1.2.0+)" value="official" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="默认开机自启动">
+              <el-switch v-model="defaultEnableAutostart" @change="handleServiceAutostartChange" />
+            </el-form-item>
+          </template>
         </el-form>
       </el-card>
 

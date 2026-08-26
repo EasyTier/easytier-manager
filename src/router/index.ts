@@ -4,8 +4,10 @@ import type { App } from 'vue'
 import { Layout } from '@/utils/routerHelper'
 import { useI18n } from '@/hooks/web/useI18n'
 import { NO_RESET_WHITE_LIST } from '@/constants'
+import { getOsType } from '@/utils/sysUtil'
 
 const { t } = useI18n()
+const isMacos = getOsType() === 'macos'
 
 export const constantRouterMap: AppRouteRecordRaw[] = [
   {
@@ -65,7 +67,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     path: '/configWeb',
     component: Layout,
     name: 'configWeb',
-    meta: {},
+    meta: { hidden: isMacos },
     children: [
       {
         path: '',
@@ -104,6 +106,10 @@ const router = createRouter({
   strict: true,
   routes: constantRouterMap as RouteRecordRaw[],
   scrollBehavior: () => ({ left: 0, top: 0 })
+})
+
+router.beforeEach((to) => {
+  if (isMacos && to.name === 'UserWebConfig') return { name: 'UserConfig' }
 })
 
 export const resetRouter = (): void => {

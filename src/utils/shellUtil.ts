@@ -1,11 +1,21 @@
 import { CONFIG_PATH, NSSM_NAME } from '@/constants/easytier'
 import { invoke } from '@tauri-apps/api/core'
-import { join, resourceDir } from '@tauri-apps/api/path'
+import { join } from '@tauri-apps/api/path'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
-import { getCliDir, getCoreDir, getResourceDir, readFileContent } from './fileUtil'
+import { getCliDir, getConfigDir, getCoreDir, getResourceDir, readFileContent } from './fileUtil'
+import { normalizeRpcPortal } from './rpcPortal'
+import { extractConfigNameFromPath, parseCoreCommandLine } from './coreProcess'
 import { getPlatform, sleep } from './sysUtil'
 import * as toml from 'smol-toml'
+
+export { normalizeRpcPortal } from './rpcPortal'
+export {
+  extractArgValue,
+  extractConfigNameFromPath,
+  extractConfigPath,
+  parseCoreCommandLine
+} from './coreProcess'
 
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
 attachConsole()
@@ -165,11 +175,14 @@ export async function executeBack(
       finalArgs = ['/c', commandStr]
       finalProgram = 'cmd'
     }
-    if (platform === 'linux' || platform === 'macos') {
+    if (platform === 'linux') {
       // 使用 sudo 运行 nohup
       // Unix 系统使用数组参数，Tauri 会正确处理包含空格的参数，不需要手动添加引号
       finalArgs = ['nohup', binPath, ...args]
       finalProgram = 'sudo'
+    }
+    if (platform === 'macos') {
+      throw new Error('macOS 后台启动必须使用受控的 start_core_macos 命令')
     }
     info(`执行命令：${finalProgram}`)
     info(`执行参数：${JSON.stringify(finalArgs)}`)
@@ -208,12 +221,21 @@ export async function executeBack(
 // 运行 easytier-core 配置
 export async function runEasyTierCore(configFileName: string): Promise<any> {
   try {
-    const configPath = await join(await resourceDir(), CONFIG_PATH, configFileName)
-    const program = await getCoreDir()
-
     // 读取配置文件获取日志配置和 rpc_portal
     // v2.5.0 起 rpc_portal 不再从配置文件读取，需通过 --rpc-portal 命令行参数传递
     const { logDir, logLevel, rpcPortal } = await getConfigFromFile(configFileName)
+    if ((await getPlatform()) === 'macos') {
+      const pid = await invoke<number>('start_core_macos', {
+        configFileName,
+        logLevel,
+        rpcPortal
+      })
+      info(`macOS 内核已启动，PID: ${pid}`)
+      return pid
+    }
+
+    const configPath = await join(await getConfigDir(), configFileName)
+    const program = await getCoreDir()
 
     const args: string[] = [
       '--file-log-dir',
@@ -248,6 +270,10 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
 // 运行 easytier-core web配置
 export async function runEasyTierCoreWeb(url: string): Promise<any> {
   try {
+    if ((await getPlatform()) === 'macos') {
+      error('macOS 不支持 Web 配置启动')
+      return 403
+    }
     const program = await getCoreDir()
     const res = await invoke('run_command', {
       program,
@@ -264,6 +290,14 @@ export async function runEasyTierCoreWeb(url: string): Promise<any> {
 // 运行 easytier-cli 配置
 export async function runEasyTierCli(args: string[]): Promise<any> {
   try {
+    if ((await getPlatform()) === 'macos') {
+      const result = await invoke<string>('run_cli', {
+        program: await getCliDir(),
+        args
+      })
+      if (result.startsWith('Error:')) throw new Error(result)
+      return result
+    }
     return await executeCmd('easytier-cli', args)
     // 使用rust api 会出现卡顿
     // const program = await getCliDir()
@@ -314,8 +348,9 @@ export async function killProcess(pid: number, force: boolean = true): Promise<b
       const result = await executeCmd('taskkill', args, { encoding: 'gbk' })
       debug(`强制终止进程 ${result}`)
     }
-    // Unix-like 系统使用 kill 命令
-    else {
+    if (platform === 'macos') {
+      await invoke('stop_core_macos', { pid, force })
+    } else if (platform !== 'windows') {
       const signal = force ? '-9' : '-15' // SIGKILL vs SIGTERM
       const result = await executeCmd('kill', [signal, pid.toString()])
       debug(`强制终止进程 ${result}`)
@@ -330,25 +365,11 @@ export async function killProcess(pid: number, force: boolean = true): Promise<b
 
 // 停止所有节点
 export async function stopAllNodes() {
-  try {
-    const processList = await getRunningProcesses('easytier-core')
-    processList.forEach(async (process) => {
-      await killProcess(process.pid)
-    })
-  } catch (e) {
-    error(`停止所有节点失败:${e}`)
-  }
-}
-
-// Linux/macOS 下使用 sudo 的示例
-export async function killProcessWithSudo(pid: number, force: boolean = false): Promise<boolean> {
-  try {
-    const signal = force ? '-9' : '-15'
-    await executeCmd('sudo', ['kill', signal, pid.toString()])
-    return true
-  } catch (e: any) {
-    error(`使用 sudo 终止进程 ${pid} 失败:${e}`)
-    return false
+  const processList = await getRunningProcesses('easytier-core')
+  for (const process of processList) {
+    if (!(await killProcess(process.pid))) {
+      throw new Error(`停止节点 ${process.pid} 失败`)
+    }
   }
 }
 
@@ -357,7 +378,7 @@ export async function killAllEasyTierCoreProcessWin() {
   return await executeCmd('taskkill', ['/IM', 'easytier-core.exe', '/F'])
 }
 
-// Linux/macOS 结束所有 easytier-core 进程
+// Linux 结束所有 easytier-core 进程
 export async function killAllEasyTierCoreProcessUnix() {
   return await executeCmd('killall', ['easytier-core'])
 }
@@ -370,67 +391,6 @@ export const testWMIC = async () => {
   } catch (_e: any) {
     return false
   }
-}
-
-/**
- * 从命令行参数中提取指定 flag 的值
- * 支持 --flag value、--flag=value、带引号路径
- */
-export function extractArgValue(commandLine: string, flag: string): string | undefined {
-  if (!commandLine || !flag) return undefined
-  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  // --flag=value 或 --flag "value" 或 --flag value
-  const re = new RegExp(`${escaped}(?:=|\\s+)(?:"([^"]+)"|'([^']+)'|(\\S+))`, 'i')
-  const m = commandLine.match(re)
-  if (!m) return undefined
-  return (m[1] || m[2] || m[3] || '').trim() || undefined
-}
-
-/**
- * 规范化 rpc_portal 地址，供 easytier-cli -p 使用
- * 0.0.0.0 / :: → 127.0.0.1
- */
-export function normalizeRpcPortal(portal?: string | null): string | undefined {
-  if (!portal) return undefined
-  let p = String(portal).trim()
-  if (!p) return undefined
-  p = p.replace(/^0\.0\.0\.0/, '127.0.0.1').replace(/^\[?::\]?/, '127.0.0.1')
-  return p
-}
-
-/**
- * 从配置文件路径提取配置名（不含 .toml）
- */
-export function extractConfigNameFromPath(configPath: string): {
-  configFileName: string
-  fileName: string
-} {
-  const normalized = configPath.replace(/\\/g, '/')
-  const base = normalized.split('/').pop() || configPath
-  const fileName = base.endsWith('.toml') ? base : `${base}.toml`
-  const configFileName = fileName.replace(/\.toml$/i, '')
-  return { configFileName, fileName }
-}
-
-/**
- * 解析 easytier-core 命令行，提取配置文件与 rpc 端口
- */
-export function parseCoreCommandLine(commandLine: string): {
-  configPath?: string
-  configFileName?: string
-  fileName?: string
-  rpcPortal?: string
-} {
-  if (!commandLine) return {}
-  const configPath =
-    extractArgValue(commandLine, '--config-file') || extractArgValue(commandLine, '-c')
-  const rpcRaw = extractArgValue(commandLine, '--rpc-portal') || extractArgValue(commandLine, '-r')
-  const rpcPortal = normalizeRpcPortal(rpcRaw)
-  if (!configPath) {
-    return { rpcPortal }
-  }
-  const { configFileName, fileName } = extractConfigNameFromPath(configPath)
-  return { configPath, configFileName, fileName, rpcPortal }
 }
 
 /**
@@ -452,8 +412,9 @@ export async function listRunningCoreInstances(): Promise<CoreProcessInstance[]>
 
     const parsed = parseCoreCommandLine(commandLine)
     // 未解析到配置文件时，尝试用进程字段兜底
-    let configFileName = parsed.configFileName || p.configFileName
-    let fileName = parsed.fileName || p.fileName
+    // 原生枚举返回的结构化字段不会受 ps 展开含空格 argv 的影响。
+    let configFileName = p.configFileName || parsed.configFileName
+    let fileName = p.fileName || parsed.fileName
     let rpcPortal = parsed.rpcPortal || p.rpcPortal
 
     // 兼容：若 commandLine 含某个 .toml 路径但 flag 解析失败
@@ -510,6 +471,28 @@ export const getRunningProcesses = async (
     const processInfo: any[] = []
     const platform = await getPlatform()
 
+    if (platform === 'macos') {
+      try {
+        const processes = await invoke<Array<any>>('list_core_processes')
+        resolve(
+          processes
+            .filter((process) => process.commandLine.includes(programName))
+            .map((process) => {
+              const parsed = parseCoreCommandLine(process.commandLine)
+              return {
+                ...process,
+                fileName: process.fileName || parsed.fileName || programName,
+                configFileName: process.configFileName || parsed.configFileName,
+                rpcPortal: parsed.rpcPortal
+              }
+            })
+        )
+      } catch (error) {
+        reject(error)
+      }
+      return
+    }
+
     if (platform === 'windows') {
       // 新的 PowerShell 命令
       const psCommand = `\
@@ -526,8 +509,8 @@ export const getRunningProcesses = async (
       // 可选 ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCommand]
       args = ['-NoProfile', '-Command', psCommand]
       encoding = 'gbk'
-    } else if (platform === 'macos' || platform === 'linux') {
-      // macOS 和 Linux 使用 ps 命令
+    } else if (platform === 'linux') {
+      // Linux 使用 ps 命令
       // 注意：管道符需要通过 shell 执行，所以使用 sh -c 包装整个命令
       const psCommand = `ps -eo comm,args,pid,rss | grep ${programName}`
       program = 'sh'
@@ -569,8 +552,8 @@ export const getRunningProcesses = async (
               processInfo.push(process)
             }
           })
-        } else if (platform === 'macos' || platform === 'linux') {
-          // 解析 macOS 和 Linux 的 ps 输出
+        } else if (platform === 'linux') {
+          // 解析 Linux 的 ps 输出
           const lines = String(res || '')
             .trim()
             .split('\n')

@@ -1,0 +1,92 @@
+name: CI Pro MacOS ARM64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/macos-local-build
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check frontend
+        run: pnpm ts:check
+
+      - name: Build application bundle
+        run: pnpm tauri build --target aarch64-apple-darwin --bundles app
+
+      - name: Ad-hoc sign and package DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$app_path"
+          codesign --force --deep --sign - "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+
+          dmg_root="$RUNNER_TEMP/easytier-manager-dmg"
+          dmg_path="src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/easytier-manager-pro-aarch64.dmg"
+          mkdir -p "$dmg_root" "$(dirname "$dmg_path")"
+          cp -R "$app_path" "$dmg_root/"
+          ln -s /Applications "$dmg_root/Applications"
+          hdiutil create -volname "EasyTier Manager Pro" -srcfolder "$dmg_root" -ov -format UDZO "$dmg_path"
+
+      - name: Verify packaged DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg_path=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)
+          mount_point="$RUNNER_TEMP/easytier-manager-mounted"
+          mkdir -p "$mount_point"
+          hdiutil attach "$dmg_path" -readonly -nobrowse -mountpoint "$mount_point"
+          trap 'hdiutil detach "$mount_point"' EXIT
+          app_path=$(find "$mount_point" -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          file "$app_path/Contents/MacOS/easytier-manager-pro" | grep -q 'arm64'
+          hdiutil detach "$mount_point"
+          trap - EXIT
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: easytier-manager-pro-macos-arm64
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14

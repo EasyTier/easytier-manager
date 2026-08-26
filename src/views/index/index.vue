@@ -15,12 +15,13 @@ import {
   getRunningProcesses,
   killProcess,
   listRunningCoreInstances,
+  normalizeRpcPortal,
   replaceLastWithZero,
   runEasyTierCli,
   runEasyTierCore,
   safeJsonParse
 } from '@/utils/shellUtil'
-import { notify, sleep } from '@/utils/sysUtil'
+import { getOsType, notify, sleep } from '@/utils/sysUtil'
 import { ArrowDown, CopyDocument, Link, Monitor, Platform, Setting } from '@element-plus/icons-vue'
 import { invoke } from '@tauri-apps/api/core'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
@@ -53,6 +54,8 @@ const currentNodeKey = ref<RunningItem>({
   configFileName: ''
 })
 const currentConfigCache = ref<EasyTierConfig | null>(null)
+const isWindows = getOsType() === 'windows'
+const isMacos = getOsType() === 'macos'
 const currentDepartment = ref('')
 const tableRowClassName = ({ rowIndex }: { row: any; rowIndex: number }) => {
   if (rowIndex === 1) {
@@ -322,10 +325,23 @@ const runningTag = computed(() => {
 })
 // 综合状态：loading = 正在启动或正在初始化
 const isLoading = computed(() => isStarting.value || isInitializing.value)
+const openMacTerminal = async (action: 'ping' | 'telnet' | 'ssh', host: string, port?: number) => {
+  try {
+    await invoke('open_terminal_macos', { action, host, port })
+  } catch (e) {
+    error(`打开 macOS Terminal 失败:${String(e)}`)
+    ElMessage.error('无法打开 Terminal，请检查系统自动化权限')
+  }
+}
 const handlePing = async (ip: string) => {
   if (!ip || ip === '服务器') return
-  // Windows: cmd /k ping <ip>
-  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ping ${ip}`]).spawn()
+  if (isMacos) {
+    await openMacTerminal('ping', ip)
+    return
+  }
+  if (isWindows) {
+    await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ping ${ip}`]).spawn()
+  }
 }
 
 const handleRDP = async (ip: string) => {
@@ -351,7 +367,16 @@ const executeTelnet = async () => {
     ElMessage.warning('请输入端口号')
     return
   }
+  const portNumber = Number(port)
+  if (!Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535) {
+    ElMessage.warning('请输入 1-65535 之间的端口号')
+    return
+  }
   telnetDialogVisible.value = false
+  if (isMacos) {
+    await openMacTerminal('telnet', currentTelnetIp.value, portNumber)
+    return
+  }
   await Command.create('cmd', [
     '/c',
     'start',
@@ -367,8 +392,13 @@ const setQuickPort = (port: string) => {
 
 const handleSSH = async (ip: string) => {
   if (!ip || ip === '服务器') return
-  // Windows: cmd /k ssh root@<ip>
-  await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ssh root@${ip}`]).spawn()
+  if (isMacos) {
+    await openMacTerminal('ssh', ip)
+    return
+  }
+  if (isWindows) {
+    await Command.create('cmd', ['/c', 'start', 'cmd', '/k', `ssh root@${ip}`]).spawn()
+  }
 }
 
 const handleXshell = async (ip: string) => {
@@ -490,12 +520,8 @@ const getNodeInfo = async () => {
       isFirstRun = false
 
       const config = await getCurrentConfig()
-      const rpcPortal = config?.rpc_portal
-        ? (config.rpc_portal as string).replace('0.0.0.0', '127.0.0.1')
-        : undefined
-      const cliArgs = rpcPortal
-        ? ['-p', rpcPortal, '--output', 'json', 'node']
-        : ['--output', 'json', 'node']
+      const rpcPortal = normalizeRpcPortal(config?.rpc_portal)
+      const cliArgs = ['-p', rpcPortal, '--output', 'json', 'node']
       const res = await runEasyTierCli(cliArgs)
       if (res.code === 403) {
         easyTierStore.setStopLoop(true)
@@ -563,7 +589,7 @@ const getPeerInfo = async () => {
       }
       const res = await runEasyTierCli([
         '-p',
-        (data.rpc_portal as string).replace('0.0.0.0', '127.0.0.1'),
+        normalizeRpcPortal(data.rpc_portal),
         '--output',
         'json',
         'peer'
@@ -691,7 +717,7 @@ const startAction = async () => {
       await clearETLogs(currentNodeKey.value.configFileName)
       info(`已清空日志: ${currentNodeKey.value.configFileName}`)
     }
-    if (currentConfig?.config_exit_nodes_route) {
+    if (getOsType() === 'windows' && currentConfig?.config_exit_nodes_route) {
       ElNotification({
         title: '开始运行',
         message: '请稍等，正在启动并配置各项参数...',
@@ -718,7 +744,8 @@ const startAction = async () => {
   }
 
   await runEasyTierCore(currentNodeKey.value.fileName!)
-    .then(async (_res) => {
+    .then(async (res) => {
+      if (res === 403) throw new Error('内核启动失败')
       // info(`运行配置结果:${JSON.stringify(res)}`)
       easyTierStore.stopSetRoute = false
       await updateRunningList()
@@ -1238,7 +1265,13 @@ onDeactivated(() => {
           header-align="center"
           show-overflow-tooltip
         />
-        <el-table-column :label="t('common.action')" width="100" align="center" fixed="right">
+        <el-table-column
+          v-if="isWindows || isMacos"
+          :label="t('common.action')"
+          width="100"
+          align="center"
+          fixed="right"
+        >
           <template #default="{ row }">
             <el-dropdown
               v-if="row.ipv4 && row.ipv4 !== '服务器' && row.cost !== '本机'"
@@ -1269,15 +1302,15 @@ onDeactivated(() => {
                     <el-icon>
                       <Link />
                     </el-icon>
-                    Windows SSH
+                    SSH 连接
                   </el-dropdown-item>
-                  <el-dropdown-item :command="handleRDP">
+                  <el-dropdown-item v-if="isWindows" :command="handleRDP">
                     <el-icon>
                       <Monitor />
                     </el-icon>
                     远程桌面 (RDP)
                   </el-dropdown-item>
-                  <el-dropdown-item :command="handleXshell">
+                  <el-dropdown-item v-if="isWindows" :command="handleXshell">
                     <el-icon>
                       <Link />
                     </el-icon>

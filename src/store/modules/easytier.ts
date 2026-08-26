@@ -1,16 +1,16 @@
 import {
   CORE_INFO_API,
   DEFAULT_STUN_SERVER,
-  DEFAULT_VER_OPTIONS,
   MONITOR_LIST,
   PREFIX_SVC,
   STUN_SERVER_URL,
   USER_AGENT
 } from '@/constants/easytier'
-import { listTomlFiles } from '@/utils/fileUtil'
+import { getDataRootDir, listTomlFiles } from '@/utils/fileUtil'
 import { startServiceOnWindows } from '@/utils/shellUtil'
-import { resourceDir } from '@tauri-apps/api/path'
 import { fetch } from '@tauri-apps/plugin-http'
+import { normalizeCoreReleases, type CoreRelease } from '@/utils/easytierRelease'
+import { getArch, getOsType } from '@/utils/sysUtil'
 import dayjs from 'dayjs'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
@@ -50,13 +50,9 @@ export const useEasyTierStore = defineStore(
     const errRunNotify = ref(true)
     const defaultFormData = ref()
     const os = ref('windows')
-    const releaseInfo = ref([])
+    const releaseInfo = ref<CoreRelease[]>([])
     const publicPeerList = ref([])
     const stunServerList = ref([])
-    const defaultStatus = JSON.stringify({
-      status: 'true',
-      date: dayjs().format('YYYYMMDD').toString()
-    })
     // 当前选择的列（存储prop值）
     const selectedColumns = ref(['rx_bytes', 'tx_bytes', 'nat_type'])
     // 默认服务安装方式
@@ -206,74 +202,68 @@ export const useEasyTierStore = defineStore(
       //   return
       // }
       // 如果 configJsonObj 中存在 path 键，则设置 configPath 为 path 键的值，如果不存在则判断 path 是否为空，为空则设置为 resource 目录，否则设置为 path 键的值
-      configPath.value = await resourceDir()
+      configPath.value = await getDataRootDir()
       // configJsonObj.configPath = RESOURCE_PATH
       // await writeConfigJsonObj(configJsonObj)
     }
-    const getCoreReleaseInfo = async () => {
-      const localRes = JSON.parse(localStorage.getItem('releaseInfo') || '[]')
-      const isGet = JSON.parse(localStorage.getItem('releaseInfoIsGet') || defaultStatus)
-      const date = dayjs().format('YYYYMMDD').toString()
-
-      if ((isGet.data !== date && isGet.status === 'false') || releaseInfo.value.length === 0) {
-        try {
-          const response = await fetch(CORE_INFO_API, {
-            method: 'GET',
-            headers: { 'User-Agent': USER_AGENT },
-            connectTimeout: 6000
-          })
-          if (response.ok) {
-            const text = await response.text()
-            releaseInfo.value = text ? JSON.parse(text) : []
-            // 如果成功获取到新数据，更新本地存储
-            localStorage.setItem('releaseInfo', JSON.stringify(releaseInfo.value))
-            localStorage.setItem(
-              'releaseInfoIsGet',
-              JSON.stringify({
-                status: 'true',
-                date
-              })
-            )
-          } else {
-            throw new Error(`HTTP error! status: ${response.status}`)
-          }
-        } catch (error) {
-          console.error('获取发布信息失败:', error)
-          console.error('DEFAULT_VER_OPTIONS:', DEFAULT_VER_OPTIONS)
-          releaseInfo.value = localRes.length > 0 ? localRes : DEFAULT_VER_OPTIONS
-          return releaseInfo.value
-        }
-      } else {
-        releaseInfo.value = localRes
-      }
-
-      return releaseInfo.value
-    }
-
-    // 强制刷新版本信息（供按钮调用）
-    const refreshCoreReleaseInfo = async () => {
+    const readCachedCoreReleases = () => {
       try {
-        const response = await fetch(CORE_INFO_API, {
-          method: 'GET',
-          headers: { 'User-Agent': USER_AGENT },
-          connectTimeout: 10000
-        })
-        releaseInfo.value = await response.json()
-        const date = dayjs().format('YYYYMMDD').toString()
-        localStorage.setItem('releaseInfo', JSON.stringify(releaseInfo.value))
-        localStorage.setItem(
-          'releaseInfoIsGet',
-          JSON.stringify({
-            status: 'true',
-            date
-          })
-        )
-        return releaseInfo.value
+        const value = JSON.parse(localStorage.getItem('releaseInfo') || '[]')
+        return normalizeCoreReleases(value, getOsType(), getArch())
       } catch (error) {
-        console.error('刷新版本信息失败:', error)
-        return releaseInfo.value.length > 0 ? releaseInfo.value : DEFAULT_VER_OPTIONS
+        console.error('读取内核版本缓存失败:', error)
+        return []
       }
     }
+
+    const fetchCoreReleases = async (connectTimeout: number) => {
+      const response = await fetch(CORE_INFO_API, {
+        method: 'GET',
+        headers: { 'User-Agent': USER_AGENT },
+        connectTimeout
+      })
+      if (!response.ok) {
+        throw new Error(`GitHub Releases API 请求失败: HTTP ${response.status}`)
+      }
+
+      const releases = normalizeCoreReleases(await response.json(), getOsType(), getArch())
+      if (releases.length === 0) {
+        throw new Error('GitHub Releases 中没有当前平台可校验的内核资产')
+      }
+
+      releaseInfo.value = releases
+      localStorage.setItem('releaseInfo', JSON.stringify(releases))
+      localStorage.setItem(
+        'releaseInfoIsGet',
+        JSON.stringify({ status: 'true', date: dayjs().format('YYYYMMDD').toString() })
+      )
+      return releases
+    }
+
+    const getCoreReleaseInfo = async () => {
+      const cachedReleases = readCachedCoreReleases()
+      let cachedDate = ''
+      try {
+        cachedDate = JSON.parse(localStorage.getItem('releaseInfoIsGet') || '{}').date || ''
+      } catch (error) {
+        console.error('读取内核版本缓存状态失败:', error)
+      }
+
+      if (cachedReleases.length > 0 && cachedDate === dayjs().format('YYYYMMDD')) {
+        releaseInfo.value = cachedReleases
+        return releaseInfo.value
+      }
+
+      try {
+        return await fetchCoreReleases(6000)
+      } catch (error) {
+        console.error('获取发布信息失败:', error)
+        releaseInfo.value = cachedReleases
+        return releaseInfo.value
+      }
+    }
+
+    const refreshCoreReleaseInfo = async () => fetchCoreReleases(10000)
 
     const getPublicPeerList = async () => {
       const response = await fetch(MONITOR_LIST, {
@@ -377,6 +367,7 @@ export const useEasyTierStore = defineStore(
       defaultEnableAutostart.value = enable
     }
     const autorun = async () => {
+      if (getOsType() !== 'windows') return
       const autoRun = localStorage.getItem('settings.autoRun')
       if (autoRun === 'true') {
         const fileList = await listTomlFiles()

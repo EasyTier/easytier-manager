@@ -1,7 +1,7 @@
 import { CONFIG_PATH, LOG_PATH, RESOURCE_PATH, USER_AGENT } from '@/constants/easytier'
 // import { useI18n } from '@/hooks/web/useI18n'
 import { t } from '@/utils/i18nUtil'
-import { dirname, extname, join, resourceDir } from '@tauri-apps/api/path'
+import { appDataDir, dirname, extname, join, resourceDir } from '@tauri-apps/api/path'
 import {
   BaseDirectory,
   exists,
@@ -20,6 +20,10 @@ import { ElNotification } from 'element-plus'
 import { unzipSync } from 'fflate'
 import pkg from '../../package.json'
 import dayjs from 'dayjs'
+import { getOsType } from './sysUtil'
+
+export const DATA_BASE_DIR =
+  getOsType() === 'macos' ? BaseDirectory.AppData : BaseDirectory.Resource
 
 // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
 attachConsole()
@@ -29,16 +33,16 @@ attachConsole()
 // 程序启动时，判断是否存在resource目录，不存在则创建
 export const checkDir = async (dirPath: string = RESOURCE_PATH) => {
   try {
+    let extension = ''
     try {
-      // @ts-ignore
-      const _e = await extname(dirPath)
-      dirPath = await dirname(dirPath)
-    } catch (_error) {
-      /* empty */
+      extension = await extname(dirPath)
+    } catch (e) {
+      if (!String(e).includes('path does not have an extension')) throw e
     }
-    const dirExists = await exists(dirPath, { baseDir: BaseDirectory.Resource })
+    if (extension) dirPath = await dirname(dirPath)
+    const dirExists = await exists(dirPath, { baseDir: DATA_BASE_DIR })
     if (!dirExists) {
-      await mkdir(dirPath, { baseDir: BaseDirectory.Resource, recursive: true })
+      await mkdir(dirPath, { baseDir: DATA_BASE_DIR, recursive: true })
     }
   } catch (e: any) {
     error(`创建resource目录时出错:${JSON.stringify(e)}`)
@@ -48,29 +52,39 @@ export const checkDir = async (dirPath: string = RESOURCE_PATH) => {
 
 // 检测文件是否存在，不存在则创建空文件
 export const fileExist = async (filePath: string) => {
-  const exist = await exists(filePath, { baseDir: BaseDirectory.Resource })
+  const exist = await exists(filePath, { baseDir: DATA_BASE_DIR })
   if (!exist) {
-    await writeFileContent(filePath, '', { baseDir: BaseDirectory.Resource })
+    await writeFileContent(filePath, '', { baseDir: DATA_BASE_DIR })
   }
   return exist
 }
 // 获取resource目录，如果resource目录不存在，则调用checkResourceDir创建，最终返回带'resource'后缀的目录
 export const getResourceDir = async () => {
   await checkDir()
-  return await join(await resourceDir(), RESOURCE_PATH)
+  return await join(await getDataRootDir(), RESOURCE_PATH)
 }
 export const getCliDir = async () => {
   await checkDir()
-  return await join(await resourceDir(), RESOURCE_PATH, 'easytier-cli')
+  const name = getOsType() === 'windows' ? 'easytier-cli.exe' : 'easytier-cli'
+  const segments = getOsType() === 'macos' ? [RESOURCE_PATH, 'current', name] : [RESOURCE_PATH, name]
+  return await join(await getDataRootDir(), ...segments)
 }
 export const getCoreDir = async () => {
   await checkDir()
-  return await join(await resourceDir(), RESOURCE_PATH, 'easytier-core')
+  const name = getOsType() === 'windows' ? 'easytier-core.exe' : 'easytier-core'
+  const segments = getOsType() === 'macos' ? [RESOURCE_PATH, 'current', name] : [RESOURCE_PATH, name]
+  return await join(await getDataRootDir(), ...segments)
+}
+export const getDataRootDir = async () =>
+  getOsType() === 'macos' ? await appDataDir() : await resourceDir()
+export const getConfigDir = async () => {
+  await checkDir(CONFIG_PATH)
+  return await join(await getDataRootDir(), CONFIG_PATH)
 }
 // 获取resource下的logs目录
 export const getLogsDir = async () => {
   await checkDir(LOG_PATH)
-  return await join(await resourceDir(), LOG_PATH)
+  return await join(await getDataRootDir(), LOG_PATH)
 }
 // 获取 config目录， RESOURCE_PATH+CONFIG_PATH
 // export const getConfigPath = async () => {
@@ -113,7 +127,7 @@ export async function writeFileContent(
   }
 ): Promise<void> {
   try {
-    const finalOptions = { baseDir: BaseDirectory.Resource, append: false, ...options }
+    const finalOptions = { baseDir: DATA_BASE_DIR, append: false, ...options }
     await checkDir(filePath)
     if (typeof content === 'string') {
       // 使用 writeTextFile 处理字符串内容
@@ -156,7 +170,7 @@ export async function readFileContent(
   }
 ): Promise<string | Uint8Array> {
   try {
-    const { baseDir = BaseDirectory.Resource, asBinary = false } = options || {}
+    const { baseDir = DATA_BASE_DIR, asBinary = false } = options || {}
     await checkDir(filePath)
     if (asBinary) {
       const content = await readFile(filePath, { baseDir })
@@ -177,7 +191,7 @@ export async function readFileContent(
 export const listFiles = async (targetDir: string = RESOURCE_PATH) => {
   try {
     await checkDir(targetDir)
-    const entries = await readDir(targetDir, { baseDir: BaseDirectory.Resource })
+    const entries = await readDir(targetDir, { baseDir: DATA_BASE_DIR })
     return entries.map((entry) => entry.name)
   } catch (e: any) {
     error(`Error listing resource files:${JSON.stringify(e)}`)
@@ -191,7 +205,7 @@ export const listTomlFiles = async (targetDir: string = CONFIG_PATH) => {
     // @ts-ignore
     const _ = await checkDir(targetDir)
 
-    const entries = await readDir(targetDir, { baseDir: BaseDirectory.Resource })
+    const entries = await readDir(targetDir, { baseDir: DATA_BASE_DIR })
     return entries.filter((entry) => entry.name.endsWith('.toml')).map((entry) => entry.name)
   } catch (e: any) {
     error(`Error listing resource files:${JSON.stringify(e)}`)
@@ -204,7 +218,7 @@ export const writeConfigJsonObj = async (obj: any) => {
   const configJsonPath = await join(RESOURCE_PATH, 'config.json')
   await checkDir(configJsonPath)
   await writeFileContent(configJsonPath, JSON.stringify(obj), {
-    baseDir: BaseDirectory.Resource
+    baseDir: DATA_BASE_DIR
   })
 }
 
@@ -214,7 +228,7 @@ export const getConfigJsonObj = async () => {
     const configJsonPath = await join(RESOURCE_PATH, 'config.json')
     await checkDir(configJsonPath)
     const configJson = await readFileContent(configJsonPath, {
-      baseDir: BaseDirectory.Resource
+      baseDir: DATA_BASE_DIR
     })
     return JSON.parse(configJson as string)
   } catch (e: any) {
@@ -229,7 +243,7 @@ export const getConfigJsonObj = async () => {
  * @param path 路径
  */
 export const deleteFileOrDir = async (path: string) => {
-  await remove(path, { baseDir: BaseDirectory.Resource, recursive: true })
+  await remove(path, { baseDir: DATA_BASE_DIR, recursive: true })
 }
 
 /**
@@ -241,7 +255,7 @@ export const deleteFileOrDir = async (path: string) => {
  * const success = await downloadFile('https://example.com/file.zip');
  * ```
  */
-export async function downloadFile(fileUrl: string): Promise<boolean> {
+export async function downloadFile(fileUrl: string, notifyResult: boolean = true): Promise<boolean> {
   try {
     info(`开始下载:${fileUrl}`)
     // 使用 Tauri 的 http plugin
@@ -266,11 +280,13 @@ export async function downloadFile(fileUrl: string): Promise<boolean> {
       // }
     })
     if (!response.ok) {
-      ElNotification({
-        title: t('common.reminder'),
-        message: t('easytier.downLoadError'),
-        type: 'error'
-      })
+      if (notifyResult) {
+        ElNotification({
+          title: t('common.reminder'),
+          message: t('easytier.downLoadError'),
+          type: 'error'
+        })
+      }
       return false
     }
 
@@ -289,22 +305,26 @@ export async function downloadFile(fileUrl: string): Promise<boolean> {
 
     // 写入文件
     await writeFileContent(savePath, uint8Array, {
-      baseDir: BaseDirectory.Resource
+      baseDir: DATA_BASE_DIR
     })
 
-    ElNotification({
-      title: t('common.reminder'),
-      message: t('easytier.downLoadSuccess'),
-      type: 'success'
-    })
+    if (notifyResult) {
+      ElNotification({
+        title: t('common.reminder'),
+        message: t('easytier.downLoadSuccess'),
+        type: 'success'
+      })
+    }
     return true
   } catch (e: any) {
     error(`下载文件时出错:${JSON.stringify(e)}`)
-    ElNotification({
-      title: t('common.reminder'),
-      message: t('easytier.downLoadError'),
-      type: 'error'
-    })
+    if (notifyResult) {
+      ElNotification({
+        title: t('common.reminder'),
+        message: t('easytier.downLoadError'),
+        type: 'error'
+      })
+    }
     return false
   }
 }
@@ -337,7 +357,7 @@ export async function extractFile(
   try {
     // 读取zip文件内容  resource\easytier-windows-x86_64-v2.0.3.zip
     const zipContent = (await readFileContent(zipPath, {
-      baseDir: BaseDirectory.Resource,
+      baseDir: DATA_BASE_DIR,
       asBinary: true
     })) as Uint8Array
 
@@ -369,7 +389,7 @@ export async function extractFile(
 
         // 写入文件
         await writeFileContent(targetPath, fileData, {
-          baseDir: BaseDirectory.Resource
+          baseDir: DATA_BASE_DIR
         })
       } catch (e: any) {
         error(`处理文件 ${filePath} 时出错:${JSON.stringify(e)}`)
@@ -432,7 +452,7 @@ export const clearLogs = async () => {
   try {
     const logsFile = await join('logs', pkg.name + '.log')
     // 清空 logsFile 的内容（如果失败不影响程序启动）
-    await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
+    await writeFileContent(logsFile, '', { baseDir: DATA_BASE_DIR })
   } catch (e: any) {
     // 如果清理失败，只记录警告，不阻塞启动
     error(`清理日志文件失败（不影响使用）: ${e.message || e}`)
@@ -445,13 +465,13 @@ export const clearETLogs = async (fileName: string) => {
     const date = dayjs(new Date()).format('YYYY-MM-DD')
 
     let logsFile = await join('logs', fileName + '.' + date)
-    await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
+    await writeFileContent(logsFile, '', { baseDir: DATA_BASE_DIR })
 
     logsFile = await join('logs', fileName + '.' + date + '.log')
-    await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
+    await writeFileContent(logsFile, '', { baseDir: DATA_BASE_DIR })
 
     logsFile = await join('logs', 'easytier.log')
-    await writeFileContent(logsFile, '', { baseDir: BaseDirectory.Resource })
+    await writeFileContent(logsFile, '', { baseDir: DATA_BASE_DIR })
   } catch (e: any) {
     // 如果清理失败，只记录警告，不阻塞启动
     error(`清理日志文件失败（不影响使用）: ${e.message || e}`)

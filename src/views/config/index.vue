@@ -3,12 +3,13 @@ import { CodeEditor } from '@/components/CodeEditor'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Dialog } from '@/components/Dialog'
 import DefaultData from '@/constants/defaultData'
-import { CONFIG_PATH, LOG_PATH, PREFIX_SVC } from '@/constants/easytier'
+import { CONFIG_PATH, PREFIX_SVC } from '@/constants/easytier'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
 import type { EasyTierFormData } from '@/types/formTypes'
 import {
   deleteFileOrDir,
+  getConfigDir,
   getLogsDir,
   listTomlFiles,
   readFileContent,
@@ -35,7 +36,7 @@ import {
   saveServiceInstallConfig
 } from '@/utils/serviceConfigUtil'
 import { getCurrentUsername, getHostname, getOsType, sleep } from '@/utils/sysUtil'
-import { join, resourceDir } from '@tauri-apps/api/path'
+import { join } from '@tauri-apps/api/path'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import { cloneDeep } from 'lodash-es'
@@ -74,6 +75,7 @@ const serviceInstallForm = ref({
 })
 
 const checkServiceStatus = async () => {
+  if (getOsType() !== 'windows') return
   await sleep(1000)
   for (const item of easyTierStore.configList) {
     const serviceName = PREFIX_SVC + item.configFileName
@@ -362,7 +364,7 @@ const addConfigAction = async () => {
  * 保存已有配置文件，并处理表单模式与编辑器模式的持久化差异。
  */
 const saveConfigAction = async () => {
-  const resourceDirPath = await resourceDir()
+  const logsDirPath = await getLogsDir()
   if (editType.value === 'form') {
     // 验证必填 formRef
     if (!(await formRef.value.validateForm())) {
@@ -374,7 +376,7 @@ const saveConfigAction = async () => {
         // formData.value.file_logger.dir = formData.value.file_logger.dir
         //   ? formData.value.file_logger.dir
         //   : logsDir.value
-        formData.value.file_logger.dir = resourceDirPath + '\\' + LOG_PATH
+        formData.value.file_logger.dir = logsDirPath
         formData.value.file_logger.file = configFileName.value
         if (
           !formData.value.proxy_network ||
@@ -467,7 +469,7 @@ const saveConfigAction = async () => {
         ...parseValue,
         file_logger: {
           level: parseValue.file_logger?.level ? parseValue.file_logger?.level : 'error',
-          dir: resourceDirPath + '\\' + LOG_PATH, // parseValue.file_logger?.dir ? parseValue.file_logger?.dir : logsDir.value,
+          dir: logsDirPath,
           file: configFileName.value
         }
       }
@@ -502,9 +504,11 @@ const delConfig = async (row?: any) => {
     type: 'warning'
   })
     .then(async () => {
-      const serviceStatus = await checkServiceOnWindows(PREFIX_SVC + row?.configFileName)
-      if (serviceStatus) {
-        await uninstallServiceOnWindows(PREFIX_SVC + row?.configFileName)
+      if (getOsType() === 'windows') {
+        const serviceStatus = await checkServiceOnWindows(PREFIX_SVC + row?.configFileName)
+        if (serviceStatus) {
+          await uninstallServiceOnWindows(PREFIX_SVC + row?.configFileName)
+        }
       }
       await deleteFileOrDir(CONFIG_PATH + '/' + row?.fileName)
       ElNotification({
@@ -561,7 +565,7 @@ const confirmInstallService = async () => {
   // 保存配置
   saveServiceInstallConfig(row.configFileName, serviceInstallForm.value)
 
-  const configPath = await join(await resourceDir(), CONFIG_PATH, row.fileName)
+  const configPath = await join(await getConfigDir(), row.fileName)
   const serviceName = PREFIX_SVC + row.configFileName
 
   let result = false
@@ -741,9 +745,9 @@ watch(configFileName, (value) => {
 onMounted(async () => {
   // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
   attachConsole()
-  getConfigList()
-  logsDir.value = await getLogsDir()
   easyTierStore.setOs(await getOsType())
+  await getConfigList()
+  logsDir.value = await getLogsDir()
 })
 </script>
 

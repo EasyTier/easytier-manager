@@ -180,13 +180,6 @@ const fetchInstanceStatus = async (inst: CoreProcessInstance, silent = true) => 
     easyTierStore.setNetworkStatusCache(key, { loading: true })
   }
   const portal = normalizeRpcPortal(inst.rpcPortal)
-  if (!portal) {
-    easyTierStore.setNetworkStatusCache(key, {
-      loading: false,
-      lastError: t('workplace.queryFailed') + ': no rpc_portal'
-    })
-    return
-  }
   try {
     const [nodeRes, peerRes] = await Promise.all([
       runEasyTierCli(['-p', portal, '--output', 'json', 'node']),
@@ -235,7 +228,6 @@ const fetchInstanceStatus = async (inst: CoreProcessInstance, silent = true) => 
  */
 const fetchInstanceRoutes = async (inst: CoreProcessInstance): Promise<EasyTierCliRoute[]> => {
   const portal = normalizeRpcPortal(inst.rpcPortal)
-  if (!portal) return []
   try {
     // 兼容 -o 与 --output
     let res = await runEasyTierCli(['-p', portal, '-o', 'json', 'route'])
