@@ -2,6 +2,11 @@ name: Release Pro ALL
 
 on:
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 发布版本号（如 3.5.0），留空则不在本步创建 tag，草稿发布后手动指定
+        required: false
+        default: ''
 
 permissions: write-all
 env:
@@ -173,14 +178,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # 读取 package.json 版本号，作为 Release tag
-      - name: Read version
-        id: version
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
       # 下载所有平台构建产物，每个 artifact 解压到以其名称命名的子目录
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -191,11 +188,12 @@ jobs:
         run: find artifacts -type f | sort
 
       # 发布草稿 Release，包含 Windows 与 macOS 全部产物
+      # tag 由触发时手动指定；留空则发布无 tag 草稿，后续在草稿中补填 tag 再发布
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          tag_name: v${{ steps.version.outputs.version }}
+          tag_name: ${{ github.event.inputs.tag_name && format('v{0}', github.event.inputs.tag_name) || '' }}
           generate_release_notes: true
           files: |
             artifacts/easytier-manager-pro-portable/*.zip
