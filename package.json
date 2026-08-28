@@ -1,6 +1,6 @@
 {
   "name": "easytier-manager-pro",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "description": "EasyTier 管理器 Pro，EasyTier 管理器 Pro 是一款专为 EasyTier 内核设计的可视化桌面应用，支持通过界面一键启动/停止组网、修改内核参数（支持表单和文本编辑器两种模式）、实时查看运行日志，并可一键下载任意版本内核，简化配置管理，提升操作效率。",
   "displayName": "EasyTier 管理器 Pro",
   "author": {
@@ -44,6 +44,7 @@
     "cargo:fix": "cargo fix --lib -p easytier-manager-pro"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "2.3.1",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-fs": "^2.5.0",
     "@tauri-apps/plugin-http": "^2.5.8",
@@ -81,6 +82,7 @@
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
+    "@eslint/js": "9.39.4",
     "@iconify/json": "^2.2.462",
     "@iconify/vue": "^5.0.0",
     "@intlify/unplugin-vue-i18n": "^11.0.7",
@@ -137,6 +139,7 @@
     "vite-plugin-svg-icons": "^2.0.1",
     "vite-plugin-url-copy": "^1.1.4",
     "vite-plugin-vue-devtools": "^8.1.1",
+    "vue-eslint-parser": "10.2.0",
     "vue-tsc": "^3.2.6"
   },
   "engines": {

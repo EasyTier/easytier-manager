@@ -1,6 +1,7 @@
 use chrono::Local;
 use serde::Serialize;
 use serde_json::json;
+#[cfg(target_os = "macos")]
 use std::net::IpAddr;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -148,6 +149,7 @@ fn normalize_sha256(value: &str) -> Result<String, String> {
     Ok(digest)
 }
 
+#[cfg(target_os = "macos")]
 fn validate_config_file_name(value: &str) -> Result<(), String> {
     if Path::new(value).file_name().and_then(|name| name.to_str()) != Some(value)
         || !value.ends_with(".toml")
@@ -405,6 +407,7 @@ fn stop_core_macos(pid: u32, force: bool) -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn build_terminal_command(action: &str, host: &str, port: Option<u16>) -> Result<String, String> {
     let host = host
         .parse::<IpAddr>()
@@ -467,6 +470,7 @@ fn list_core_processes() -> Result<Vec<ProcessInfo>, String> {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 fn parse_process_line(line: &str) -> Option<ProcessInfo> {
     let line = line.trim_start();
     let (pid, remainder) = split_first_field(line)?;
@@ -496,11 +500,13 @@ fn parse_process_line(line: &str) -> Option<ProcessInfo> {
     })
 }
 
+#[cfg(not(target_os = "windows"))]
 fn split_first_field(value: &str) -> Option<(&str, &str)> {
     let index = value.find(char::is_whitespace)?;
     Some((&value[..index], &value[index..]))
 }
 
+#[cfg(not(target_os = "windows"))]
 fn extract_toml_file_name(command_line: &str) -> Option<String> {
     let marker = ["--config-file", "-c"]
         .into_iter()
@@ -643,6 +649,7 @@ mod tests {
         assert!(normalize_sha256(&"g".repeat(64)).is_err());
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn validates_plain_toml_file_name() {
         assert!(validate_config_file_name("office.toml").is_ok());
@@ -650,6 +657,7 @@ mod tests {
         assert!(validate_config_file_name("office.json").is_err());
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn parses_easytier_process_line() {
         let process = parse_process_line(
@@ -668,6 +676,7 @@ mod tests {
         assert!(parse_process_line("1 512 /sbin/launchd /sbin/launchd").is_none());
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn validates_terminal_commands() {
         assert_eq!(

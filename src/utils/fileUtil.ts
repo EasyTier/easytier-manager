@@ -66,13 +66,15 @@ export const getResourceDir = async () => {
 export const getCliDir = async () => {
   await checkDir()
   const name = getOsType() === 'windows' ? 'easytier-cli.exe' : 'easytier-cli'
-  const segments = getOsType() === 'macos' ? [RESOURCE_PATH, 'current', name] : [RESOURCE_PATH, name]
+  const segments =
+    getOsType() === 'macos' ? [RESOURCE_PATH, 'current', name] : [RESOURCE_PATH, name]
   return await join(await getDataRootDir(), ...segments)
 }
 export const getCoreDir = async () => {
   await checkDir()
   const name = getOsType() === 'windows' ? 'easytier-core.exe' : 'easytier-core'
-  const segments = getOsType() === 'macos' ? [RESOURCE_PATH, 'current', name] : [RESOURCE_PATH, name]
+  const segments =
+    getOsType() === 'macos' ? [RESOURCE_PATH, 'current', name] : [RESOURCE_PATH, name]
   return await join(await getDataRootDir(), ...segments)
 }
 export const getDataRootDir = async () =>
@@ -255,7 +257,10 @@ export const deleteFileOrDir = async (path: string) => {
  * const success = await downloadFile('https://example.com/file.zip');
  * ```
  */
-export async function downloadFile(fileUrl: string, notifyResult: boolean = true): Promise<boolean> {
+export async function downloadFile(
+  fileUrl: string,
+  notifyResult: boolean = true
+): Promise<boolean> {
   try {
     info(`开始下载:${fileUrl}`)
     // 使用 Tauri 的 http plugin

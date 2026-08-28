@@ -15,7 +15,8 @@ tmp
 .tmp
 target
 .vscode
-
+.agents
+.kilo
 
 .nvmdrc
 .ai
