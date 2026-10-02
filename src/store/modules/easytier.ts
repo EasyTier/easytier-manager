@@ -21,6 +21,7 @@ export const useEasyTierStore = defineStore(
     const configPath = ref('resource')
     const configList = ref<RunningItem[]>([])
     const configWebList = ref<RunningWebItem[]>([])
+    const webConsoleList = ref<any[]>([])
     const fileList = ref([])
     const runningList = ref<RunningItem[]>([])
     const lastRunConfig = ref<RunningItem>()
@@ -72,6 +73,9 @@ export const useEasyTierStore = defineStore(
     }
     const setConfigWebList = (list) => {
       configWebList.value = list
+    }
+    const setWebConsoleList = (list) => {
+      webConsoleList.value = list
     }
     const setFileList = (list) => {
       fileList.value = list
@@ -381,6 +385,7 @@ export const useEasyTierStore = defineStore(
       configPath,
       configList,
       configWebList,
+      webConsoleList,
       fileList,
       fileListNoSuffix,
       runningList,
@@ -409,6 +414,7 @@ export const useEasyTierStore = defineStore(
       pendingWorkbenchConfig,
       setConfigList,
       setConfigWebList,
+      setWebConsoleList,
       setFileList,
       setFileListNoSuffix,
       loadRunningList,

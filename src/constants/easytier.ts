@@ -23,6 +23,15 @@ export const VERSION_PREFIX = 'v'
 export const EASYTIER_NAME = '/easytier-<%= osType %>-<%= osArch %>-<%= version %>.zip'
 export const PREFIX_SVC = 'easytier-'
 export const PREFIX_SVC_WEB = 'easytierweb-'
+export const PREFIX_SVC_WEB_CONSOLE = 'easytierwebconsole-'
+/**
+ * 自建 Web 控制台配置文件名
+ */
+export const WEB_CONSOLE_FILE_NAME = 'web-console.json'
+/**
+ * 自建 Web 控制台数据库默认存放目录（resource 下）
+ */
+export const WEB_CONSOLE_DB_DIR = 'web-console'
 export const STUN_SERVER_URL =
   'https://ghproxy.vip/https://gist.githubusercontent.com/mondain/b0ec1cf5f60ae726202e/raw/2d2b96b4508a38d342e0228d46eab84dad2398a3/public-stun-list.txt'
 export const GITHUB_MIRROR_URL = [

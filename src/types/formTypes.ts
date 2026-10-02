@@ -116,6 +116,30 @@ export interface FormWebData {
   webStartMethod: Partial<number>
   configFileName: string
   webUrl: Partial<string> | undefined
+  hostname?: Partial<string> | undefined // --hostname，影响 easytier-web 中的显示名
+  configDir?: Partial<string> | undefined // --config-dir，服务器不可达时回退读取的本地配置目录
+  status?: Partial<string> | undefined
+  pid?: Partial<number> | undefined
+}
+
+// 自建 Web 控制台（easytier-web / easytier-web-embed）配置
+export interface FormConsoleData {
+  configFileName: string
+  program?: Partial<string> | undefined // easytier-web-embed（含前端）| easytier-web（仅后端）
+  apiServerPort?: Partial<number> | undefined // --api-server-port，默认 11211
+  apiServerAddr?: Partial<string> | undefined // --api-server-addr，默认 0.0.0.0
+  apiHost?: Partial<string> | undefined // --api-host，控制台前端连接后端的地址，设错验证码刷不出
+  configServerPort?: Partial<number> | undefined // --config-server-port，默认 22020
+  configServerProtocol?: Partial<string> | undefined // --config-server-protocol，udp/tcp/ws
+  dbPath?: Partial<string> | undefined // --db，留空自动为 resource/web-console/<配置名称>/et.db
+  webServerPort?: Partial<number> | undefined // --web-server-port，额外监听的前端端口
+  noWeb?: boolean // --no-web，不运行 web 前端
+  disableRegistration?: boolean // --disable-registration
+  allowAutoCreateUser?: boolean // --allow-auto-create-user
+  fileLogDir?: Partial<string> | undefined // --file-log-dir
+  consoleLogLevel?: Partial<string> | undefined // --console-log-level
+  fileLogLevel?: Partial<string> | undefined // --file-log-level
+  extraArgs?: Partial<string> | undefined // 自定义附加参数，原样追加到命令末尾
   status?: Partial<string> | undefined
   pid?: Partial<number> | undefined
 }

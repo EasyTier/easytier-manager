@@ -1,4 +1,4 @@
-import type { EasyTierFormData, FormWebData } from '@/types/formTypes'
+import type { EasyTierFormData, FormConsoleData, FormWebData } from '@/types/formTypes'
 
 const defaultFormData: EasyTierFormData | any = {
   hostname: '',
@@ -101,6 +101,19 @@ const defaultFormWebData: FormWebData = {
   webStartMethod: 1,
   configFileName: '',
   webUrl: 'https://easytier.cn/web',
+  hostname: '',
+  configDir: '',
   status: '停止'
 }
-export default { defaultFormData, defaultFormWebData }
+const defaultFormConsoleData: FormConsoleData = {
+  configFileName: '',
+  program: 'easytier-web-embed',
+  apiServerPort: 11211,
+  apiServerAddr: '0.0.0.0',
+  apiHost: '',
+  configServerPort: 22020,
+  configServerProtocol: 'udp',
+  dbPath: '',
+  status: '停止'
+}
+export default { defaultFormData, defaultFormWebData, defaultFormConsoleData }

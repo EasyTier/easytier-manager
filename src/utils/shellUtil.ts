@@ -3,7 +3,14 @@ import { invoke } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
-import { getCliDir, getConfigDir, getCoreDir, getResourceDir, readFileContent } from './fileUtil'
+import {
+  getCliDir,
+  getConfigDir,
+  getCoreDir,
+  getResourceDir,
+  readFileContent,
+  resolveWebConsoleDbPath
+} from './fileUtil'
 import { checkConfigFile } from './configCheckUtil'
 import { normalizeRpcPortal } from './rpcPortal'
 import { extractConfigNameFromPath, parseCoreCommandLine } from './coreProcess'
@@ -275,21 +282,118 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
 }
 
 // 运行 easytier-core web配置
-export async function runEasyTierCoreWeb(url: string): Promise<any> {
+// options.hostname: 传给 --hostname，影响 easytier-web 中的显示名
+// options.configDir: 传给 --config-dir，服务器不可达时回退读取该目录下的配置
+export async function runEasyTierCoreWeb(
+  url: string,
+  options?: { hostname?: string; configDir?: string }
+): Promise<any> {
   try {
     if ((await getPlatform()) === 'macos') {
       error('macOS 不支持 Web 配置启动')
       return 403
     }
     const program = await getCoreDir()
+    const args: string[] = ['--config-server', `${url}`]
+    if (options?.hostname) {
+      args.push('--hostname', options.hostname)
+    }
+    if (options?.configDir) {
+      args.push('--config-dir', options.configDir)
+    }
     const res = await invoke('run_command', {
       program,
-      args: ['--config-server', `${url}`]
+      args
     })
     info(`运行结果：${res}`)
     return res
   } catch (e) {
     error(`运行 easytier-core失败:${JSON.stringify(e)}`)
+    return 403
+  }
+}
+
+/**
+ * 构建自建 Web 控制台（easytier-web / easytier-web-embed）启动参数
+ * 字段与 easytier-web --help 一一对应；apiHost 留空时自动生成 http://127.0.0.1:<API端口>，
+ * 避免官方文档提到的"不设 api-host 时前端验证码刷不出"问题
+ */
+export async function buildWebConsoleArgs(config: any): Promise<string[]> {
+  const args: string[] = []
+  const dbPath = await resolveWebConsoleDbPath(config.dbPath, config.configFileName)
+  args.push('--db', dbPath)
+  if (config.apiServerPort) {
+    args.push('--api-server-port', String(config.apiServerPort))
+  }
+  if (config.apiServerAddr) {
+    args.push('--api-server-addr', config.apiServerAddr)
+  }
+  const apiHost = (config.apiHost || '').trim() || `http://127.0.0.1:${config.apiServerPort}`
+  args.push('--api-host', apiHost)
+  if (config.configServerPort) {
+    args.push('--config-server-port', String(config.configServerPort))
+  }
+  if (config.configServerProtocol) {
+    args.push('--config-server-protocol', config.configServerProtocol)
+  }
+  if (config.webServerPort) {
+    args.push('--web-server-port', String(config.webServerPort))
+  }
+  if (config.noWeb) {
+    args.push('--no-web')
+  }
+  if (config.disableRegistration) {
+    args.push('--disable-registration')
+  }
+  if (config.allowAutoCreateUser) {
+    args.push('--allow-auto-create-user')
+  }
+  if (config.fileLogDir) {
+    args.push('--file-log-dir', config.fileLogDir)
+  }
+  if (config.consoleLogLevel) {
+    args.push('--console-log-level', config.consoleLogLevel)
+  }
+  if (config.fileLogLevel) {
+    args.push('--file-log-level', config.fileLogLevel)
+  }
+  if (config.extraArgs && config.extraArgs.trim()) {
+    args.push(...tokenizeExtraArgs(config.extraArgs))
+  }
+  return args
+}
+
+/**
+ * 解析自定义附加参数：按空白拆分，支持双引号包裹含空格的值
+ */
+export function tokenizeExtraArgs(extra: string): string[] {
+  const out: string[] = []
+  const re = /"([^"]*)"|(\S+)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(extra))) {
+    out.push(m[1] ?? m[2])
+  }
+  return out
+}
+
+/**
+ * 参数数组转 NSSM AppParameters 命令行字符串，含空格的参数加引号
+ */
+export function argsToCommandString(args: string[]): string {
+  return args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg)).join(' ')
+}
+
+// 运行自建 Web 控制台（easytier-web / easytier-web-embed）
+export async function runEasyTierWebConsole(programPath: string, args: string[]): Promise<any> {
+  try {
+    const res = await invoke('run_command', {
+      program: programPath,
+      args
+    })
+    info(`运行结果：${res}`)
+    return res
+  } catch (e) {
+    error(`运行 easytier-web失败:${JSON.stringify(e)}`)
     return 403
   }
 }
@@ -647,12 +751,12 @@ nssm processes <servicename> # 显示服务关联的进程
 export const installServiceOnWindows = async (
   serviceName: string,
   args: string,
-  options?: { username?: string; password?: string }
+  options?: { username?: string; password?: string; programPath?: string }
 ) => {
   return new Promise(async (resolve) => {
     const appDirectory = await getResourceDir()
-    // Windows 需要 .exe 扩展名
-    const corePath = await join(appDirectory, 'easytier-core.exe')
+    // Windows 需要 .exe 扩展名；默认安装 easytier-core，可通过 programPath 指定其他程序（如 easytier-web-embed）
+    const corePath = options?.programPath || (await join(appDirectory, 'easytier-core.exe'))
     // const logsPath = await getLogsDir()
     try {
       // 服务是否存在

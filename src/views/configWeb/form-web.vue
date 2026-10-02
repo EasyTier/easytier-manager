@@ -115,6 +115,30 @@
       </div>
       <el-row>
         <el-col :span="16">
+          <el-form-item :label="t('easytier.hostname')" prop="hostname">
+            <el-input
+              v-model="formData.hostname"
+              placeholder="选填，影响在 Web 控制台中的显示名，留空使用本机主机名"
+              type="text"
+              clearable
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="16">
+          <el-form-item :label="t('easytier.configDir')" prop="configDir">
+            <el-input
+              v-model="formData.configDir"
+              placeholder="选填，服务器不可达时回退启动该目录下的配置并保存下发的配置"
+              type="text"
+              clearable
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row>
+        <el-col :span="16">
           <el-form-item :label="t('easytier.webUrl')" prop="webUrl">
             <el-input
               v-model="formData.webUrl"
@@ -160,6 +184,13 @@ const rules = reactive({
       message: '允许：字母 数字 _ -'
     }
   ],
+  hostname: [
+    {
+      pattern: /^[^一-龥\s]+$/,
+      trigger: ['blur', 'change'],
+      message: '允许：字母 数字 _ -'
+    }
+  ],
   'network_identity.network_secret': [
     {
       pattern: /^[^一-龥]+$/,
@@ -188,6 +219,14 @@ const protocolOptions = reactive([
   {
     label: 'tcp',
     value: 'tcp'
+  },
+  {
+    label: 'ws',
+    value: 'ws'
+  },
+  {
+    label: 'wss',
+    value: 'wss'
   }
 ])
 const webStartMethodChange = (val: any) => {

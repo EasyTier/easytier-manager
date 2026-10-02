@@ -1,4 +1,10 @@
-import { CONFIG_PATH, LOG_PATH, RESOURCE_PATH, USER_AGENT } from '@/constants/easytier'
+import {
+  CONFIG_PATH,
+  LOG_PATH,
+  RESOURCE_PATH,
+  USER_AGENT,
+  WEB_CONSOLE_DB_DIR
+} from '@/constants/easytier'
 // import { useI18n } from '@/hooks/web/useI18n'
 import { t } from '@/utils/i18nUtil'
 import { appDataDir, dirname, extname, join, resourceDir } from '@tauri-apps/api/path'
@@ -87,6 +93,68 @@ export const getConfigDir = async () => {
 export const getLogsDir = async () => {
   await checkDir(LOG_PATH)
   return await join(await getDataRootDir(), LOG_PATH)
+}
+
+/**
+ * 解析 Web 启动的 --config-dir 参数
+ * 1. 空值返回 undefined，调用方不拼接该参数
+ * 2. 相对路径基于应用资源目录解析为绝对路径（与 easytier-core、NSSM 服务的工作目录一致），
+ *    避免相对路径随进程工作目录漂移
+ * 3. 目录不存在时递归创建，否则 easytier-core 启动会报 config_dir ... is not a directory
+ * @param configDir 用户填写的配置目录（绝对或相对路径）
+ * @returns 绝对路径；未填写时返回 undefined
+ */
+export const resolveWebConfigDir = async (
+  configDir?: string | null
+): Promise<string | undefined> => {
+  const trimmed = (configDir || '').trim()
+  if (!trimmed) return undefined
+  // Windows 盘符开头（C:\ 或 C:/）或 POSIX 根路径视为绝对路径
+  const isAbsolute = /^[A-Za-z]:[\\/]/.test(trimmed) || trimmed.startsWith('/')
+  const absPath = isAbsolute ? trimmed : await join(await getResourceDir(), trimmed)
+  if (!(await exists(absPath))) {
+    await mkdir(absPath, { recursive: true })
+    info(`已创建配置目录:${absPath}`)
+  }
+  return absPath
+}
+
+/**
+ * 获取自建 Web 控制台程序路径（easytier-web-embed / easytier-web 与内核一同安装到 resource 目录）
+ * @param program 程序名（不带扩展名），如 easytier-web-embed
+ * @returns 完整路径；程序不存在时返回 undefined（提示用户到设置页安装内核）
+ */
+export const getWebConsoleProgramPath = async (program: string) => {
+  const name = getOsType() === 'windows' ? `${program}.exe` : program
+  const path = await join(await getResourceDir(), name)
+  return (await exists(path)) ? path : undefined
+}
+
+/**
+ * 解析自建 Web 控制台的 --db 数据库路径
+ * 1. 留空时默认为 resource/web-console/<配置名称>/et.db（按配置隔离）
+ * 2. 相对路径基于应用资源目录解析为绝对路径，避免随进程工作目录漂移
+ * 3. 自动创建父目录，否则 easytier-web 启动报数据库不可用
+ * @returns 绝对路径
+ */
+export const resolveWebConsoleDbPath = async (
+  dbPath: string | null | undefined,
+  configFileName: string
+) => {
+  const trimmed = (dbPath || '').trim()
+  let absPath: string
+  if (!trimmed) {
+    absPath = await join(await getResourceDir(), WEB_CONSOLE_DB_DIR, configFileName, 'et.db')
+  } else {
+    const isAbsolute = /^[A-Za-z]:[\\/]/.test(trimmed) || trimmed.startsWith('/')
+    absPath = isAbsolute ? trimmed : await join(await getResourceDir(), trimmed)
+  }
+  const parentDir = await dirname(absPath)
+  if (!(await exists(parentDir))) {
+    await mkdir(parentDir, { recursive: true })
+    info(`已创建控制台数据库目录:${parentDir}`)
+  }
+  return absPath
 }
 // 获取 config目录， RESOURCE_PATH+CONFIG_PATH
 // export const getConfigPath = async () => {

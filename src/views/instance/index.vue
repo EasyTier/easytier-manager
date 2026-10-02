@@ -253,13 +253,43 @@ const writeBackPortForward = () => {
 }
 
 // ===== 连接器 =====
+/** easytier-cli connector list 的连接器行；url 已在加载时拍平为字符串，status 为枚举数字 */
 interface ConnectorRow {
   url?: string
+  status?: number
 }
 const connectorRows = ref<ConnectorRow[]>([])
 const connectorRaw = ref('')
 const connectorLoading = ref(false)
 const connectorUrlInput = ref('')
+
+/** 连接器状态枚举（easytier proto ConnectorStatus）：0=已连接 1=已断开 2=连接中 */
+const connectorStatusText = (status?: number) => {
+  if (status === undefined || status === null) return '-'
+  switch (Number(status)) {
+    case 0:
+      return t('instance.connectorStatusConnected')
+    case 1:
+      return t('instance.connectorStatusDisconnected')
+    case 2:
+      return t('instance.connectorStatusConnecting')
+    default:
+      return String(status)
+  }
+}
+/** 连接器状态对应的标签颜色：已连接=绿 已断开=红 连接中=黄 未知=灰 */
+const connectorStatusType = (status?: number): 'success' | 'warning' | 'danger' | 'info' => {
+  switch (Number(status)) {
+    case 0:
+      return 'success'
+    case 1:
+      return 'danger'
+    case 2:
+      return 'warning'
+    default:
+      return 'info'
+  }
+}
 
 const loadConnectors = async () => {
   connectorLoading.value = true
@@ -270,11 +300,16 @@ const loadConnectors = async () => {
       return
     }
     const data = res.data
-    const rows: ConnectorRow[] = Array.isArray(data)
+    // CLI 返回的 url 为嵌套结构 { url: { url: "tcp://..." } }，这里统一拍平为字符串，供展示/删除/回写使用
+    const rawRows: any[] = Array.isArray(data)
       ? data
       : Array.isArray(data?.connectors)
         ? data.connectors
         : []
+    const rows: ConnectorRow[] = rawRows.map((row: any) => ({
+      url: typeof row.url === 'string' ? row.url : String(row.url?.url ?? ''),
+      status: row.status
+    }))
     if (rows.length > 0) {
       connectorRows.value = rows
       connectorRaw.value = ''
@@ -404,7 +439,27 @@ const revokeCredential = async () => {
 const loggerRaw = ref('')
 const loggerLoading = ref(false)
 const loggerLevel = ref('')
+/** 日志级别名称，顺序与 easytier-cli 的 LogLevel 枚举一致（0=disabled … 5=trace） */
 const loggerLevels = ['disabled', 'error', 'warning', 'info', 'debug', 'trace']
+
+/**
+ * 将 logger get 返回的级别规范化为级别名称：
+ * CLI 实际返回数字（如 3），需按枚举序号映射为名称；也兼容字符串（如 "info"/"warn"）
+ * @param raw 原始级别值
+ * @returns 可匹配下拉选项的级别名称，无法识别时返回空串
+ */
+const normalizeLoggerLevel = (raw: any): string => {
+  if (raw === undefined || raw === null) return ''
+  const str = String(raw).trim().toLowerCase()
+  if (!str) return ''
+  // 数字：按枚举序号映射（0=disabled 1=error 2=warning 3=info 4=debug 5=trace）
+  if (/^\d+$/.test(str)) {
+    return loggerLevels[parseInt(str, 10)] ?? ''
+  }
+  // 字符串：兼容 warn 等变体
+  if (str === 'warn') return 'warning'
+  return loggerLevels.includes(str) ? str : ''
+}
 
 const loadLogger = async () => {
   loggerLoading.value = true
@@ -417,10 +472,13 @@ const loadLogger = async () => {
     if (res.data && typeof res.data === 'object') {
       const level =
         res.data.level ?? res.data.file_level ?? res.data.logger_level ?? res.data.console_level
-      if (level) {
-        loggerLevel.value = String(level).toLowerCase()
+      const normalized = normalizeLoggerLevel(level)
+      if (normalized) {
+        loggerLevel.value = normalized
         loggerRaw.value = ''
       } else {
+        // 无法识别的级别，清空下拉并展示原始输出，避免显示原始数字
+        loggerLevel.value = ''
         loggerRaw.value = res.output
       }
     } else {
@@ -675,9 +733,16 @@ const refreshCurrentTab = async () => {
             </el-button>
           </div>
           <el-table :data="connectorRows" style="width: 100%">
-            <el-table-column label="URL" min-width="240">
+            <el-table-column label="URL" min-width="240" show-overflow-tooltip>
               <template #default="scope">
-                {{ scope.row.url || scope.row.peers || '-' }}
+                {{ scope.row.url || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('instance.connectorStatus')" width="110" align="center">
+              <template #default="scope">
+                <el-tag :type="connectorStatusType(scope.row.status)" size="small">
+                  {{ connectorStatusText(scope.row.status) }}
+                </el-tag>
               </template>
             </el-table-column>
             <el-table-column :label="t('common.action')" width="100" align="center">

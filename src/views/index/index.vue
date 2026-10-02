@@ -72,6 +72,10 @@ const nodeInfoSchema = reactive<DescriptionsSchema[]>([
     label: t('easytier.hostname')
   },
   {
+    field: 'version',
+    label: t('easytier.version')
+  },
+  {
     field: 'ipv4_addr',
     label: t('easytier.ipv4Vir')
   },
