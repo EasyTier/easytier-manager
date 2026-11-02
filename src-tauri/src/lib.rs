@@ -387,10 +387,12 @@ fn start_core_macos(
     config_file_name: String,
     log_level: String,
     rpc_portal: Option<String>,
+    log_size: Option<u32>,
+    log_count: Option<u32>,
 ) -> Result<u32, String> {
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (app, config_file_name, log_level, rpc_portal);
+        let _ = (app, config_file_name, log_level, rpc_portal, log_size, log_count);
         return Err("macOS elevated launch is unavailable on this platform".to_string());
     }
     #[cfg(target_os = "macos")]
@@ -417,6 +419,8 @@ fn start_core_macos(
             log_level,
             config.to_string_lossy().to_string(),
             rpc_portal.unwrap_or_default(),
+            log_size.map(|v| v.to_string()).unwrap_or_default(),
+            log_count.map(|v| v.to_string()).unwrap_or_default(),
         ];
         let output = run_osascript(
             &[
@@ -426,7 +430,12 @@ fn start_core_macos(
                 "set logLevel to quoted form of item 3 of argv",
                 "set configPath to quoted form of item 4 of argv",
                 "set rpcPortal to item 5 of argv",
-                "set commandLine to corePath & \" --file-log-dir \" & logPath & \" --file-log-level \" & logLevel & \" --file-log-size 10 --file-log-count 10 --config-file \" & configPath",
+                "set logSize to item 6 of argv",
+                "set logCount to item 7 of argv",
+                "set commandLine to corePath & \" --file-log-dir \" & logPath & \" --file-log-level \" & logLevel & \" --config-file \" & configPath",
+                // 仅在用户配置了日志滚动限制时追加，未配置交给内核默认值
+                "if logSize is not \"\" then set commandLine to commandLine & \" --file-log-size \" & logSize",
+                "if logCount is not \"\" then set commandLine to commandLine & \" --file-log-count \" & logCount",
                 "if rpcPortal is not \"\" then set commandLine to commandLine & \" --rpc-portal \" & quoted form of rpcPortal",
                 "return do shell script commandLine & \" >/dev/null 2>&1 & echo $!\" with administrator privileges",
                 "end run",

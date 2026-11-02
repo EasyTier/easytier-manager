@@ -7,6 +7,7 @@ import {
 } from '@/constants/easytier'
 // import { useI18n } from '@/hooks/web/useI18n'
 import { t } from '@/utils/i18nUtil'
+import { invoke } from '@tauri-apps/api/core'
 import { appDataDir, dirname, extname, join, resourceDir } from '@tauri-apps/api/path'
 import {
   BaseDirectory,
@@ -20,7 +21,7 @@ import {
   writeTextFile
 } from '@tauri-apps/plugin-fs'
 import { fetch } from '@tauri-apps/plugin-http'
-import { attachConsole, error, info } from '@tauri-apps/plugin-log'
+import { attachConsole, error, info, warn } from '@tauri-apps/plugin-log'
 import { open } from '@tauri-apps/plugin-shell'
 import { ElNotification } from 'element-plus'
 import { unzipSync } from 'fflate'
@@ -83,8 +84,43 @@ export const getCoreDir = async () => {
     getOsType() === 'macos' ? [RESOURCE_PATH, 'current', name] : [RESOURCE_PATH, name]
   return await join(await getDataRootDir(), ...segments)
 }
-export const getDataRootDir = async () =>
-  getOsType() === 'macos' ? await appDataDir() : await resourceDir()
+/**
+ * 获取数据根目录
+ * Windows 下显式取「当前进程 exe 所在目录」,与 Rust 侧 current_exe()/资源目录解析保持一致,
+ * 保证服务安装等写盘路径只来自程序当前实际位置,而不是任何历史安装路径
+ */
+export const getDataRootDir = async () => {
+  const osType = getOsType()
+  if (osType === 'macos') return await appDataDir()
+  if (osType !== 'windows') return normalizeDir(await resourceDir())
+  return await getAppRootDir()
+}
+
+/**
+ * 去掉目录末尾的分隔符,避免与 join 拼接出重复分隔符
+ * Windows 根目录(如 D:\)需补回分隔符,否则 join 会拼成 D:resource
+ */
+const normalizeDir = (dir: string) => {
+  const trimmed = dir.trim().replace(/[\\/]+$/, '')
+  return /^[A-Za-z]:$/.test(trimmed) ? `${trimmed}\\` : trimmed
+}
+
+/**
+ * 获取程序当前实际所在目录(Windows)
+ * 使用 Rust 侧 current_exe() 得到的可执行文件目录,避免依赖 UI 侧缓存值;
+ * 兜底:取不到 exe 目录时回退到 Tauri 的 resourceDir()
+ */
+export const getAppRootDir = async (): Promise<string> => {
+  try {
+    // get_exe_directory 由 Rust 侧 current_exe() 计算,始终是当前进程的真实位置
+    const exeDir = normalizeDir(await invoke<string>('get_exe_directory'))
+    if (exeDir) return exeDir
+    warn('获取程序所在目录为空,回退到 resourceDir()')
+  } catch (e: any) {
+    warn(`获取程序所在目录失败,回退到 resourceDir(): ${JSON.stringify(e)}`)
+  }
+  return normalizeDir(await resourceDir())
+}
 export const getConfigDir = async () => {
   await checkDir(CONFIG_PATH)
   return await join(await getDataRootDir(), CONFIG_PATH)
@@ -533,18 +569,32 @@ export const clearLogs = async () => {
 }
 
 // 清空logs目录下 easytier 的日志文件
-export const clearETLogs = async (fileName: string) => {
+// 内核实际始终写入固定文件名 easytier.log（多配置加载后 file_logger.file 不再生效），
+// 因此这里直接清空该文件，并顺带清掉内核滚动产生的 easytier.log.N，避免旧日志残留
+export const clearETLogs = async (_fileName?: string) => {
   try {
+    // 旧命名（<配置名>.<日期>）在部分历史版本中可能存在，保留清理以兼容旧数据
     const date = dayjs(new Date()).format('YYYY-MM-DD')
+    const legacyFiles = _fileName
+      ? [`logs/${_fileName}.${date}`, `logs/${_fileName}.${date}.log`]
+      : []
+    for (const legacy of legacyFiles) {
+      await writeFileContent(legacy, '', { baseDir: DATA_BASE_DIR })
+    }
 
-    let logsFile = await join('logs', fileName + '.' + date)
-    await writeFileContent(logsFile, '', { baseDir: DATA_BASE_DIR })
+    // 内核当前固定写入的日志文件
+    await writeFileContent('logs/easytier.log', '', { baseDir: DATA_BASE_DIR })
 
-    logsFile = await join('logs', fileName + '.' + date + '.log')
-    await writeFileContent(logsFile, '', { baseDir: DATA_BASE_DIR })
-
-    logsFile = await join('logs', 'easytier.log')
-    await writeFileContent(logsFile, '', { baseDir: DATA_BASE_DIR })
+    // 清理滚动产生的 easytier.log.1 ~ easytier.log.N
+    try {
+      const entries = await readDir('logs', { baseDir: DATA_BASE_DIR })
+      const rollings = entries.filter((entry) => /^easytier\.log\.\d+$/.test(entry.name))
+      for (const entry of rollings) {
+        await remove(`logs/${entry.name}`, { baseDir: DATA_BASE_DIR })
+      }
+    } catch {
+      // 目录不存在或读取失败不影响主流程
+    }
   } catch (e: any) {
     // 如果清理失败，只记录警告，不阻塞启动
     error(`清理日志文件失败（不影响使用）: ${e.message || e}`)

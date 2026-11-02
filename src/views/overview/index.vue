@@ -229,11 +229,8 @@ const fetchInstanceStatus = async (inst: CoreProcessInstance, silent = true) => 
 const fetchInstanceRoutes = async (inst: CoreProcessInstance): Promise<EasyTierCliRoute[]> => {
   const portal = normalizeRpcPortal(inst.rpcPortal)
   try {
-    // 兼容 -o 与 --output
-    let res = await runEasyTierCli(['-p', portal, '-o', 'json', 'route'])
-    if (!res || res?.code === 403) {
-      res = await runEasyTierCli(['-p', portal, '--output', 'json', 'route'])
-    }
+    // 固定使用 --output（与 node/peer 查询保持一致），避免 -o 失败后重试导致每轮两次 CLI 调用
+    const res = await runEasyTierCli(['-p', portal, '--output', 'json', 'route'])
     if (!res || res?.code === 403) return []
     const parsed = safeJsonParse(res, [])
     const rows = Array.isArray(parsed) ? parsed : []

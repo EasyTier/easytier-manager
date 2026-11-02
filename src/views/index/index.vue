@@ -27,7 +27,6 @@ import { invoke } from '@tauri-apps/api/core'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
 import { Command } from '@tauri-apps/plugin-shell'
 import { useClipboard } from '@vueuse/core'
-import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox, ElNotification, ElOption, ElSelect, ElTree } from 'element-plus'
 import * as toml from 'smol-toml'
 import { computed, onActivated, onDeactivated, onMounted, reactive, ref, unref, watch } from 'vue'
@@ -835,18 +834,9 @@ const reset = async () => {
   await updateRunningList()
 }
 async function getLog() {
-  const date = dayjs(new Date()).format('YYYY-MM-DD')
-  logData.value = (await readFileContent(
-    LOG_PATH + '/' + currentNodeKey.value.configFileName + '.' + date
-  )) as string
-  if (!logData.value || logData.value === '') {
-    logData.value = (await readFileContent(
-      LOG_PATH + '/' + currentNodeKey.value.configFileName + '.' + date + '.log'
-    )) as string
-  }
-  if (!logData.value || logData.value === '') {
-    logData.value = (await readFileContent(LOG_PATH + '/' + 'easytier.log')) as string
-  }
+  // 内核固定写入 logs/easytier.log（多配置加载后 file_logger.file 已不生效），直接读取即可，
+  // 不再探测 <配置名>.<日期> 等历史路径，避免产生“文件不存在”的错误日志
+  logData.value = (await readFileContent(LOG_PATH + '/' + 'easytier.log')) as string
 }
 const viewLogAction = async () => {
   await getLog()

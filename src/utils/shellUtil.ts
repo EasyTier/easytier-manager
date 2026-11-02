@@ -1,6 +1,7 @@
 import { CONFIG_PATH, NSSM_NAME } from '@/constants/easytier'
 import { invoke } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
+import { exists } from '@tauri-apps/plugin-fs'
 import { attachConsole, debug, error, info, warn } from '@tauri-apps/plugin-log'
 import { Command, type SpawnOptions } from '@tauri-apps/plugin-shell'
 import {
@@ -15,6 +16,13 @@ import { checkConfigFile } from './configCheckUtil'
 import { normalizeRpcPortal } from './rpcPortal'
 import { extractConfigNameFromPath, parseCoreCommandLine } from './coreProcess'
 import { getPlatform, sleep } from './sysUtil'
+import {
+  buildServiceConfigQueryCommand,
+  isServiceConfigMatched,
+  toServicePathConfig,
+  type ServicePathConfig
+} from './servicePathUtil'
+import { appendFileLogLimitArgs, toPositiveInt } from './logArgsUtil'
 import * as toml from 'smol-toml'
 
 export { normalizeRpcPortal } from './rpcPortal'
@@ -31,11 +39,13 @@ attachConsole()
 /**
  * 从配置文件中读取日志配置
  * @param configFileName 配置文件名
- * @returns 日志目录和日志级别
+ * @returns 日志目录、日志级别、滚动大小/数量（未配置时为 undefined）以及 rpc_portal
  */
 async function getConfigFromFile(configFileName: string): Promise<{
   logDir: string
   logLevel: string
+  logSize: number | undefined
+  logCount: number | undefined
   rpcPortal: string | undefined
 }> {
   try {
@@ -46,14 +56,23 @@ async function getConfigFromFile(configFileName: string): Promise<{
     // 获取日志配置，提供默认值
     const logDir = config.file_logger?.dir || './log'
     const logLevel = config.file_logger?.level || 'info'
+    // 日志滚动限制：未配置时不传参，交由内核使用默认值（100MB / 10 个）
+    const logSize = toPositiveInt(config.file_logger?.size)
+    const logCount = toPositiveInt(config.file_logger?.count)
     // 获取 rpc_portal 配置（v2.5.0 起配置文件中的 rpc_portal 不再生效，需通过命令行参数传递）
     const rpcPortal = config.rpc_portal || undefined
 
-    return { logDir, logLevel, rpcPortal }
+    return { logDir, logLevel, logSize, logCount, rpcPortal }
   } catch (e) {
     error(`读取配置文件失败:${JSON.stringify(e)}`)
     // 返回默认值
-    return { logDir: './log', logLevel: 'info', rpcPortal: undefined }
+    return {
+      logDir: './log',
+      logLevel: 'info',
+      logSize: undefined,
+      logCount: undefined,
+      rpcPortal: undefined
+    }
   }
 }
 
@@ -68,8 +87,12 @@ export async function buildCoreArgsWithLogConfig(
   configFileName: string,
   configPath: string
 ): Promise<string> {
-  const { logDir, logLevel, rpcPortal } = await getConfigFromFile(configFileName)
-  let args = `--file-log-dir "${logDir}" --file-log-level ${logLevel} --config-file "${configPath}"`
+  const { logDir, logLevel, logSize, logCount, rpcPortal } = await getConfigFromFile(configFileName)
+  let args = `--file-log-dir "${logDir}" --file-log-level ${logLevel}`
+  // 仅当用户配置了大小/数量时才追加，避免覆盖内核默认值
+  if (logSize) args += ` --file-log-size ${logSize}`
+  if (logCount) args += ` --file-log-count ${logCount}`
+  args += ` --config-file "${configPath}"`
   if (rpcPortal) {
     args += ` --rpc-portal ${rpcPortal}`
   }
@@ -237,11 +260,14 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
     }
     // 读取配置文件获取日志配置和 rpc_portal
     // v2.5.0 起 rpc_portal 不再从配置文件读取，需通过 --rpc-portal 命令行参数传递
-    const { logDir, logLevel, rpcPortal } = await getConfigFromFile(configFileName)
+    const { logDir, logLevel, logSize, logCount, rpcPortal } =
+      await getConfigFromFile(configFileName)
     if ((await getPlatform()) === 'macos') {
       const pid = await invoke<number>('start_core_macos', {
         configFileName,
         logLevel,
+        logSize,
+        logCount,
         rpcPortal
       })
       info(`macOS 内核已启动，PID: ${pid}`)
@@ -251,18 +277,10 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
     const configPath = await join(await getConfigDir(), configFileName)
     const program = await getCoreDir()
 
-    const args: string[] = [
-      '--file-log-dir',
-      `${logDir}`,
-      '--file-log-level',
-      logLevel,
-      '--file-log-size',
-      '10',
-      '--file-log-count',
-      '10',
-      '--config-file',
-      `${configPath}`
-    ]
+    // 日志滚动限制仅在用户配置时追加，未配置则使用内核默认值
+    const args: string[] = ['--file-log-dir', `${logDir}`, '--file-log-level', logLevel]
+    appendFileLogLimitArgs(args, logSize, logCount)
+    args.push('--config-file', `${configPath}`)
 
     // 如果配置了 rpc_portal，通过命令行参数传递
     if (rpcPortal) {
@@ -399,6 +417,8 @@ export async function runEasyTierWebConsole(programPath: string, args: string[])
 }
 
 // 运行 easytier-cli 配置
+// 注意:shell 插件的命令作用域按「命令名」匹配,并把 'easytier-cli' 解析为
+// $RESOURCE/resource/easytier-cli.exe(当前安装目录下的副本),因此这里传命令名而非绝对路径
 export async function runEasyTierCli(args: string[]): Promise<any> {
   try {
     if ((await getPlatform()) === 'macos') {
@@ -705,6 +725,44 @@ export const getRunningProcesses = async (
 }
 
 /**
+ * 读取 Windows 服务当前的路径配置
+ * 通过 PowerShell 同时读服务 ImagePath 与 Parameters 下的 Application/AppDirectory/AppParameters
+ * @returns 服务不存在或读取失败时返回 undefined
+ */
+export const readServicePathConfig = async (
+  serviceName: string
+): Promise<ServicePathConfig | undefined> => {
+  try {
+    const command = buildServiceConfigQueryCommand(serviceName)
+    const res: any = await executeCmd('powershell', ['-NoProfile', '-Command', command], {
+      encoding: 'gbk'
+    })
+    const text = typeof res === 'string' ? res : res?.msg || ''
+    const config = toServicePathConfig(safeJsonParse(text, null))
+    if (!config) debug(`读取服务路径配置为空:${serviceName}`)
+    return config
+  } catch (e: any) {
+    warn(`读取服务路径配置失败:${serviceName} ${JSON.stringify(e)}`)
+    return undefined
+  }
+}
+
+/**
+ * 判断 nssm 命令是否执行成功
+ * 注意:退出码非 0 一律视为失败(例如 nssm 在「服务已存在」时返回非 0),
+ * 不能像旧逻辑那样把 code 1 当作安装成功
+ */
+export function isNssmOperationSucceeded(res: any): boolean {
+  if (res === undefined || res === null) return false
+  if (typeof res === 'object') return res.code === 0
+  const text = String(res).trim()
+  if (!text) return false
+  // nssm 为中文版,错误提示可能因编码问题乱码,这里同时匹配中英文关键字
+  if (/can't|cannot|failed|error|already exists|无法|失败|已存在|拒绝/i.test(text)) return false
+  return true
+}
+
+/**
  * 检测服务是否存在
  * @param serviceName 服务名
  * @returns Promise<boolean> 是否存在
@@ -752,78 +810,112 @@ export const installServiceOnWindows = async (
   serviceName: string,
   args: string,
   options?: { username?: string; password?: string; programPath?: string }
-) => {
-  return new Promise(async (resolve) => {
-    const appDirectory = await getResourceDir()
-    // Windows 需要 .exe 扩展名；默认安装 easytier-core，可通过 programPath 指定其他程序（如 easytier-web-embed）
-    const corePath = options?.programPath || (await join(appDirectory, 'easytier-core.exe'))
-    // const logsPath = await getLogsDir()
-    try {
-      // 服务是否存在
-      const exist: any = await checkServiceOnWindows(serviceName)
-      info(`服务是否存在:${JSON.stringify(exist)}`)
-      if (exist) {
-        resolve(true)
-        return
-      }
-      // 检测文件是否存在
-      // await fileExist(await join(LOG_PATH, 'service.log'))
-      // 注意：Tauri Command.create 会将每个数组元素作为独立参数传递，不需要手动添加引号
-      // 引号只在通过 shell 解析字符串时需要
-      const args1 = ['install', serviceName, `${corePath}`]
-
-      const args2 = ['set', serviceName, 'AppParameters', `${args}`]
-      const args3 = ['set', serviceName, 'AppDirectory', appDirectory]
-      const args4 = ['set', serviceName, 'AppExit', 'Default', 'Restart']
-      const args5 = ['set', serviceName, 'Description', `EasyTier 组网,服务配置:${serviceName}`]
-      const args6 = ['set', serviceName, 'DisplayName', `EasyTier 组网 ${serviceName}`]
-
-      // 如果提供了用户名和密码，使用指定用户运行服务；否则使用 LocalSystem
-      let args7: string[]
-      if (options?.username && options?.password) {
-        args7 = ['set', serviceName, 'ObjectName', `.\\${options.username}`, options.password]
-        info(`使用用户 ${options.username} 运行服务`)
-      } else {
-        args7 = ['set', serviceName, 'ObjectName', 'LocalSystem']
-        info('使用 LocalSystem 运行服务')
-      }
-
-      const args8 = ['set', serviceName, 'Start', 'SERVICE_AUTO_START']
-      const args9 = ['set', serviceName, 'Type', 'SERVICE_WIN32_OWN_PROCESS']
-      // 重定向日志到文件
-      // const args10 = ['set', serviceName, 'AppStdout', `${logsPath}\\service.log`]
-      // const args11 = ['set', serviceName, 'AppStderr', `${logsPath}\\service.log`]
-      // const args12 = ['set', serviceName, 'AppTimestampLog', '1']
-      await executeCmd(NSSM_NAME, args1, { encoding: 'gbk' }).then(async (res) => {
-        info(`安装服务结果:${JSON.stringify(res)}`)
-        if (
-          res &&
-          (res.code! === 0 ||
-            res.code! === 1 ||
-            res.includes('success') ||
-            res.includes('installed'))
-        ) {
-          await executeCmd(NSSM_NAME, args2, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args3, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args4, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args5, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args6, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args7, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args8, { encoding: 'gbk' })
-          await executeCmd(NSSM_NAME, args9, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args10, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args11, { encoding: 'gbk' })
-          // await executeCmd(NSSM_NAME, args12, { encoding: 'gbk' })
-          resolve(true)
-          return
-        }
-        resolve(false)
-      })
-    } catch (e: any) {
-      error(`安装服务失败:${e}`)
-      resolve(false)
+): Promise<boolean> => {
+  // 路径一律基于「程序当前实际所在目录」计算,不使用历史安装路径
+  const appDirectory = await getResourceDir()
+  // Windows 需要 .exe 扩展名;默认安装 easytier-core,可通过 programPath 指定其他程序(如 easytier-web-embed)
+  const corePath = options?.programPath || (await join(appDirectory, 'easytier-core.exe'))
+  // shell 插件的命令作用域会把 'nssm' 解析为 $RESOURCE/resource/nssm.exe,
+  // 即当前安装目录下的副本;期望值按同一规则计算,用于安装后回读校验
+  const expectedNssmPath = await join(appDirectory, 'nssm.exe')
+  // 期望写入服务的完整配置,安装完成后按此回读校验
+  const expected: ServicePathConfig = {
+    imagePath: expectedNssmPath,
+    application: corePath,
+    appDirectory,
+    appParameters: args
+  }
+  try {
+    info(`服务安装目录:${appDirectory}`)
+    info(`服务目标程序:${corePath}`)
+    info(`服务预期 nssm 路径:${expectedNssmPath}`)
+    // 目标程序不存在时直接失败,避免注册出必然无法启动的服务
+    if (!(await exists(corePath))) {
+      error(`目标程序不存在,取消安装服务:${corePath}`)
+      return false
     }
-  })
+
+    // 已存在的服务可能来自旧安装目录;ImagePath/Application 只能由 install 写入,
+    // 必须先移除再安装,否则会保留指向不存在目录的错误配置
+    const current = await readServicePathConfig(serviceName)
+    info(`服务当前配置:${JSON.stringify(current || null)}`)
+    if (current) {
+      if (isServiceConfigMatched(current, expected)) {
+        info('服务已指向当前目录,无需重新安装')
+        return true
+      }
+      info('服务配置与当前目录不一致,移除后重新安装')
+      await executeCmd(NSSM_NAME, ['stop', serviceName], { encoding: 'gbk' })
+      await executeCmd(NSSM_NAME, ['remove', serviceName, 'confirm'], { encoding: 'gbk' })
+      if (await readServicePathConfig(serviceName)) {
+        error(`移除旧服务失败,取消安装,避免生成指向旧目录的服务:${serviceName}`)
+        return false
+      }
+    }
+
+    // 注意:Tauri Command.create 会将每个数组元素作为独立参数传递,不需要手动添加引号
+    // 引号只在通过 shell 解析字符串时需要
+    const installResult: any = await executeCmd(
+      NSSM_NAME,
+      ['install', serviceName, `${corePath}`],
+      {
+        encoding: 'gbk'
+      }
+    )
+    info(`安装服务结果:${JSON.stringify(installResult)}`)
+    if (!isNssmOperationSucceeded(installResult)) {
+      error(`创建服务失败,取消后续配置:${JSON.stringify(installResult)}`)
+      return false
+    }
+
+    // 如果提供了用户名和密码,使用指定用户运行服务;否则使用 LocalSystem
+    let objectNameArgs: string[]
+    if (options?.username && options?.password) {
+      objectNameArgs = [
+        'set',
+        serviceName,
+        'ObjectName',
+        `.\\${options.username}`,
+        options.password
+      ]
+      info(`使用用户 ${options.username} 运行服务`)
+    } else {
+      objectNameArgs = ['set', serviceName, 'ObjectName', 'LocalSystem']
+      info('使用 LocalSystem 运行服务')
+    }
+
+    const settings: string[][] = [
+      ['set', serviceName, 'AppParameters', `${args}`],
+      ['set', serviceName, 'AppDirectory', appDirectory],
+      ['set', serviceName, 'AppExit', 'Default', 'Restart'],
+      ['set', serviceName, 'Description', `EasyTier 组网,服务配置:${serviceName}`],
+      ['set', serviceName, 'DisplayName', `EasyTier 组网 ${serviceName}`],
+      objectNameArgs,
+      ['set', serviceName, 'Start', 'SERVICE_AUTO_START'],
+      ['set', serviceName, 'Type', 'SERVICE_WIN32_OWN_PROCESS']
+    ]
+    for (const setting of settings) {
+      const res: any = await executeCmd(NSSM_NAME, setting, { encoding: 'gbk' })
+      // 单项设置失败不立即中止,交由最终回读校验统一判定
+      if (!isNssmOperationSucceeded(res)) {
+        warn(`设置服务参数失败:${setting.slice(1, 3).join(' ')} ${JSON.stringify(res)}`)
+      }
+    }
+
+    // 回读校验:确认服务确实指向当前安装目录,避免「提示安装成功但服务指向旧目录」
+    const applied = await readServicePathConfig(serviceName)
+    if (!isServiceConfigMatched(applied, expected)) {
+      error(
+        `服务路径校验失败,实际:${JSON.stringify(applied || null)},期望:${JSON.stringify(expected)}`
+      )
+      return false
+    }
+    info(`服务安装完成并已校验:${serviceName}`)
+    return true
+  } catch (e: any) {
+    error(`安装服务失败:${e}`)
+    return false
+  }
 }
 /**
  * Windows 删除服务
@@ -940,19 +1032,15 @@ export const installServiceWithOfficialCli = async (
 
       // 读取配置文件获取日志配置和 rpc_portal
       // v2.5.0 起 rpc_portal 不再从配置文件读取，需通过 --rpc-portal 命令行参数传递
-      const { logDir, logLevel, rpcPortal } = await getConfigFromFile(configFileName)
+      const { logDir, logLevel, logSize, logCount, rpcPortal } =
+        await getConfigFromFile(configFileName)
 
       // 构建服务运行时的参数
-      // 格式: easytier-core --file-log-dir ./log --file-log-level info --config-file config.toml [--rpc-portal addr]
-      args.push(
-        '--',
-        '--file-log-dir',
-        `${logDir}`,
-        '--file-log-level',
-        logLevel,
-        '--config-file',
-        `${configPath}`
-      )
+      // 格式: easytier-core --file-log-dir ./log --file-log-level info [--file-log-size n] [--file-log-count n] --config-file config.toml [--rpc-portal addr]
+      const coreArgs = ['--file-log-dir', `${logDir}`, '--file-log-level', logLevel]
+      appendFileLogLimitArgs(coreArgs, logSize, logCount)
+      coreArgs.push('--config-file', `${configPath}`)
+      args.push('--', ...coreArgs)
 
       // 如果配置了 rpc_portal，通过命令行参数传递
       if (rpcPortal) {

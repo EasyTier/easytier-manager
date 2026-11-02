@@ -68,6 +68,10 @@
                   :value="item.value"
                 />
               </el-select>
+              <!-- wss 依赖配置服务器侧的反向代理，选中时给出提示 -->
+              <div v-if="formData.protocol === 'wss'" class="form-tip">
+                {{ t('easytier.protocolWssTip') }}
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -76,7 +80,7 @@
             <el-form-item :label="t('easytier.host')" prop="host">
               <el-input
                 v-model="formData.host"
-                placeholder="例如：127.0.0.1、example.com"
+                :placeholder="t('easytier.hostPlaceholder')"
                 type="text"
                 clearable
               />
@@ -88,7 +92,7 @@
             <el-form-item :label="t('easytier.port')" prop="port">
               <el-input-number
                 v-model="formData.port"
-                placeholder="请输入端口,例如：22020"
+                :placeholder="t('easytier.portPlaceholder')"
                 :min="1"
                 :max="65535"
                 :step="1"
@@ -118,7 +122,7 @@
           <el-form-item :label="t('easytier.hostname')" prop="hostname">
             <el-input
               v-model="formData.hostname"
-              placeholder="选填，影响在 Web 控制台中的显示名，留空使用本机主机名"
+              :placeholder="t('easytier.hostnamePlaceholder')"
               type="text"
               clearable
             />
@@ -130,7 +134,7 @@
           <el-form-item :label="t('easytier.configDir')" prop="configDir">
             <el-input
               v-model="formData.configDir"
-              placeholder="选填，服务器不可达时回退启动该目录下的配置并保存下发的配置"
+              :placeholder="t('easytier.configDirPlaceholder')"
               type="text"
               clearable
             />
@@ -143,7 +147,7 @@
             <el-input
               v-model="formData.webUrl"
               type="text"
-              placeholder="用于快速跳转Web 控制台"
+              :placeholder="t('easytier.webUrlPlaceholder')"
               clearable
             />
           </el-form-item>
@@ -247,5 +251,12 @@ defineExpose({ validateForm })
 <style scoped>
 .form {
   margin-right: 20px;
+}
+
+.form-tip {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary);
 }
 </style>

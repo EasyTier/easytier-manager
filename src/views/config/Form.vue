@@ -529,7 +529,7 @@
               {{ t('easytier.clear_log_on_run') }}
               <el-tooltip
                 trigger="hover"
-                content="每次启动该配置前，自动清空对应的日志文件"
+                content="每次启动该配置前，自动清空对应的日志文件；多实例共用 logs/easytier.log，清空会影响其他实例"
                 placement="top"
               >
                 <el-icon class="label-info-icon">
@@ -618,7 +618,7 @@
               {{ t('easytier.file_log_size') }}
               <el-tooltip
                 trigger="hover"
-                content="单个日志文件大小，单位 MB，默认值为 100MB"
+                content="单个日志文件大小，单位 MB；留空使用内核默认值 100MB"
                 placement="top"
               >
                 <el-icon class="label-info-icon">
@@ -639,7 +639,11 @@
           <el-form-item prop="file_logger.count">
             <template #label>
               {{ t('easytier.file_log_count') }}
-              <el-tooltip trigger="hover" content="最大日志文件数量，默认值为 10" placement="top">
+              <el-tooltip
+                trigger="hover"
+                content="最大日志文件数量；留空使用内核默认值 10"
+                placement="top"
+              >
                 <el-icon class="label-info-icon">
                   <InfoFilled />
                 </el-icon>
