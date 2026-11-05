@@ -52,10 +52,6 @@ onMounted(async () => {
       console.error('Failed to show window:', e)
     })
 
-  easytierStore.autorun().catch((e) => {
-    console.error('Failed to autorun:', e)
-  })
-
   // 发送事件通知后端，前端已准备就绪
   emit('frontend-ready').catch((e) => {
     console.error('Failed to emit frontend-ready event:', e)

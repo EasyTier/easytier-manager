@@ -17,6 +17,8 @@ target
 .vscode
 .agents
 .kilo
+work
+outputs
 
 .nvmdrc
 .ai

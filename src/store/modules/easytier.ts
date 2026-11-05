@@ -2,12 +2,10 @@ import {
   CORE_INFO_API,
   DEFAULT_STUN_SERVER,
   MONITOR_LIST,
-  PREFIX_SVC,
   STUN_SERVER_URL,
   USER_AGENT
 } from '@/constants/easytier'
-import { getDataRootDir, listTomlFiles } from '@/utils/fileUtil'
-import { startServiceOnWindows } from '@/utils/shellUtil'
+import { getDataRootDir } from '@/utils/fileUtil'
 import { fetch } from '@tauri-apps/plugin-http'
 import { normalizeCoreReleases, type CoreRelease } from '@/utils/easytierRelease'
 import { getArch, getOsType } from '@/utils/sysUtil'
@@ -370,17 +368,6 @@ export const useEasyTierStore = defineStore(
     const setDefaultEnableAutostart = (enable: boolean) => {
       defaultEnableAutostart.value = enable
     }
-    const autorun = async () => {
-      if (getOsType() !== 'windows') return
-      const autoRun = localStorage.getItem('settings.autoRun')
-      if (autoRun === 'true') {
-        const fileList = await listTomlFiles()
-        for (const f of fileList) {
-          const configName = f.replace('.toml', '')
-          await startServiceOnWindows(PREFIX_SVC + configName)
-        }
-      }
-    }
     return {
       configPath,
       configList,
@@ -446,8 +433,7 @@ export const useEasyTierStore = defineStore(
       setNetworkStatusCache,
       removeNetworkStatusCache,
       setPendingWorkbenchConfig,
-      consumePendingWorkbenchConfig,
-      autorun
+      consumePendingWorkbenchConfig
     }
   },
   {
