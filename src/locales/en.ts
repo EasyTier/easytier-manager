@@ -1,4 +1,50 @@
 export default {
+  runtime: {
+    label: 'Run mode',
+    direct: 'Direct run',
+    service: 'Windows service',
+    stopped: 'Not running',
+    unknown: 'Unknown',
+    help: 'About run modes',
+    directHelp:
+      'Direct run starts the EasyTier core with the current configuration file. The core can continue running after the manager exits.',
+    serviceHelp:
+      'Windows manages starting and stopping Windows services. Services can start at boot and continue running after the manager exits.',
+    manageService: 'Manage service instances in Configuration → Windows service operations.',
+    unknownBlocked:
+      'The process source or service status could not be confirmed. Operation blocked; refresh and try again.',
+    alreadyRunning: 'This configuration is already running. Stop the existing instance first.',
+    autoSkipped:
+      'This configuration is registered as a Windows service. Automatic direct run was skipped.',
+    stopDirectFirst:
+      'This configuration is running directly. Stop it in the workbench before starting the Windows service.',
+    stateChanged: 'The service state has changed. Refresh and try again.',
+    serviceActionFailed: 'Service operation failed. Check permissions and refresh the status.',
+    serviceActionSent:
+      'Service operation submitted. The state may take a few seconds to change; refresh shortly.',
+    goConfig: 'Go to configuration',
+    startService: 'Start service',
+    stopService: 'Stop service',
+    serviceStatus: 'Service status',
+    serviceOperations: 'Windows service operations',
+    pathHint:
+      'Before installing a service, avoid placing the application in a path containing spaces or Chinese characters where possible. Service instances must use Start service and Stop service, rather than the workbench controls.',
+    workbenchHint:
+      'Run in the workbench starts the core directly with the current configuration. The core can continue running after the manager exits.',
+    serviceHint:
+      'Windows service operations let Windows manage service start, stop and boot startup. Services can continue running after the manager exits.',
+    autoRunHint:
+      'When enabled, opening the manager directly starts the selected configuration. Windows manages service startup at boot.',
+    autoRunFallback: 'Prefer the last configuration run',
+    status: {
+      运行中: 'Running',
+      停止: 'Stopped',
+      未安装: 'Not installed',
+      未知: 'Unknown',
+      停止中: 'Stopping',
+      启动中: 'Starting'
+    }
+  },
   common: {
     inputText: 'Please input',
     selectText: 'Please select',
@@ -721,7 +767,7 @@ export default {
     clearCache: 'Clear cache',
     feedback: 'Feedback',
     // Service management settings
-    serviceManagementSettings: 'Service Management Settings',
+    serviceManagementSettings: 'Windows Service Management Settings',
     serviceInstallMethod: 'Service Install Method',
     installMethodNssm: 'NSSM (Better Compatibility)',
     installMethodOfficial: 'Official easytier-cli (v1.2.0+)',

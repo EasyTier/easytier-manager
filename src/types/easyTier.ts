@@ -210,6 +210,8 @@ interface GithubVer {
 }
 
 interface RunningItem {
+  runMode?: 'direct' | 'service' | 'stopped' | 'unknown'
+  registration?: 'installed' | 'absent' | 'unknown'
   configFileName: string
   fileName?: string
   pid?: number
@@ -223,6 +225,7 @@ interface RunningItem {
 
 /** 从 easytier-core 进程命令行解析出的运行实例 */
 interface CoreProcessInstance {
+  runMode?: 'direct' | 'service' | 'stopped' | 'unknown'
   pid: number
   configFileName: string
   fileName: string

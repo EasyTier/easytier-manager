@@ -1,3 +1,9 @@
+import {
+  queryWindowsSnapshot,
+  classifyProcess,
+  requireDirectStart,
+  requireDirectStop
+} from './windowsRuntime'
 import { CONFIG_PATH, NSSM_NAME } from '@/constants/easytier'
 import { invoke } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
@@ -250,7 +256,7 @@ export async function executeBack(
 }
 
 // 运行 easytier-core 配置
-export async function runEasyTierCore(configFileName: string): Promise<any> {
+export async function runEasyTierCore(configFileName: string, automatic = false): Promise<any> {
   try {
     // 启动前校验配置文件，避免无效配置反复启动失败
     const checkResult = await checkConfigFile(configFileName)
@@ -287,6 +293,7 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
       args.push('--rpc-portal', rpcPortal)
     }
 
+    if ((await getPlatform()) === 'windows') await requireDirectStart(configFileName, automatic)
     const res = await invoke('run_command', {
       program,
       args
@@ -295,7 +302,8 @@ export async function runEasyTierCore(configFileName: string): Promise<any> {
     return res
   } catch (e) {
     error(`运行 easytier-core失败:${JSON.stringify(e)}`)
-    return 403
+    if ((await getPlatform()) !== 'windows') return 403
+    return { code: 403, msg: e instanceof Error ? e.message : String(e) }
   }
 }
 
@@ -475,8 +483,10 @@ export async function killProcess(pid: number, force: boolean = true): Promise<b
     const platform = await getPlatform()
     // Windows 使用 taskkill 命令
     if (platform === 'windows') {
+      await requireDirectStop(pid, undefined, false)
       const args = force ? ['/F', '/PID', pid.toString()] : ['/PID', pid.toString()]
-      const result = await executeCmd('taskkill', args, { encoding: 'gbk' })
+      const result = await Command.create('taskkill', args, { encoding: 'gbk' }).execute()
+      if (result.code !== 0) return false
       debug(`强制终止进程 ${result}`)
     }
     if (platform === 'macos') {
@@ -528,7 +538,12 @@ export const testWMIC = async () => {
  * 列出所有正在运行的 easytier-core 实例（按 commandLine 识别配置）
  */
 export async function listRunningCoreInstances(): Promise<CoreProcessInstance[]> {
-  const processes = await getRunningProcesses('easytier-core')
+  const windows = (await getPlatform()) === 'windows'
+  const snapshot = windows ? await queryWindowsSnapshot() : undefined
+  if (snapshot && !snapshot.processesKnown) throw new Error('runtime.unknownBlocked')
+  const processes = snapshot
+    ? snapshot.processes.filter((p) => p.name.toLowerCase() === 'easytier-core.exe')
+    : await getRunningProcesses('easytier-core')
   const instances: CoreProcessInstance[] = []
   const seenPid = new Set<number>()
 
@@ -539,7 +554,7 @@ export async function listRunningCoreInstances(): Promise<CoreProcessInstance[]>
     const name = (p.name || '').toLowerCase()
     if (name.includes('powershell') || name.includes('cmd.exe')) continue
     const commandLine = p.commandLine || ''
-    if (!commandLine.toLowerCase().includes('easytier-core')) continue
+    if (!windows && !commandLine.toLowerCase().includes('easytier-core')) continue
 
     const parsed = parseCoreCommandLine(commandLine)
     // 未解析到配置文件时，尝试用进程字段兜底
@@ -578,6 +593,7 @@ export async function listRunningCoreInstances(): Promise<CoreProcessInstance[]>
 
     seenPid.add(pid)
     instances.push({
+      runMode: snapshot ? classifyProcess(snapshot, p) : undefined,
       pid,
       configFileName,
       fileName,
