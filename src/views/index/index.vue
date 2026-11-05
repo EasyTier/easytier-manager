@@ -1,4 +1,11 @@
 <script setup lang="tsx">
+import RunModeBadge from '@/components/RunModeBadge.vue'
+import {
+  getWindowsConfigRuntime,
+  requireDirectStart,
+  requireDirectStop
+} from '@/utils/windowsRuntime'
+import type { RunMode } from '@/utils/windowsRuntimeModel'
 import { CodeEditor } from '@/components/CodeEditor'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Descriptions, DescriptionsSchema } from '@/components/Descriptions'
@@ -54,6 +61,21 @@ const currentNodeKey = ref<RunningItem>({
 })
 const currentConfigCache = ref<EasyTierConfig | null>(null)
 const isWindows = getOsType() === 'windows'
+const runMode = ref<RunMode>('unknown')
+const refreshRunMode = async () => {
+  if (isWindows && currentNodeKey.value.fileName) {
+    const selected = currentNodeKey.value.fileName
+    const state = await getWindowsConfigRuntime(selected)
+    if (selected === currentNodeKey.value.fileName) runMode.value = state.mode
+  }
+}
+watch(
+  () => currentNodeKey.value.fileName,
+  () => {
+    runMode.value = 'unknown'
+    void refreshRunMode()
+  }
+)
 const isMacos = getOsType() === 'macos'
 const currentDepartment = ref('')
 const tableRowClassName = ({ rowIndex }: { row: any; rowIndex: number }) => {
@@ -322,6 +344,7 @@ const setExitRoute = async (val) => {
 
 // 从easyTierStore.runningList 同步 runningTag
 const runningTag = computed(() => {
+  if (isWindows) return runMode.value === 'direct' || runMode.value === 'service'
   return easyTierStore.runningList.some(
     (i) => i.configFileName === currentNodeKey.value.configFileName
   )
@@ -650,6 +673,7 @@ const getPeerInfo = async () => {
  * 兼容旧调用传入 getRunningProcesses 结果
  */
 const updateRunningList = async (res?: any) => {
+  await refreshRunMode()
   // 优先使用全量实例扫描，避免多开时只查到当前配置
   if (!res) {
     try {
@@ -659,7 +683,8 @@ const updateRunningList = async (res?: any) => {
         fileName: item.fileName,
         pid: item.pid,
         rpcPortal: item.rpcPortal,
-        commandLine: item.commandLine
+        commandLine: item.commandLine,
+        runMode: item.runMode
       }))
       easyTierStore.setRunningList(newList)
       // 返回与旧逻辑兼容的结构（含 fileName）
@@ -670,6 +695,10 @@ const updateRunningList = async (res?: any) => {
         rpcPortal: item.rpcPortal
       }))
     } catch (e) {
+      if (isWindows) {
+        runMode.value = 'unknown'
+        throw e
+      }
       error(`扫描运行实例失败，回退旧逻辑: ${String(e)}`)
       res = await getRunningProcesses(currentNodeKey.value.fileName!)
     }
@@ -710,7 +739,20 @@ const applyPendingWorkbenchConfig = () => {
   currentConfigCache.value = null
   return true
 }
-const startAction = async () => {
+const startAction = async (automatic: boolean | MouseEvent = false) => {
+  if (isWindows && isStarting.value) return
+  if (isWindows) isStarting.value = true
+  const auto = automatic === true
+  if (isWindows) {
+    try {
+      await requireDirectStart(currentNodeKey.value.fileName!, auto)
+    } catch (e) {
+      ElMessage.warning(t((e as Error).message))
+      isStarting.value = false
+      await refreshRunMode()
+      return
+    }
+  }
   info(`开始运行配置:${currentNodeKey.value.fileName!}`)
   isStarting.value = true
   try {
@@ -746,10 +788,16 @@ const startAction = async () => {
     error(`启动前关闭自动跃点失败:${String(e)}`)
   }
 
-  await runEasyTierCore(currentNodeKey.value.fileName!)
+  await runEasyTierCore(currentNodeKey.value.fileName!, auto)
     .then(async (res) => {
       if (res === 403 || res?.code === 403) {
-        throw new Error(res?.msg ? `配置校验失败：${res.msg}` : '内核启动失败')
+        throw new Error(
+          isWindows && res?.msg?.startsWith('runtime.')
+            ? t(res.msg)
+            : res?.msg
+              ? `配置校验失败：${res.msg}`
+              : '内核启动失败'
+        )
       }
       // info(`运行配置结果:${JSON.stringify(res)}`)
       easyTierStore.stopSetRoute = false
@@ -787,8 +835,33 @@ const startAction = async () => {
 }
 const stopAction = async () => {
   info(`停止运行配置:${currentNodeKey.value.configFileName}`)
-  const item = easyTierStore.getRunningItem(currentNodeKey.value.configFileName)
+  let item = easyTierStore.getRunningItem(currentNodeKey.value.configFileName)
+  if (isWindows) {
+    const state = await getWindowsConfigRuntime(currentNodeKey.value.fileName!)
+    runMode.value = state.mode
+    if (state.mode !== 'direct') {
+      ElMessage.warning(
+        t(state.mode === 'service' ? 'runtime.manageService' : 'runtime.unknownBlocked')
+      )
+      return
+    }
+    const process = state.processes[0]
+    item = {
+      ...currentNodeKey.value,
+      pid: process.pid,
+      commandLine: process.commandLine || undefined
+    }
+  }
   if (item && item.pid) {
+    if (isWindows) {
+      try {
+        await requireDirectStop(item.pid, item.commandLine)
+      } catch (e) {
+        ElMessage.warning(t((e as Error).message))
+        await refreshRunMode()
+        return
+      }
+    }
     const res = await killProcess(item.pid)
     if (res) {
       easyTierStore.setStopLoop(true)
@@ -1003,7 +1076,7 @@ onMounted(async () => {
       getPeerInfo()
     } else if (isColdStart && easyTierStore.autoRunNetworkSetting) {
       // 4. 仅在冷启动且开启自动运行时执行自动运行
-      startAction()
+      startAction(true)
     } else {
       // 未运行时清除缓存
       easyTierStore.cachedNodeInfo = {}
@@ -1018,6 +1091,13 @@ onMounted(async () => {
 onActivated(async () => {
   // 处理从运行总览跳转选中
   const hasPending = applyPendingWorkbenchConfig()
+  if (isWindows && !hasPending) {
+    try {
+      await updateRunningList()
+    } catch {
+      /* Unknown mode is already displayed. */
+    }
+  }
   if (hasPending) {
     currentConfigCache.value = null
     await updateRunningList()
@@ -1117,24 +1197,41 @@ onDeactivated(() => {
                   {{
                     isLoading
                       ? '加载中...'
-                      : runningTag
-                        ? t('easytier.running')
-                        : t('easytier.stopping')
+                      : isWindows && runMode === 'unknown'
+                        ? t('runtime.unknown')
+                        : runningTag
+                          ? t('easytier.running')
+                          : t('easytier.stopping')
                   }}
                 </span>
               </div>
             </div>
+            <RunModeBadge v-if="isWindows" :mode="runMode" />
+            <span
+              v-if="isWindows && runMode === 'service'"
+              class="text-12px text-[var(--el-text-color-secondary)]"
+              >{{ t('runtime.manageService') }}</span
+            >
+            <span
+              v-if="isWindows && runMode === 'unknown'"
+              class="text-12px text-[var(--el-text-color-secondary)]"
+              >{{ t('runtime.unknownBlocked') }}</span
+            >
             <el-button
               type="success"
               @click="startAction"
-              :disabled="runningTag || isStarting || isInitializing"
+              :disabled="
+                runningTag || isStarting || isInitializing || (isWindows && runMode !== 'stopped')
+              "
             >
               {{ t('easytier.run') }}
             </el-button>
             <el-button
               type="danger"
               @click="stopAction"
-              :disabled="!runningTag || isStarting || isInitializing"
+              :disabled="
+                !runningTag || isStarting || isInitializing || (isWindows && runMode !== 'direct')
+              "
             >
               {{ t('easytier.stop') }}
             </el-button>

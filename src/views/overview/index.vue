@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import RunModeBadge from '@/components/RunModeBadge.vue'
+import { requireDirectStop } from '@/utils/windowsRuntime'
+import { getOsType } from '@/utils/sysUtil'
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEasyTierStore } from '@/store/modules/easytier'
@@ -18,6 +21,8 @@ import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
 const router = useRouter()
+const isWindows = getOsType() === 'windows'
+const scanFailed = ref(false)
 const easyTierStore = useEasyTierStore()
 
 /** 顶部 Tab：运行实例 / 路由信息 */
@@ -123,6 +128,7 @@ const isSameInstanceList = (a: CoreProcessInstance[], b: CoreProcessInstance[]) 
   if (a.length !== b.length) return false
   for (let i = 0; i < a.length; i++) {
     if (
+      a[i].runMode !== b[i].runMode ||
       a[i].pid !== b[i].pid ||
       a[i].configFileName !== b[i].configFileName ||
       a[i].rpcPortal !== b[i].rpcPortal ||
@@ -166,7 +172,8 @@ const syncRunningList = (list: CoreProcessInstance[]) => {
     fileName: item.fileName,
     pid: item.pid,
     rpcPortal: item.rpcPortal,
-    commandLine: item.commandLine
+    commandLine: item.commandLine,
+    runMode: item.runMode
   }))
   easyTierStore.setRunningList(newList)
 }
@@ -298,6 +305,7 @@ const refreshAll = async (options: { manual?: boolean; silent?: boolean } = {}) 
 
   try {
     const list = await listRunningCoreInstances()
+    scanFailed.value = false
     if (!isSameInstanceList(instances.value, list)) {
       instances.value = list
     }
@@ -318,6 +326,10 @@ const refreshAll = async (options: { manual?: boolean; silent?: boolean } = {}) 
     }
     await Promise.all(tasks)
   } catch (e) {
+    if (isWindows) {
+      scanFailed.value = true
+      instances.value = instances.value.map((i) => ({ ...i, runMode: 'unknown' }))
+    }
     error(`运行总览刷新失败: ${String(e)}`)
   } finally {
     initialLoaded.value = true
@@ -418,6 +430,15 @@ const stopInstance = async (inst: CoreProcessInstance) => {
     ElMessage.warning(t('easytier.stopping'))
     return
   }
+  if (isWindows) {
+    try {
+      await requireDirectStop(inst.pid, inst.commandLine)
+    } catch (e) {
+      ElMessage.warning(t((e as Error).message))
+      await refreshAll({ manual: true })
+      return
+    }
+  }
   const ok = await killProcess(inst.pid)
   if (ok) {
     ElNotification({
@@ -485,6 +506,12 @@ onUnmounted(() => {
         </el-button>
       </div>
 
+      <el-alert
+        v-if="isWindows && scanFailed"
+        :title="t('runtime.unknownBlocked')"
+        type="warning"
+        :closable="false"
+      />
       <el-tabs v-model="activeTab" class="overview-tabs">
         <!-- 运行实例 -->
         <el-tab-pane :label="t('workplace.tabInstances')" name="instances">
@@ -540,7 +567,23 @@ onUnmounted(() => {
                   <el-button type="primary" size="small" @click="openWorkbench(card)">
                     {{ t('workplace.openWorkbench') }}
                   </el-button>
-                  <el-button type="danger" size="small" plain @click="stopInstance(card)">
+                  <RunModeBadge v-if="isWindows" :mode="card.runMode || 'unknown'" />
+                  <el-button
+                    v-if="isWindows && card.runMode === 'service'"
+                    type="primary"
+                    size="small"
+                    plain
+                    @click="router.push('/config')"
+                    >{{ t('runtime.goConfig') }}</el-button
+                  >
+                  <el-button
+                    v-else
+                    type="danger"
+                    size="small"
+                    plain
+                    :disabled="isWindows && card.runMode !== 'direct'"
+                    @click="stopInstance(card)"
+                  >
                     {{ t('easytier.stop') }}
                   </el-button>
                 </div>

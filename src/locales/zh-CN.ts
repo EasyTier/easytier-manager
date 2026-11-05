@@ -1,4 +1,41 @@
 export default {
+  runtime: {
+    label: '运行方式',
+    direct: '直接运行',
+    service: 'Windows 服务',
+    stopped: '未运行',
+    unknown: '未知',
+    help: '运行方式说明',
+    directHelp: '直接运行使用当前配置文件启动 EasyTier 内核，退出管理器后内核仍可继续运行。',
+    serviceHelp: 'Windows 服务由 Windows 管理启停，可配置开机自动启动，退出管理器后仍可运行。',
+    manageService: '请前往「配置 → Windows 服务操作」管理服务实例。',
+    unknownBlocked: '无法确认进程来源或服务状态，已阻止操作。请刷新后重试。',
+    alreadyRunning: '此配置已在运行，请先停止现有实例。',
+    autoSkipped: '此配置已注册为 Windows 服务，已跳过自动直接运行。',
+    stopDirectFirst: '此配置正在直接运行，请先到工作台停止，再启动 Windows 服务。',
+    stateChanged: '服务状态已变化，请刷新后重试。',
+    serviceActionFailed: '服务操作失败，请检查权限并刷新状态。',
+    serviceActionSent: '服务操作已提交；状态变化可能需要数秒，请稍后刷新。',
+    goConfig: '前往配置',
+    startService: '启动服务',
+    stopService: '停止服务',
+    serviceStatus: '服务状态',
+    serviceOperations: 'Windows 服务操作',
+    pathHint:
+      '安装服务前检查程序尽量不要放在含有空格、中文路径的目录下；如果组网是由服务启动的，则只能使用启动服务和停止服务，无法使用首页的启动和停止',
+    workbenchHint: '工作台「运行」直接使用当前配置启动内核，退出管理器后内核仍可继续运行。',
+    serviceHint: '「Windows 服务操作」由 Windows 管理启停及开机启动，退出管理器后服务仍可运行。',
+    autoRunHint: '开启后，打开管理器时，直接启动所选配置。Windows 服务的开机启动由 Windows 管理。',
+    autoRunFallback: '优先使用上次运行的配置',
+    status: {
+      运行中: '运行中',
+      停止: '停止',
+      未安装: '未安装',
+      未知: '未知',
+      停止中: '停止中',
+      启动中: '启动中'
+    }
+  },
   common: {
     inputText: '请输入',
     selectText: '请选择',
@@ -721,7 +758,7 @@ export default {
     clearCache: '清除缓存',
     feedback: '问题及意见反馈',
     // 服务管理设置
-    serviceManagementSettings: '服务管理设置',
+    serviceManagementSettings: 'Windows 服务管理设置',
     serviceInstallMethod: '服务安装方式',
     installMethodNssm: 'NSSM (推荐，兼容性好)',
     installMethodOfficial: '官方 easytier-cli (v2.0+)',

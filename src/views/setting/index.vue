@@ -622,15 +622,15 @@ onMounted(async () => {
             <div class="flex flex-col gap-10px w-100%">
               <div class="flex items-center">
                 <el-switch v-model="autoRunNetwork" @change="handleAutoRunNetworkChange" />
-                <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]"
-                  >开启后，启动程序将自动运行指定的或上次的网络配置</span
-                >
+                <span class="ml-10px text-12px text-[var(--el-text-color-secondary)]">{{
+                  t('runtime.autoRunHint')
+                }}</span>
               </div>
               <div v-if="autoRunNetwork" class="flex items-center gap-10px">
                 <span class="text-12px text-[var(--el-text-color-regular)]">指定运行配置:</span>
                 <el-select
                   v-model="autoRunConfigName"
-                  placeholder="默认运行上次配置"
+                  :placeholder="t('runtime.autoRunFallback')"
                   clearable
                   style="width: 200px"
                   @change="handleAutoRunConfigChange"
@@ -642,9 +642,9 @@ onMounted(async () => {
                     :value="item.configFileName"
                   />
                 </el-select>
-                <span class="text-12px text-[var(--el-text-color-secondary)]"
-                  >留空则自动运行上次未停止的网络</span
-                >
+                <span class="text-12px text-[var(--el-text-color-secondary)]">{{
+                  t('runtime.autoRunFallback')
+                }}</span>
               </div>
             </div>
           </el-form-item>
@@ -696,7 +696,9 @@ onMounted(async () => {
           </el-form-item>
 
           <template v-if="isWindows">
-            <el-divider content-position="left">服务管理设置</el-divider>
+            <el-divider content-position="left">{{
+              t('easytier.serviceManagementSettings')
+            }}</el-divider>
             <el-form-item label="默认服务安装方式">
               <el-select
                 v-model="defaultServiceInstallMethod"

@@ -1,4 +1,10 @@
 <script setup lang="tsx">
+import RunModeBadge from '@/components/RunModeBadge.vue'
+import {
+  queryWindowsSnapshot,
+  getWindowsConfigRuntime,
+  changeWindowsService
+} from '@/utils/windowsRuntime'
 import { CodeEditor } from '@/components/CodeEditor'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Dialog } from '@/components/Dialog'
@@ -19,15 +25,9 @@ import {
 import {
   buildCoreArgsWithLogConfig,
   checkServiceOnWindows,
-  checkServiceWithOfficialCli,
-  detectServiceInstallMethod,
   installServiceOnWindows,
   installServiceWithOfficialCli,
   runEasyTierCli,
-  startServiceOnWindows,
-  startServiceWithOfficialCli,
-  stopServiceOnWindows,
-  stopServiceWithOfficialCli,
   uninstallServiceOnWindows,
   uninstallServiceWithOfficialCli
 } from '@/utils/shellUtil'
@@ -36,13 +36,13 @@ import {
   getServiceInstallConfig,
   saveServiceInstallConfig
 } from '@/utils/serviceConfigUtil'
-import { getCurrentUsername, getHostname, getOsType, sleep } from '@/utils/sysUtil'
+import { getCurrentUsername, getHostname, getOsType } from '@/utils/sysUtil'
 import { join } from '@tauri-apps/api/path'
 import { attachConsole, error, info } from '@tauri-apps/plugin-log'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import { cloneDeep } from 'lodash-es'
 import * as toml from 'smol-toml'
-import { onMounted, ref, watch } from 'vue'
+import { onActivated, onMounted, ref, watch } from 'vue'
 import Form from './Form.vue'
 
 const { t } = useI18n()
@@ -77,27 +77,34 @@ const serviceInstallForm = ref({
 
 const checkServiceStatus = async () => {
   if (getOsType() !== 'windows') return
-  await sleep(1000)
+  const snapshot = await queryWindowsSnapshot()
   for (const item of easyTierStore.configList) {
-    const serviceName = PREFIX_SVC + item.configFileName
-
-    // 检测安装方式
-    const installMethod = await detectServiceInstallMethod(serviceName)
-
-    if (installMethod === 'nssm') {
-      const status = await checkServiceOnWindows(serviceName)
-      item.serviceStatus = serviceStatusDict(status as string | boolean)
-      item.installMethod = 'nssm'
-    } else if (installMethod === 'official') {
-      const status = await checkServiceWithOfficialCli(serviceName)
-      item.serviceStatus = serviceStatusDict(status as string | boolean)
-      item.installMethod = 'official'
-    } else {
-      item.serviceStatus = '未安装'
-      item.installMethod = 'none'
-    }
+    const state = await getWindowsConfigRuntime(
+      item.fileName || item.configFileName + '.toml',
+      snapshot
+    )
+    item.runMode = state.mode
+    item.registration = state.registration
+    item.serviceStatus =
+      state.registration === 'absent'
+        ? '未安装'
+        : state.registration === 'unknown' || state.services.length !== 1
+          ? '未知'
+          : {
+              Running: '运行中',
+              Stopped: '停止',
+              'Stop Pending': '停止中',
+              'Start Pending': '启动中'
+            }[state.services[0].state] || '未知'
+    item.installMethod =
+      state.registration === 'installed' && state.services.length === 1
+        ? state.services[0].nssm
+          ? 'nssm'
+          : 'official'
+        : 'none'
   }
 }
+
 const getConfigList = async () => {
   const fileList = await listTomlFiles()
   const tmpList: any = []
@@ -110,23 +117,6 @@ const getConfigList = async () => {
   }
   easyTierStore.setConfigList(tmpList)
   checkServiceStatus()
-}
-const serviceStatusDict = (status: string | boolean) => {
-  if (!status) {
-    return '未安装'
-  }
-  switch (status) {
-    case 'SERVICE_STOPPED':
-      return '停止'
-    case 'SERVICE_RUNNING':
-      return '运行中'
-    case 'SERVICE_STOP_PENDING':
-      return '停止中'
-    case 'uninstalled':
-      return '未安装'
-    default:
-      return '未知'
-  }
 }
 const readFileData = async (fileName: string) => {
   dataConfig.value = (await readFileContent(CONFIG_PATH + '/' + fileName)) as string
@@ -688,13 +678,19 @@ const uninstallServiceHandle = async (row: any) => {
     type: 'warning'
   }).then(async () => {
     const serviceName = PREFIX_SVC + row.configFileName
-    const installMethod = await detectServiceInstallMethod(serviceName)
+    const state = await getWindowsConfigRuntime(row.fileName || row.configFileName + '.toml')
+    if (state.registration !== 'installed' || state.services.length !== 1) {
+      ElNotification({ message: t('runtime.unknownBlocked'), type: 'warning' })
+      await checkServiceStatus()
+      return
+    }
+    const installMethod = state.services[0].nssm ? 'nssm' : 'official'
 
     let res = false
     if (installMethod === 'official') {
       res = (await uninstallServiceWithOfficialCli(serviceName)) as boolean
     } else {
-      res = (await uninstallServiceOnWindows(serviceName)) as boolean
+      res = (await uninstallServiceOnWindows(state.services[0].name)) as boolean
     }
 
     info(`卸载服务:${JSON.stringify(res)}`)
@@ -709,55 +705,34 @@ const uninstallServiceHandle = async (row: any) => {
     getConfigList()
   })
 }
-const startServiceHandle = async (row: any) => {
-  const serviceName = PREFIX_SVC + row.configFileName
-  const installMethod = await detectServiceInstallMethod(serviceName)
-
-  let res = false
-  if (installMethod === 'official') {
-    res = (await startServiceWithOfficialCli(serviceName)) as boolean
-  } else {
-    res = (await startServiceOnWindows(serviceName)) as boolean
-  }
-
-  info(`启动服务:${JSON.stringify(res)}`)
-  if (res) {
+const serviceActionBusy = ref(false)
+const serviceAction = async (row: RunningItem, action: 'start' | 'stop') => {
+  if (serviceActionBusy.value) return
+  serviceActionBusy.value = true
+  try {
+    await changeWindowsService(row.fileName || row.configFileName + '.toml', action)
     ElNotification({
       title: t('common.reminder'),
-      message: '服务启动成功',
-      type: 'success',
-      duration: 3000
+      message: t('runtime.serviceActionSent'),
+      type: 'success'
     })
-  } else {
+  } catch (e) {
+    const key = (e as Error).message
     ElNotification({
       title: t('common.reminder'),
-      message: '服务启动失败',
-      type: 'error',
-      duration: 3000
+      message: t(key.startsWith('runtime.') ? key : 'runtime.unknownBlocked'),
+      type: 'warning'
     })
+  } finally {
+    await checkServiceStatus()
+    serviceActionBusy.value = false
   }
-  getConfigList()
 }
-const stopServiceHandle = async (row: any) => {
-  const serviceName = PREFIX_SVC + row.configFileName
-  const installMethod = await detectServiceInstallMethod(serviceName)
-
-  let res = false
-  if (installMethod === 'official') {
-    res = (await stopServiceWithOfficialCli(serviceName)) as boolean
-  } else {
-    res = (await stopServiceOnWindows(serviceName)) as boolean
-  }
-
-  info(`停止服务:${JSON.stringify(res)}`)
-  ElNotification({
-    title: t('common.reminder'),
-    message: '服务停止可能需要等待 3-20 秒，请稍后刷新查看服务状态',
-    type: 'info',
-    duration: 6000
-  })
-  getConfigList()
-}
+const startServiceHandle = (row: RunningItem) => serviceAction(row, 'start')
+const stopServiceHandle = (row: RunningItem) => serviceAction(row, 'stop')
+onActivated(() => {
+  if (getOsType() === 'windows') void checkServiceStatus()
+})
 const createServerConfig = async () => {
   formData.value = cloneDeep(DefaultData.defaultFormData)
   const hostname = await getHostname()
@@ -825,8 +800,12 @@ onMounted(async () => {
 
       <div>
         <el-text v-if="easyTierStore.os === 'windows'" type="info" effect="dark"
-          >安装服务前检查程序尽量不要放在含有空格、中文路径的目录下；如果组网是由服务启动的，则只能使用启动服务和停止服务，无法使用首页的启动和停止
+          >{{ t('runtime.pathHint') }}
         </el-text>
+        <template v-if="easyTierStore.os === 'windows'">
+          <p class="text-12px my-4px">{{ t('runtime.workbenchHint') }}</p>
+          <p class="text-12px my-4px">{{ t('runtime.serviceHint') }}</p>
+        </template>
       </div>
 
       <el-table
@@ -859,8 +838,18 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column
+          v-if="easyTierStore.os === 'windows'"
+          :label="t('runtime.label')"
+          width="155"
+          align="center"
+        >
+          <template #default="{ row }"
+            ><RunModeBadge :mode="row.runMode || 'unknown'" :show-label="false"
+          /></template>
+        </el-table-column>
+        <el-table-column
           prop="serviceStatus"
-          label="服务状态"
+          :label="t('runtime.serviceStatus')"
           header-align="center"
           align="center"
           width="120"
@@ -874,7 +863,7 @@ onMounted(async () => {
               round
               size="small"
             >
-              {{ row.serviceStatus }}
+              {{ t('runtime.status.' + row.serviceStatus) }}
             </el-tag>
             <el-tag
               v-else-if="row.serviceStatus === '停止'"
@@ -883,10 +872,10 @@ onMounted(async () => {
               round
               size="small"
             >
-              {{ row.serviceStatus }}
+              {{ t('runtime.status.' + row.serviceStatus) }}
             </el-tag>
             <el-tag v-else type="warning" effect="light" round size="small">
-              {{ row.serviceStatus || '未知' }}
+              {{ t('runtime.status.' + (row.serviceStatus || '未知')) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -909,8 +898,8 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column
-          label="服务操作"
-          width="150"
+          :label="t('runtime.serviceOperations')"
+          width="200"
           header-align="center"
           align="center"
           v-if="easyTierStore.os === 'windows'"
@@ -923,18 +912,22 @@ onMounted(async () => {
                   size="small"
                   plain
                   @click="startServiceHandle(row)"
-                  :disabled="row.serviceStatus === '运行中' || row.serviceStatus === '未安装'"
+                  :disabled="
+                    serviceActionBusy || row.serviceStatus !== '停止' || row.runMode === 'unknown'
+                  "
                 >
-                  启动
+                  {{ t('runtime.startService') }}
                 </el-button>
                 <el-button
                   type="warning"
                   size="small"
                   plain
                   @click="stopServiceHandle(row)"
-                  :disabled="row.serviceStatus === '停止' || row.serviceStatus === '未安装'"
+                  :disabled="
+                    serviceActionBusy || row.serviceStatus !== '运行中' || row.runMode === 'unknown'
+                  "
                 >
-                  停止
+                  {{ t('runtime.stopService') }}
                 </el-button>
               </div>
               <div class="flex justify-center gap-5px">

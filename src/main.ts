@@ -37,7 +37,6 @@ import App from './App.vue'
 import './permission'
 import { clearLogs } from './utils/fileUtil'
 import { useStorage } from '@/hooks/web/useStorage'
-import { useEasyTierStore } from '@/store/modules/easytier'
 
 // 引入 Tauri API
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -49,8 +48,6 @@ const setupAll = async () => {
   await setupI18n(app)
 
   setupStore(app)
-
-  const easyTierStore = useEasyTierStore()
 
   setupGlobCom(app)
 
@@ -78,13 +75,6 @@ const setupAll = async () => {
             .hide()
             .catch((err) => console.warn('隐藏窗口失败:', err))
         }, 100)
-      }
-
-      // 2. 启动后自动运行网络
-      if (getStorage('settings.autoRunNetwork') === 'true') {
-        setTimeout(() => {
-          easyTierStore.autorun().catch((err) => console.warn('自动运行失败:', err))
-        }, 500)
       }
     })()
   ]).catch((err) => console.error('后台任务执行失败:', err))
